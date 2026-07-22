@@ -1,0 +1,2000 @@
+PREFACE TO THE READER
+I have already touched on questions concerning God and the
+human mind a few years ago in the Discourse on the Method of Rightly
+Conducting One’s Reason and of Seeking for Truth in the Sciences, published in French in 1637. But I was not intending to treat such matters thoroughly there, but merely offering a foretaste of them, so that
+I could learn from readers’ responses how they should subsequently
+be properly dealt with. For they seemed to me of such importance
+that I judged I should deal with them more than once; and I follow
+a path in their investigation that is so untrodden, and so remote
+from common experience, that I thought it would not be useful to
+expound it more fully in a work written in French for all to read, in
+case those of rather feeble intellect should think that they too should
+set out on that path.
+Although, however, I had requested in that text that everyone who
+found something deserving of criticism in my writings should be so
+kind as to point it out to me,* no objection worthy of note was put
+forward with regard to my discussion of these matters, except for
+two, to which I shall briefly reply here, before embarking on a more
+thorough explanation of the same issues.
+The first is that although the human mind, when it turns in on
+itself, does not perceive itself to be anything apart from a thinking
+thing, it does not follow that its nature or ‘essence’ consists purely in
+its being a thinking thing, ‘purely’, that is, in a sense that would
+exclude everything else that might perhaps be said to belong to its
+nature. To this objection I reply that at this point I did not wish to
+exclude these other things from the point of view of the actual truth
+of the matter (with which in fact I was not then concerned), but
+solely from the point of view of my own perception, so that my meaning was that I was aware of nothing at all that I knew to belong to my
+essence, except the fact that I was a thinking thing, or a thing possessing the faculty of thinking. However, in the present work I shall
+show how, from the fact that I know nothing else as belonging to my
+essence, it follows that nothing else in fact belongs to it.
+The second objection is, that it does not follow from the fact that
+I have in myself the idea of a more perfect thing than myself, that the
+idea itself is more perfect than me. Still less does it follow that the
+thing represented by this idea exists. I answer that the term ‘idea’
+here is ambiguous. It can be taken either in the material sense, as an
+operation of the understanding, in which case it cannot be said to be
+more perfect than myself, or objectively, for the thing represented by
+this operation; and this thing, even if it is not supposed to exist outside my understanding, can nonetheless be more perfect than me in
+virtue of its essence. How in fact it follows, from the mere fact that
+the idea of a more perfect thing is within me, that the thing itself
+actually exists, I shall show at length in the present work.
+I have in fact also seen two quite long writings* in which, however,
+it is not so much my proofs as my conclusions that are attacked, by
+arguments borrowed from the stock of atheists’ commonplaces. And
+since arguments of this kind can have no credibility for those who
+understand my proofs, and, besides, the judgements of many people
+are so perverse and feeble that they are convinced more readily by
+the opinions they first encounter, however false and repugnant to
+reason these are, than by a true and unshakeable refutation of these
+opinions that they encounter subsequently, I have no intention of
+responding to them here, since I should first have to set them out.
+I shall only remark in general that all the common objections to the
+existence of God that atheists so smugly put forward, always depend
+on one of two things: either they imagine human emotions in God,
+or they claim so much power and wisdom for our own minds, that
+we should try to decide and understand whatever God can or ought
+to do. So much is this the case that, as long as we simply remember that
+our minds have to be considered as finite, and God as incomprehensible and infinite, these arguments will never cause us any difficulty.
+But now, since I have once and for all made trial of people’s
+responses, I will again tackle these same questions about God and the
+human mind, and at the same time deal with the foundations of the
+whole of first philosophy. But I shall do so in such a way that I must
+expect no popular approval, and no great crowds of readers. Indeed,
+I shall go so far as to say that I seek to be read by none, except those
+who will be able and willing to meditate seriously alongside me, and
+to withdraw their minds from the senses, and at the same time from
+all their preconceptions. Of these I well know already that there are
+very few. But as for those who do not trouble to grasp the chain and
+connection of my arguments, and who busy themselves in quibbling
+over isolated propositions (and there are many people whose habit
+this is), they will derive very little benefit from reading this work;
+and although perhaps they will find frequent opportunities to carp,
+it is unlikely that they will be able to put forward any objection that
+causes real difficulty or deserves a reply.
+But because I do not promise even the other kind of readers that
+I will satisfy them throughout on first reading, nor am I so arrogant
+as to be sure that I can foresee everything that will seem difficult to
+anybody, I shall first explain in these Meditations the particular
+thought-processes by the help of which I think I have attained the
+certain and evident knowledge of truth, so that I may test whether,
+perhaps, I can convince other people by the same arguments as I
+have convinced myself. Afterwards, however, I shall reply to the
+objections of several people outstanding for their intelligence and
+learning to whom these Meditations were sent for examination
+before publication. Their objections are so many and so various that
+I dare to hope that it will be difficult for anyone else to think of
+anything (anything significant, at least) that they have not already
+put forward. Hence I would very strongly urge my readers not to
+pass judgement upon these Meditations before they have taken the
+trouble to read through all these objections and my replies to them.
+SYNOPSIS OF THE FOLLOWING
+SIX MEDITATIONS
+In the First Meditation the reasons are set out why we can doubt of
+all things, especially material things: that is, as long as we have no
+foundations for the sciences other than those we have had up to now.
+Now, although the benefits of such far-reaching doubt do not appear
+at first sight, it has this very great benefit, that it liberates us from all
+prejudices, and opens up a very easy pathway to the withdrawal of
+our mind from the senses. Finally, it means that we can doubt no
+further of whatever we subsequently discover to be true.
+In the Second, the mind that, using its own freedom, supposes that
+all the things of the existence of which it can entertain even the slightest doubt, do not exist, becomes aware that this cannot happen unless
+it itself exists at the same time. This also is very useful, since by this
+means the mind can easily distinguish what belongs to it, that is, to an
+intellectual nature, and what to the body. But because some people will
+perhaps expect some proofs of the soul’s immortality here, I think I
+should warn them right away that I have tried to put nothing in this
+treatise that I do not rigorously demonstrate. Therefore I could follow
+no other order than the one geometers use, that is, I deal with everything on which the proposition we are investigating depends, before
+drawing any conclusion about the proposition itself. The first and
+most important prerequisite to discovering the soul’s immortality is to
+form a concept of the soul that is as clear as possible, and entirely distinct from any concept of the body. This I have done here. But further,
+we also need to know that whatever we clearly and distinctly understand is true, in the way in which we understand it. This could not
+have been proved before the Fourth Meditation. We also need to have
+a distinct concept of bodily nature, which is formed partly in this
+Second Meditation, partly in the Fifth and Sixth. From these points
+we must conclude that all things we clearly and distinctly conceive as
+different substances, as mind and body are conceived, are indeed substances really distinct from each other; and I drew this conclusion in
+the Sixth Meditation. The same point is proved there from the fact
+that we can understand no body except as divisible, but on the other
+hand no mind except as indivisible: for we cannot conceive a half of
+any mind, as we can with any body, however small it is. The upshot of
+this is that their natures are recognized not only as different, but also
+in a sense contrary. But I have treated no further of this matter in the
+present work. For one thing, because these points are sufficient to show
+that the corruption of the body does not cause the mind to perish, and
+thus that mortals may have hope of another life. For another, because
+the premises from which this immortality of the mind may be deduced
+depend on an explanation of the whole of physics, which would show,
+first, that all substances whatever—things, that is, that have to be created by God in order to exist—are of their own nature incorruptible,
+and can never cease to exist, unless they are reduced to nothing by the
+same God’s denying them his support; and, secondly, that body in a
+general sense is a substance, and never perishes; but that the human
+body, in so far as it differs from the rest of bodies, is constituted purely
+by a certain arrangement of parts and by other accidents of the same
+kind; whereas the mind is not composed of any accidents in this way,
+but is a pure substance. For even if all its accidents were to change,
+for instance, if it understood, or wished, or perceived via the senses
+a different set of things, it would still be the same mind. On the other
+hand, the human body becomes something different from the very
+fact that the shape of some of its parts is changed. From this it follows
+that the body can very easily perish, but that the mind is of its nature
+immortal.
+In the Third Meditation I have explained my principal proof of
+the existence of God at, I think, considerable length. However, because,
+in order to withdraw my readers’ minds as far as possible from the
+senses, I decided to make use of no comparisons derived from bodily
+things, perhaps many obscurities have remained. These, I hope, will
+be fully cleared up later on, in my Replies to the Objections: for
+instance, how the idea we possess of a supremely perfect being has so
+much objective reality that it can derive only from a supremely perfect cause. This is illustrated in the Replies by the comparison with
+a very perfect machine, the idea of which is in the mind of some
+artificer. For just as the objective artifice of this idea must have some
+cause, namely the knowledge of the artisan, or of someone else from
+whom he derived his knowledge, so the idea we possess of God can
+have only God as its cause.*
+In the Fourth Meditation it is proved that all those things we
+clearly and distinctly perceive are true, and at the same time it is
+explained in what falsity consists. Both these points are necessary, in
+order to set the seal on what goes before, as well as for the understanding of what comes after. (But I should point out that at this
+point I am not at all dealing with sin,* that is, the error that is committed in the pursuit of good and evil, but only of error that affects
+the discernment of true from false.) Nor do I examine matters to do
+with faith or with the conduct of one’s life, but only speculative
+truths known by the help of the natural light.
+In the Fifth, besides the explanation of the nature of bodies in general, the existence of God is also demonstrated by a new argument.
+In this, however, perhaps several difficulties will crop up again,
+which will be settled in the Reply to Objections. Finally, it will be
+shown how it comes to be true that the certainty of geometrical
+demonstrations themselves depends on the knowledge of God.
+Finally, in the Sixth the distinction is made between intellection
+and imagination; the distinctive features of each are described; it is
+proved that the mind is really distinct from the body; and yet so
+closely conjoined to it that it forms a single entity with it; a full list is
+given of all the errors that typically arise from the senses and the
+means by which these may be avoided are explained. Finally, all the
+reasons are put forward that lead us to conclude in the existence of
+material things: not that I think these are very useful when it comes
+to proving what they do prove, namely that a world really exists, and
+that human beings have bodies, and so forth, things which no one in
+their right mind has ever seriously doubted; they are useful because,
+by considering them, we come to recognize that they are not as solid
+and clear as those by which we come to the knowledge of our mind
+and of God; indeed, those latter are the most certain and evident of
+all reasons that can be grasped by human intelligence. And this is all
+I was intending to prove in these Meditations. This is why I do not
+here mention several questions that are also treated incidentally in
+the course of the work.
+FIRST MEDITATION
+of those things that may be called into doubt
+It is some years now since I realized how many false opinions I had
+accepted as true from childhood onwards,* and that, whatever I had
+since built on such shaky foundations, could only be highly doubtful.
+Hence I saw that at some stage in my life the whole structure would
+have to be utterly demolished, and that I should have to begin again
+from the bottom up if I wished to construct something lasting and
+unshakeable in the sciences. But this seemed to be a massive task, and
+so I postponed it until I had reached the age when one is as fit as one
+will ever be to master the various disciplines. Hence I have delayed
+so long that now I should be at fault if I used up in deliberating the
+time that is left for acting. The moment has come, and so today I have
+discharged my mind from all its cares, and have carved out a space of
+untroubled leisure. I have withdrawn into seclusion and shall at last
+be able to devote myself seriously and without encumbrance to the
+task of destroying all my former opinions.
+To this end, however, it will not be necessary to prove them all
+false—a thing I should perhaps never be able to achieve. But since
+reason already persuades me that I should no less scrupulously
+withhold my assent from what is not fully certain and indubitable
+than from what is blatantly false, then, in order to reject them all, it
+will be sufficient to find some reason for doubting each one. Nor shall
+I therefore have to go through them each individually, which would
+be an endless task: but since, once the foundations are undermined,
+the building will collapse of its own accord, I shall straight away
+attack the very principles that form the basis of all my former beliefs.
+Certainly, up to now whatever I have accepted as fully true I have
+learned either from or by means of the senses: but I have discovered
+that they sometimes deceive us, and prudence dictates that we
+should never fully trust those who have deceived us even once.
+But perhaps, although they sometimes deceive us about things
+that are little, or rather a long way away, there are plenty of other
+things of which there is clearly no doubt, although it was from the
+senses that we learned them: for instance, that I am now here, sitting
+by the fire, wrapped in a warm winter gown, handling this paper,
+and suchlike. Indeed, that these hands themselves, and this whole
+body are mine—what reason could there be for doubting this? Unless
+perhaps I were to compare myself to one of those madmen, whose
+little brains have been so befuddled by a pestilential vapour arising
+from the black bile,* that they swear blind that they are kings, though
+they are beggars, or that they are clad in purple, when they are
+naked, or that their head is made of clay, or that their whole body is
+a jug, or made entirely of glass. But they are lunatics, and I should
+seem no less of a madman myself if I should follow their example in
+any way.
+This is all very well, to be sure. But am I not a human being, and
+therefore in the habit of sleeping at night, when in my dreams I have
+all the same experiences as these madmen do when they are awake—
+or sometimes even stranger ones? How often my sleep at night has
+convinced me of all these familiar things—that I was here, wrapped
+in my gown, sitting by the fire—when in fact I was lying naked
+under the bedclothes.—All the same, I am now perceiving this paper
+with eyes that are certainly awake; the head I am nodding is not
+drowsy; I stretch out my hand and feel it knowingly and deliberately;
+a sleeper would not have these experiences so distinctly.—But have
+I then forgotten those other occasions on which I have been deceived
+by similar thoughts in my dreams? When I think this over more carefully I see so clearly that waking can never be distinguished from
+sleep by any conclusive indications that I am stupefied; and this very
+stupor comes close to persuading me that I am asleep after all.
+Let us then suppose* that we are dreaming, and that these particular things (that we have our eyes open, are moving our head, stretching out our hands) are not true; and that perhaps we do not even have
+hands or the rest of a body like what we see. It must nonetheless be
+admitted that the things we see in sleep are, so to speak, painted
+images, which could not be formed except on the basis of a resemblance with real things; and that for this reason these general things
+at least (such as eyes, head, hands, and the rest of the body) are not
+imaginary things, but real and existing. For the fact is that when
+painters desire to represent sirens and little satyrs with utterly unfamiliar shapes, they cannot devise altogether new natures for them, but
+simply combine parts from different animals; or if perhaps they do
+think up something so new that nothing at all like it has ever been
+seen, which is thus altogether fictitious and false, it is certain that at
+least the colours which they combine to form images must be real. By
+the same token, even though these general things—eyes, head, hands,
+and so forth—might be imaginary, it must necessarily be admitted
+that at least some other still more simple and universal realities must
+exist, from which (as the painter’s image is produced from real
+colours) all these images of things—be they true or false—that
+occur in our thoughts are produced.
+In this category it seems we should include bodily nature in general, and its extension; likewise the shape of extended things and
+their quantity (magnitude and number); likewise the place in which
+they exist, the time during which they exist, and suchlike.
+From all this, perhaps, we may safely conclude that physics, astronomy, medicine, and all the other disciplines which involve the study of
+composite things are indeed doubtful; but that arithmetic, geometry,
+and other disciplines of the same kind, which deal only with the very
+simplest and most general things, and care little whether they exist in
+nature or not, contain something certain and indubitable. For whether
+I am waking or sleeping, two plus three equals five, and a square has
+no more than four sides; nor does it seem possible that such obvious
+truths could be affected by any suspicion that they are false.
+However, there is a certain opinion long fixed in my mind, that
+there is a God who is all-powerful, and by whom I was created such
+as I am now. Now how do I know that he has not brought it about
+that there is no earth at all, no heavens, no extended things, no shape,
+no magnitude, no place—and yet that all these things appear to me
+to exist just as they do now?* Or even—just as I judge now and again
+that other people are mistaken about things they believe they know
+with the greatest certitude—that I too should be similarly deceived
+whenever I add two and three, or count the sides of a square, or make
+a judgement about something even simpler, if anything simpler can
+be imagined?
+But perhaps God has not willed that I should be so cheated, for he
+is said to be supremely good.—But if it were incompatible with his
+goodness to have created me such that I am perpetually deceived, it
+would seem equally inconsistent with that quality to permit me to be
+sometimes deceived. Nonetheless, I cannot doubt that he does permit it.
+Perhaps, indeed, there might be some people who would prefer to
+deny the existence of any God so powerful, rather than believing that
+all other things are uncertain. But let us not quarrel with them, and
+let us grant that all this we have said of God is only a fiction; and let
+them suppose that it is by fate or chance or a continuous sequence of
+things that I have come to be what I am. Since, though, to be
+deceived and to err appear to be some kind of imperfection, the less
+powerful the source they invoke to explain my being, the more probable it will be that I am so imperfect that I am perpetually deceived.
+To all these arguments, indeed, I have no answer, but at length I am
+forced to admit that there is nothing of all those things I once
+thought true, of which it is not legitimate to doubt—and not out of
+any thoughtlessness or irresponsibility, but for sound and wellweighed reasons; and therefore that, from these things as well, no
+less than from what is blatantly false, I must now carefully withhold
+my assent if I wish to discover any thing that is certain.*
+But it is not enough to have realized all this, I must take care to
+remember it: for my accustomed opinions continually creep back
+into my mind, and take possession of my belief, which has, so to
+speak, been enslaved to them by long experience and familiarity, for
+the most part against my will. Nor shall I ever break the habit of
+assenting to them and relying on them, as long as I go on supposing
+them to be such as they are in truth, that is to say, doubtful indeed
+in some respect, as has been shown just now, and yet nonetheless
+highly probable, so that it is much more rational to believe than to
+deny them. Hence, it seems to me, I shall not be acting unwisely if,
+willing myself to believe the contrary, I deceive myself, and make
+believe, for some considerable time, that they are altogether false and
+imaginary, until, once the prior judgements on each side have been
+evenly balanced in the scales, no evil custom can any longer twist my
+judgement away from the correct perception of things. For I know
+for sure that no danger or error will ensue as a result of this, and that
+there is no risk that I shall be giving too free a rein to my distrustfulness, since my concern at the moment is not with action but only
+with the attainment of knowledge.*
+I will therefore suppose that, not God, who is perfectly good and
+the source of truth, but some evil spirit, supremely powerful and
+cunning, has devoted all his efforts to deceiving me.* I will think that
+the sky, the air, the earth, colours, shapes, sounds, and all external
+things are no different from the illusions of our dreams, and that they
+are traps he has laid for my credulity; I will consider myself as having
+no hands, no eyes, no flesh, no blood, and no senses, but yet as falsely
+believing that I have all these;* I will obstinately cling to these
+thoughts, and in this way, if indeed it is not in my power to discover
+any truth,* yet certainly to the best of my ability and determination
+I will take care not to give my assent to anything false, or to allow this
+deceiver, however powerful and cunning he may be, to impose upon
+me in any way.
+But to carry out this plan requires great effort, and there is a kind of
+indolence that drags me back to my customary way of life. Just as a prisoner, who was perhaps enjoying an imaginary freedom in his dreams,
+when he then begins to suspect that he is asleep is afraid of being woken
+up, and lets himself sink back into his soothing illusions; so I of my
+own accord slip back into my former opinions, and am scared to awake,
+for fear that tranquil sleep will give way to laborious hours of waking,
+which from now on I shall have to spend not in any kind of light, but in
+the unrelenting darkness of the difficulties just stirred up.
+SECOND MEDITATION
+of the nature of the human mind; that it is
+more easily known than the body
+Yesterday’s meditation has plunged me into so many doubts that
+I still cannot put them out of my mind, nor, on the other hand, can
+I see any way to resolve them; but, as if I had suddenly slipped into
+a deep whirlpool, I am in such difficulties that I can neither touch
+bottom with my foot nor swim back to the surface. Yet I will struggle on, and I will try the same path again as the one I set out on yesterday, that is to say, eliminating everything in which there is the
+smallest element of doubt, exactly as if I had found it to be false
+through and through; and I shall pursue my way until I discover
+something certain; or, failing that, discover that it is certain only that
+nothing is certain. Archimedes* claimed, that if only he had a point
+that was firm and immovable, he would move the whole earth; and
+great things are likewise to be hoped, if I can find just one little thing
+that is certain and unshakeable.
+I therefore suppose that all I see is false; I believe that none of
+those things represented by my deceitful memory has ever existed; in
+fact I have no senses at all; body, shape, extension in space, motion,
+and place itself are all illusions. What truth then is left? Perhaps this
+alone, that nothing is certain.
+But how do I know that there is not something different from all
+those things I have just listed, about which there is not the slightest
+room for doubt? Is there not, after all, some God, or whatever he
+should be called, that puts these thoughts into my mind? But why
+should I think that, when perhaps I myself could be the source of
+these thoughts? But am I at least not something, after all? But I have
+already denied that I have any senses or any body. Now I am at a loss,
+because what follows from this? Am I so bound up with my body
+and senses that I cannot exist without them? But I convinced myself
+that there was nothing at all in the world, no sky, no earth, no minds,
+no bodies. Did I therefore not also convince myself that I did not
+exist either? No: certainly I did exist, if I convinced myself of
+something.—But there is some deceiver or other, supremely powerful and cunning, who is deliberately deceiving me all the time.—
+Beyond doubt then, I also exist, if he is deceiving me; and he can
+deceive me all he likes, but he will never bring it about that I should
+be nothing as long as I think I am something. So that, having weighed
+all these considerations sufficiently and more than sufficiently, I can
+finally decide* that this proposition, ‘I am, I exist’, whenever it is
+uttered by me, or conceived in the mind, is necessarily true.
+But indeed I do not yet sufficiently understand what in fact this ‘I’
+is that now necessarily exists;* so that from now on I must take care
+in case I should happen imprudently to take something else to be me
+that is not me, and thus go astray in the very knowledge [cognitione]
+that I claim to be the most certain and evident of all. Hence I shall
+now meditate afresh on what I once believed myself to be, before
+I fell into this train of thought. From this I shall then subtract
+whatever it has been possible to cast doubt on, even in the slightest
+degree, by the reasons put forward above, so that in the end there
+shall remain exactly and only that which is certain and unshakeable.
+So what in fact did I think I was before all this? A human being, of
+course. But what is a human being? Shall I say, ‘a rational animal’?*
+No, for then I should have to examine what exactly an animal is, and
+what ‘rational’ is, and hence, starting with one question, I should
+stumble into more and more difficult ones. Nor do I now have so
+much leisure that I can afford to fritter it away on subtleties of this
+kind. But here I shall rather direct my attention to the thoughts that
+spontaneously and by nature’s prompting came to my mind beforehand, whenever I considered what I was. The first was that I have a
+face, hands, arms, and this whole mechanism of limbs, such as we see
+even in corpses; this I referred to as the body. Next, that I took nourishment, moved, perceived with my senses, and thought: these
+actions indeed I attributed to the soul.* What this soul was, however,
+either I never considered, or I imagined it as something very rarefied
+and subtle, like a wind, or fire, or thin air, infused into my coarser
+parts. But about the body itself, on the other hand, I had no doubts,
+but I thought I distinctly knew its nature, which, if I had attempted
+to describe how I conceived it in my mind, I would have explained as
+follows: by body I mean everything that is capable of being bounded
+by some shape, of existing in a definite place, of filling a space in such
+a way as to exclude the presence of any other body within it; of being
+perceived by touch, sight, hearing, taste, or smell, and also of being
+moved in various ways, not indeed by itself, but by some other thing
+by which it is touched; for to have the power of moving itself, and
+also of perceiving by the senses or thinking, I judged could in no way
+belong to the nature of body; rather, I was puzzled by the fact that
+such capacities were found in certain bodies.
+But what about now, when I am supposing that some deceiver,
+who is supremely powerful and, if I may venture to say so, evil, has
+been exerting all his efforts to delude me in every way? Can I affirm
+that I possess the slightest thing of all those that I have just said
+belong to the nature of body? I consider, I think, I go over it all in my
+mind: nothing comes up. It would be a waste of effort to go through
+the list again. But what about the attributes I used to ascribe to the
+soul? What about taking nourishment or moving? But since I now
+have no body, these also are nothing but illusions. What about senseperception? But certainly this does not take place without a body,
+and I have seemed to perceive very many things when asleep that
+I later realized I had not perceived. What about thinking? Here I do
+find something: it is thought; this alone cannot be stripped from me.
+I am, I exist, this is certain. But for how long? Certainly only for as
+long as I am thinking; for perhaps if I were to cease from all thinking
+it might also come to pass that I might immediately cease altogether
+to exist. I am now admitting nothing except what is necessarily true:
+I am therefore, speaking precisely, only a thinking thing, that is,
+a mind, or a soul, or an intellect, or a reason—words the meaning of
+which was previously unknown to me. I am therefore a true thing,
+and one that truly exists; but what kind of thing? I have said it
+already: one that thinks.
+What comes next? I will imagine: I am not that framework of limbs
+that is called a human body; I am not some thin air infused into these
+limbs, or a wind, or a fire, or a vapour, or a breath, or whatever I can
+picture myself as: for I have supposed that these things do not exist.
+But even if I keep to this supposition, nonetheless I am still something.*—But all the same, it is perhaps still the case that these very
+things I am supposing to be nothing, are nevertheless not distinct
+from this ‘me’ that I know* [novi].—Perhaps: I don’t know. But this
+is not the point at issue at present. I can pass judgement only on
+those things that are known to me. I know [novi] that I exist; I am
+trying to find out what this ‘I’ is, whom I know [novi]. It is absolutely
+certain that this knowledge [notitia], in the precise sense in question
+here, does not depend on things of which I do not yet know [novi]
+whether they exist; and therefore it depends on none of those things
+I picture in my imagination. This very word ‘imagination’ shows
+where I am going wrong. For I should certainly be ‘imagining things’
+if I imagined myself to be anything, since imagining is nothing other
+than contemplating the shape or image of a bodily thing. Now, however, I know [scio] for certain that I exist; and that, at the same time,
+it could be the case that all these images, and in general everything
+that pertains to the nature of body, are nothing but illusions. Now
+this is clear to me, it would seem as foolish of me to say: ‘I shall use
+my imagination, in order to recognize more clearly what I am’, as
+it would be to say: ‘Now I am awake, and I see something true; but
+because I cannot yet see it clearly enough, I shall do my best to get
+back to sleep again so that my dreams can show it to me more truly
+and more clearly.’ And so I realize [cognosco] that nothing that I can
+grasp by means of the imagination has to do with this knowledge
+[notitiam] I have of myself, and that I need to withdraw my mind
+from such things as thoroughly as possible, if it is to perceive its own
+nature as distinctly as possible.
+But what therefore am I? A thinking thing. What is that? I mean a
+thing that doubts, that understands, that affirms, that denies, that
+wishes to do this and does not wish to do that, and also that imagines
+and perceives by the senses.
+Well, indeed, there is quite a lot there, if all these things really do
+belong to me. But why should they not belong to me? Is it not me
+who currently doubts virtually everything, who nonetheless understands something, who affirms this alone to be true, and denies the
+rest, who wishes to know more, and wishes not to be deceived, who
+imagines many things, even against his will, and is aware of many
+things that appear to come via the senses? Is there any of these things
+that is not equally true as the fact that I exist—even if I am always
+asleep, and even if my creator is deceiving me to the best of his ability? Is there any of them that can be distinguished from my thinking?
+Is there any that can be said to be separate from me? For that it is I
+that am doubting, understanding, wishing, is so obvious that nothing
+further is needed in order to explain it more clearly. But indeed it is
+also this same I that is imagining; for although it might be the case,
+as I have been supposing, that none of these imagined things is true,
+yet the actual power of imagining certainly does exist, and is part of
+my thinking. And finally it is the same I that perceives by means of
+the senses, or who is aware of corporeal things as if by means of the
+senses: for example, I am seeing a light, hearing a noise, feeling heat.—
+But these things are false, since I am asleep!—But certainly I seem to
+be seeing, hearing, getting hot. This cannot be false. This is what is
+properly meant by speaking of myself as having sensations; and,
+understood in this precise sense, it is nothing other than thinking.
+From all of this, I am indeed beginning to know [nosse] rather
+better what I in fact am. But it still seems (and I cannot help thinking this) that the bodily things of which the images are formed in our
+thought, and which the senses themselves investigate, are much
+more distinctly recognized than that part of myself, whatever it is,
+that cannot be represented by the imagination. Although, indeed, it
+is strange that things that I realize are doubtful, unknown, unrelated
+to me should be more distinctly grasped by me than what is true and
+what is known—more distinctly grasped even than myself. But I see
+what is happening. My mind enjoys wandering offthe track, and will
+not yet allow itself to be confined within the boundaries of truth. Very
+well, then: let us, once again, slacken its reins as far as possible—
+then, before too long, a tug on them at the right moment will bring
+it more easily back to obedience.*
+Let us consider those things which are commonly thought to be
+more distinctly grasped than anything else: I mean the bodies we
+touch and see; but not bodies in general, for these general perceptions are usually considerably more confused, but one body in particular. Let us, for example, take this wax: it has only just been
+removed from the honeycomb; it has not yet lost all the flavour of its
+honey; it retains some of the scent of the flowers among which it was
+gathered; its colour, shape, and size are clearly visible; it is hard,
+cold, easy to touch, and if you tap it with your knuckle, it makes a
+sound. In short, it has all the properties that seem to be required for
+a given body to be known as distinctly as possible. But wait—while
+I am speaking, it is brought close to the fire. The remains of its
+flavour evaporate; the smell fades; the colour is changed, the shape is
+taken away, it grows in size, becomes liquid, becomes warm, it can
+hardly be touched, and now, if you strike it, it will give offno sound.
+Does the same wax still remain? We must admit it does remain: no
+one would say or think it does not. So what was there in it that was
+so distinctly grasped? Certainly, none of those qualities I apprehended by the senses: for whatever came under taste, or smell, or
+sight, or touch, or hearing, has now changed: but the wax remains.
+Perhaps the truth of the matter was what I now think it is: namely,
+that the wax itself was not in fact this sweetness of the honey, or the
+fragrance of the flowers, or the whiteness, shape, or sonority, but the
+body which not long ago appeared to me as perceptible in these
+modes,* but now appears in others. But what exactly is this that I am
+imagining in this way? Let us consider the matter, and, thinking
+away those things that do not belong to the wax, let us see what
+remains. Something extended, flexible, mutable: certainly, that is all.
+But in what do this flexibility and mutability consist? Is it in the fact
+that I can imagine this wax being changed in shape, from a circle to
+a square, and from a square into a triangle? That cannot be right: for
+I understand that it is capable of innumerable changes of this sort,
+yet I cannot keep track of all these by using my imagination. Therefore
+my understanding of these properties is not achieved by using the
+faculty of imagination. What about ‘extended’? Surely I know something about the nature of its extension. For it is greater when the wax
+is melting, greater still when it is boiling, and greater still when the
+heat is further increased. And I would not be correctly judging
+what the wax is if I failed to see that it is capable of receiving
+more varieties, as regards extension, than I have ever grasped in my
+imagination. So I am left with no alternative, but to accept that I am
+not at all imagining what this wax is, I am perceiving it with my mind
+alone: I say ‘this wax’ in particular, for the point is even clearer about
+wax in general. So then, what is this wax, which is only perceived by
+the mind? Certainly it is the same wax I see, touch, and imagine, and
+in short it is the same wax I judged it to be from the beginning. But
+yet—and this is important—the perception of it is not sight, touch,
+or imagination, and never was, although it seemed to be so at first: it
+is an inspection by the mind alone,which can be either imperfect and
+confused, as it was before in this case, or clear and distinct, as it now
+is, depending on the greater or lesser degree of attention I pay to
+what it consists of.
+But in the meantime I am amazed by the proneness of my mind to
+error. For although I am considering all this in myself silently and
+without speech, yet I am still ensnared by words themselves, and all
+but deceived by the very ways in which we usually put things. For
+we say that we ‘see’ the wax itself, if it is present, not that we judge
+it to be there on the basis of its colour or shape. From this I would
+have immediately concluded that I therefore knew the wax by the
+sight of my eyes, not by the inspection of the mind alone—if I had
+not happened to glance out of the window at people walking along
+the street. Using the customary expression, I say that I ‘see’ them,
+just as I ‘see’ the wax. But what do I actually see other than hats and
+coats, which could be covering automata?* But I judge that they are
+people. And therefore what I thought I saw with my eyes, I in fact
+grasp only by the faculty of judging that is in my mind.
+But one who desires to know more than the common herd might
+be ashamed to have gone to the speech of the common herd to find a
+reason for doubting. Let us then go on where we left offby considering whether I perceived more perfectly and more evidently what
+the wax was, when I first encountered it, and believed that I knew
+[cognoscere] it by these external senses, or at least by what they call the
+‘common sense’,* that is, the imaginative power; or whether I perceive
+it better now, after I have more carefully investigated both what it is
+and how it is known [cognoscatur]. Certainly it would be foolish to
+doubt that I have a much better grasp of it now. For what, if anything, was distinct in my original perception? What was there, if anything, that seemed to go beyond the perception of the lowest animals?*
+But on the other hand, when I distinguish the wax from its external
+forms, and, as if I had stripped offits garments, consider it in all its
+nakedness, then, indeed, although there may still be error in my judgements, I cannot perceive it in this way except by the human mind.
+But what, then, shall I say about this mind, or about myself? For
+I do not yet accept that there is anything in me but a mind. What,
+I say, am I who seem to perceive this wax so distinctly? Do I not
+know [cognosco] myself not only much more truly, much more certainly, but also much more distinctly and evidently than the wax?
+For, if I judge that the wax exists, for the reason that I see it, it is certainly much more evident that I myself also exist, from the very fact
+that I am seeing it. For it could be the case that what I am seeing is
+not really wax; it could be the case that I do not even have eyes with
+which to see anything; but it certainly cannot be the case, when I see
+something, or when I think I am seeing something (the difference is
+irrelevant for the moment), that I myself who think should not be
+something. By the same token, if I judge that the wax exists, for the
+reason that I am touching it, the same consequence follows: namely,
+that I exist. If I judge it exists, for the reason I am imagining it, or for
+any other reason, again, the same certainly applies. But what I have
+realized in the case of the wax, I can apply to anything that exists outside myself. Moreover, if the perception of the wax appeared more
+distinct after it became known to me from many sources, and not
+from sight or touch alone, how much more distinctly—it must be
+admitted—I now know [cognosci] myself. For there are no reasons
+that can enhance the perception either of the wax or of any other
+body at all that do not at the same time prove better to me the nature
+of my own mind. But there are so many things besides in the mind
+itself that can serve to make the knowledge [notitia] of it more distinct, that there seems scarcely any point in listing all the perceptions
+that flow into it from the body.
+But I see now that, without realizing it, I have ended up back
+where I wanted to be. For since I have now learned that bodies themselves are perceived not, strictly speaking, by the senses or by the
+imaginative faculty, but by the intellect alone, and that they are not
+perceived because they are touched or seen, but only because they
+are understood, I clearly realize [cognosco] that nothing can be perceived by me more easily or more clearly than my own mind. But
+since a long-held opinion is a habit that cannot so readily be laid
+aside, I intend to stop here for a while, in order to fix this newly
+acquired knowledge more deeply in my memory by long meditation.
+THIRD MEDITATION
+of god, that he exists
+I shall now close my eyes, I shall block up my ears, I shall divert all
+my senses, and I shall even delete all bodily images from my thought
+or, since this is virtually impossible to achieve, at least count them as
+empty and worthless; and I shall try, by conversing only with myself
+and looking deep within myself, to make myself gradually better
+known and more familiar to myself. I am a thinking thing, that is, one
+that doubts, affirms, denies, understands a few things, is ignorant of
+many others, wills this and not that, and also imagines and perceives
+by the senses; for as I have already remarked, although the things
+I perceive or imagine outside myself do not perhaps exist, yet I am
+certain that the modes of thinking that I call sensations and imaginations, considered purely and simply as modes of thinking, do exist
+inside me.
+And this, short as it is, is a complete list of what I truly know [scio],
+or at least of what, up to now, I have realized that I know. Now I shall
+examine more carefully whether perhaps there are any further items
+of knowledge in my possession to which I have not yet paid attention.
+I am certain that I am a thinking thing. But do I not therefore also
+know what is required in order for me to be certain of something?
+For in this first act of knowledge [cognitione] there is nothing other
+than a clear and distinct perception of what I affirm to be the case;
+and this certainly would be insufficient to make me certain of the
+truth of the matter, if it could ever come to pass that something I perceived so clearly and distinctly was false. And therefore I seem already
+to be able to lay down, as a general rule, that everything I very clearly
+and distinctly perceive is true.
+And yet there are many things that I once accepted as completely
+certain and obvious, that I have since realized were doubtful. What
+kind of things were these? The earth, the sky, the stars, and everything else I became aware of through the senses. But what did
+I clearly perceive here? Certainly, that the ideas or thoughts of such
+things were present to my mind. And even now I do not deny that
+these ideas exist in me. But there was something else that I was
+affirming, and that, because I was used to believing it, I thought
+I perceived clearly, although in fact I was not really perceiving it;
+namely, that there were certain things existing outside me from
+which these ideas derived and that the ideas perfectly resembled.
+This was my mistake; or at least, if I was after all right in thinking
+this, the rightness was not due to my perception.
+But when in arithmetic or geometry I considered something very
+simple and easy—for instance, two plus three equals five—surely
+I intuited this kind of thing at least clearly enough to declare it true?
+In fact, when I later judged that such things should be doubted, this
+was only because the thought had come to me, that perhaps some
+God might have endowed me with such a nature that I could be
+deceived even about those things that appeared supremely obvious.
+But whenever this preconceived opinion of God’s supreme power
+occurs to me, I cannot help admitting, that, if indeed he wishes to, he
+can easily bring it about that I should be mistaken, even about
+matters that I think I intuit with the eye of the mind as evidently as
+possible. On the other hand, whenever I turn my attention to the
+things themselves that I think I perceive very clearly, I am so thoroughly convinced by them, that I cannot help exclaiming: ‘Let whoever can, deceive me as much as he likes: still he can never bring it
+about that I am nothing, as long as I think I am something; or that
+one day it will be true that I have never existed, when it is true now
+that I exist; or that perhaps two plus three added together are more
+or less than five; or that other such things should be true in which
+I recognize an obvious contradiction.’ And certainly, since I have no
+grounds for thinking that any deceitful God exists—in fact, I do not
+yet sufficiently know whether there is any God at all—then a reason
+for doubting that depends wholly on the belief in a deceitful God is
+very slight, and, so to speak, metaphysical. In order to remove it,
+then, at the first opportunity, I must examine whether there is a God,
+and, if there is, whether he can be a deceiver; since, as long as
+I remain ignorant of this matter, I seem unable ever to be certain of
+any other at all.*
+But now it seems that, to proceed in an orderly fashion, I should
+first divide up all my thoughts into definite categories, and examine
+to which of these truth and falsity can properly be said to pertain.
+Some of these thoughts are apparently images of things,* and to
+these alone the name ‘idea’ is properly applied: for instance, when
+I think of a human being, or a chimera, or the heavens, or an angel,
+or God. But others have certain other forms as well; thus, when I
+will, or fear, or affirm, or deny, I am always in fact apprehending
+some thing as the subject of this thought,* but I am including something further within the thought than the mere likeness of the thing;
+and of thoughts of this kind some are called volitions, or affects,
+whereas others are called judgements.
+Now, as far as ideas are concerned, if they are considered purely
+in themselves, and if I do not connect them with anything outside
+themselves, they cannot, strictly speaking, be false; for whether I am
+imagining a goat or a chimera, it is no less true that I am imagining
+one than that I am imagining the other. Again, there is no fear of
+falsehood in the will itself, or in the affects: for although I can desire
+something wicked, and even something that does not exist at all, this
+does not mean that it is not true that I desire it. This leaves only
+judgements: in these alone I must take care not to be deceived. The
+most glaring and widespread error that can be found in them consists
+in my judging that the ideas that are in me are similar to or in accordance with some things existing outside me. For certainly, if I conceived the ideas themselves purely and simply as modifications of my
+thinking, and did not connect them with anything else, they could
+scarcely give me any occasion to err.
+Of these ideas, some seem to me to be innate, others adventitious,*
+others produced by myself. For understanding what a thing is, what
+truth is, what thought is, is something I seem to possess purely in
+virtue of my nature itself. But if I am now hearing a noise, seeing the
+sun, feeling the heat of a fire,* up to now I have judged that such sensations derive from things existing outside myself. Finally, sirens,
+hippogriffs, and suchlike creatures are inventions of my own imagination. But perhaps I can think that all my ideas are adventitious, or
+all innate, or all produced by me: for I have not yet clearly discovered
+their true source.
+About those ideas that I consider as proceeding from things
+existing outside myself, the key question to ask here is: What reason
+do I have for thinking the ideas are like the things? Well, certainly,
+nature itself seems to teach me to think so. Besides, experience shows
+me that they do not depend on my own will, and therefore do not
+depend on myself. For they often intrude upon me against my will.
+Now, for instance, I am feeling heat, whether I want to or not, and
+this is why I think that this sensation, or idea, of heat is coming to me
+from a thing distinct from myself, in this case from the heat of the
+fire by which I am sitting. And by far the most obvious judgement to
+make is that what the thing is transmitting to me is its own likeness
+rather than anything else.
+But I shall now see whether these reasons are sufficiently solid.
+When I say here that ‘I am taught by nature’ to think so, I mean only
+that I am prompted to believe this by some spontaneous inclination,
+not that it is shown to me to be true by some natural light.* The two
+things are very different: for whatever is shown to me by the natural
+light (for instance, that, from the fact that I am doubting, it follows
+that I exist, and suchlike) can in no way be doubtful, because there
+can be no other faculty that I could trust as much as this light, and
+that could teach me that such things are not, after all, true. But when
+it comes to natural inclinations, I have before now often judged in the
+past that I have been led by these in the wrong direction, when it was
+a matter of choosing the good,* nor do I see why I should trust them
+more in any other domain.
+Then again, although these ideas do not depend on my own will,
+it does not necessarily follow that they derive from things existing
+outside me. For just as those inclinations of which I was speaking a
+moment ago, although they are inside me, seem, however, to be distinct from my will, so perhaps there is some other faculty within me,
+as yet insufficiently known to me, that produces such ideas—just as
+up to now it has always seemed to me that they form themselves in
+me while I am asleep without any assistance from external things.*
+And finally, even if they did derive from things distinct from
+myself, it does not follow that they have to be like those things. Indeed,
+in many of them I seem to have discovered major discrepancies
+between the idea and the object. For instance, I find within me two
+different ideas of the sun. One appears to be derived from the senses,
+and it would absolutely have to be placed in the category of ideas
+I class as ‘adventitious’. This idea represents the sun as very small.
+The other, however, derives from astronomical reasoning—that is to
+say, it is derived from some notions innate within me, or has been
+produced by me in some other way. This idea represents the sun as
+several times larger than the earth. But certainly, both cannot be like
+one and the same sun existing outside me; and reason persuades me
+that the one that seems to have flowed directly from the sun itself* is
+in fact the one that is most unlike it.
+All these considerations are sufficient proof that, up to now, it is as
+a result not of a certain judgement, but only of some blind inclination, that I have believed in the existence of various things distinct
+from myself, and conveying ideas or images of themselves to me
+through the sense-organs or in some other manner.
+But there is yet another way that occurs to me by which I could
+investigate whether any of those things of which the ideas are in me
+exist outside me. Certainly, in so far as these ideas are only various
+modifications of my thinking, I acknowledge that they are all on the
+same footing, and they all seem to derive from me in the same way.
+But, in so far as one represents one thing, another another, it is plain
+that they differ widely among themselves. For beyond doubt those
+ideas that represent substances to me are something greater, and contain, if I may use the term, more ‘objective reality’ in themselves,
+than those that represent merely modes or accidents. And by the
+same token, the idea by which I conceive a supreme God, eternal,
+infinite, omniscient, all-powerful, and the creator of all things that
+exist beside himself, certainly has more objective reality in itself than
+those by which finite substances are represented.
+But now it is manifest by the natural light that there must be at
+least as much reality in the total and efficient cause as in its effect.
+For, I ask, from where could the effect derive its reality, if not from
+the cause? And how could the cause give it reality, if it did not
+also possess it? Hence it follows, both that nothing can come from
+nothing, and that what is more perfect (that is, what contains more
+reality within itself) cannot derive from what is less perfect. And this
+is not only plainly true of those effects whose reality is actual or formal,
+but also of ideas, in which only the objective reality is considered.
+For instance, a stone that did not previously exist, cannot now begin
+to be, unless it is produced by some thing in which everything exists,
+either formally or eminently,* that enters into the composition of the
+stone. Nor can heat be brought about in a subject that was not hot
+before, unless by a thing that belongs to at least the same order of
+perfection as heat; and the same is true elsewhere. But, by the same
+token, the idea of heat, or of the stone, cannot exist in me, unless it is
+produced in me by some cause in which there is at least as much reality as I conceive to be in the heat or in the stone. For although this
+cause transmits none of its actual or formal reality to my idea, we
+must not therefore think that it (the cause) must be less real; rather,
+the nature of the idea itself is such that it requires no other formal
+reality outside itself,* except what it borrows from my thought, of
+which it is a mode. But the fact that this idea contains this or that
+objective reality, and not some other kind—this must certainly be
+due to some other cause, in which there is at least as much formal
+reality as the idea contains objective reality. For if we suppose that
+something is found in the idea that is not in its cause, it would have
+this something from nothing; and however imperfect the kind of
+being by which a thing exists objectively in the understanding in the
+form of an idea, it is certainly not nothing, and therefore cannot come
+from nothing.
+Nor should I suppose that since the reality I am considering in my
+ideas is purely objective, there is no need for the same reality to exist
+formally in the causes of these ideas, but that it is enough for it also
+to exist in them objectively. For just as this objective mode of being
+pertains to ideas from their very nature, so the formal mode of being
+pertains to the causes of the ideas—at least the first and dominant
+causes—from their nature also. And although perhaps one idea can
+be born from another, we cannot here have an infinite regress, but in
+the end we have to arrive at some first idea, the cause of which takes
+the form of an archetype, which formally contains all the reality that
+is only objectively in the idea. So that it is clear to me by the natural
+light that the ideas in me are of the nature of images, which can easily
+fall short of the perfection of the things from which they derive, but
+cannot, however, contain anything greater or more perfect.
+And the longer and more carefully I examine all these things, the
+more clearly and distinctly I realize [cognosco] they are true. But what
+conclusion am I to draw from them? Certainly, if the objective reality of some one of my ideas is so great that I am certain that that reality does not exist in me either formally or eminently, and therefore
+that I myself cannot be the cause of this idea, it necessarily follows
+that I am not alone in the world, but that some other thing also
+exists that is the cause of this idea. But if in fact no such idea is found
+in me, I shall certainly have no argument that can convince me with
+certainty of the existence of any thing distinct from myself; for I have
+examined all these things very closely, and up to now I have found
+no other such argument.
+Of these ideas I have—apart from the one that represents me to
+myself, about which there can be no difficulty here*— one represents
+God, others bodily and inanimate things, others angels, others animals, and others, finally, other human beings like myself.
+As regards the ideas that represent other human beings, or
+animals, or angels, I can easily see that they might have been put
+together from the ideas I have of myself, and bodily things, and God,
+even if there were no other human beings, or animals, or angels in the
+world.
+As regards ideas of bodily things, they contain nothing that is so
+great that it cannot apparently derive from myself: for if I inspect
+them more closely, and examine them one by one in the same way as
+I yesterday examined the idea of the wax, I realize that there is very
+little in them that I clearly and distinctly perceive: there is only magnitude, or extension in length, breadth, and depth; shape, which
+results from the limitation of this extension; place, the situation
+differently shaped bodies occupy relative to one another; and motion,
+that is, change of place. To these substance, duration, and number
+can be added. But the rest, such as light and colours, sounds, smells,
+tastes, heat and cold, and the other tactile qualities are thought by me
+only in very confused and obscure fashion—so much so that I do not
+even know whether they are true or false, that is, whether the ideas
+I have concerning them, are ideas of actual things or of non-things.
+For although I remarked not long ago that falsity in the proper
+(‘formal’) sense can be found only in judgements, there is nonetheless certainly another (‘material’) kind of falsity in ideas, when they
+represent what is nothing as if it were something. For example, the
+ideas I have of heat and cold are so unclear and so indistinct that
+I cannot tell from them whether cold is nothing but a privation of
+heat, or heat a privation of cold, or whether both are real qualities, or
+neither. But there can be no ideas that do not seem to represent
+something to us. And therefore, if indeed it is true that cold is nothing other than the privation of heat, the idea that represents it to me
+as something real and positive can very properly be called false. The
+same applies to all other such ideas.
+Certainly, I do not need to ascribe any author to these ideas apart
+from myself. For if indeed they are false—that is, if there is nothing
+they actually represent—it is known to me by the natural light that
+they derive from nothing: that is, they exist in me purely on account
+of some shortcoming in my nature, which indeed is far from perfect.
+But if, on the other hand, they are true, the degree of reality they
+represent to me is so scanty that I cannot even distinguish between it
+and unreality; and therefore I cannot see why they might not derive
+from myself.*
+But of the clear and distinct elements in my ideas of bodily things,
+there are some that it seems possible I borrowed from the idea of
+myself, namely substance, duration, number, and any other things
+there may be of that sort. For when I think that a stone is a substance,
+that is to say, a thing capable of existing by itself, and likewise that
+I am myself a substance, then although I conceive myself to be a
+thinking and not an extended thing, and the stone, on the other
+hand, to be an extended and not a thinking thing, so that there is a
+very great difference between the two concepts, they seem, however,
+to have this in common: they both represent a substance. Again,
+when I perceive that I exist now, and also remember that I existed at
+some time before now, and when I have various thoughts of which
+I know the number, I acquire the ideas of duration and number,
+which then I can transfer to other things, of whatever kind they are.
+On the other hand, all the other elements from which the ideas of
+bodily things are put together, namely extension, shape, place, and
+motion, are not contained formally in myself, since I am nothing
+other than a thinking thing. But because they are only various modes
+of substance, and I moreover am a substance, it seems they could be
+contained in me eminently.
+And so there remains only the idea of God, in which I must consider whether there is anything that could not derive from myself. By
+the name ‘God’ I understand an infinite, independent, supremely
+intelligent, supremely powerful substance, by which I myself and
+whatever else exists (if anything else does exist) was created. But
+certainly, all these properties are such that, the more carefully
+I consider them, the less it seems possible that they can be derived
+from me alone.* And so I must conclude that it necessarily follows
+from all that has been said up to now that God exists.
+For indeed, even if the idea of substance is in me as a result of the
+very fact that I am a substance, the idea of an infinite substance
+would not therefore be in me, since I am finite, unless it derived from
+some substance that is really infinite.
+Nor should I think that I perceive the infinite not by a true idea
+but only by negation of the finite, as I perceive rest and darkness by
+the negation of motion and light; for on the contrary, I manifestly
+understand that there is more reality in infinite than in finite substance,
+and that therefore the perception of the infinite in me must be in
+some way prior to that of the finite: the perception of God, in other
+words, prior to that of myself. For how could I possibly understand
+that I doubt, and that I desire, that is, that there is something lacking
+in me, and that I am not completely perfect, if there were no idea in
+me of a more perfect being, by comparison with which I could recognize my own shortcomings?*
+Nor can it be said that perhaps this idea of God is materially false,
+and could therefore derive from nothing, as I remarked not long ago
+apropos of the ideas of heat and cold and suchlike. For on the contrary, since it is supremely clear and distinct, and contains more
+objective reality than any other, there is no idea that is truer in itself
+and in which less suspicion of falsity can be found. This idea of a
+supremely perfect and infinite being is, I say, supremely true; for
+although it perhaps might be imagined that no such being actually
+exists, it cannot be imagined that the idea of it represents nothing
+real to me, as I previously said of the idea of cold. It is also supremely
+clear and distinct; for whatever I clearly and distinctly perceive that
+is real and true and that contains some perfection is all included
+within it. And this remains no less true even though I do not comprehend the infinite, or even if there are innumerable other attributes
+in God that I can neither comprehend, nor even perhaps apprehend*
+in the slightest by my thought; for it is of the nature of the infinite
+that it should be incomprehensible to me, who am finite. Provided
+that I understand this and judge that everything I clearly perceive,
+and that I know [scio] to involve some perfection, as well, perhaps, as
+innumerable other attributes I do not know, exists in God either formally or eminently, the idea I have of him will be the truest and most
+clear and distinct of all my ideas.
+And yet perhaps I am something greater than I understand myself
+to be, and all the perfections I attribute to God, are in some sense in
+me potentially, even if they have not yet revealed themselves, or been
+brought into actuality.* For I am already experiencing a gradual
+increase in my knowledge [cognitio]; and I cannot see any reason why
+it should not be increased in this way further and further to infinity;
+nor why, if my knowledge were so increased, I could not by means of
+it obtain all the other perfections of God; nor finally why the potentiality of these perfections, if it exists in me already, should not be
+enough actually to produce the idea of them.
+But none of this can be true. For, first of all, even granting it to be
+true that my knowledge [cognitio] is gradually increasing and that
+there are many things in me in potentiality that are not yet so in actuality, nothing of this is relevant to the idea of God, in which indeed
+there is absolutely no potentiality: for this very fact of gradual
+increase is an infallible index of imperfection. Besides, even if my
+knowledge did continually increase, nonetheless I understand that it
+would still never be actually infinite, since it will never get to the
+point of being incapable of further increase; but I judge God to be
+infinite in actuality in such a way that nothing can be added to his
+perfection. And finally I perceive that the objective being of an idea
+cannot be produced from purely potential being, which properly
+speaking is nothing, but only from actual or formal being.
+And indeed there is nothing in all this that is not manifest by the
+natural light to one who considers it carefully; but because, when my
+attention wavers, and the images of sensible things blind the eye of
+the mind, I do not remember so easily why the idea of a being more
+perfect than myself necessarily proceeds from some being that is
+truly perfect, I wish to investigate further whether I, who have this
+idea, could exist if no such being existed.*
+From what indeed could I derive my being? From myself, perhaps, or from my parents, or from some other beings less perfect than
+God: for nothing more perfect than him, or even equally perfect, can
+be conceived or imagined.
+But if I existed of myself, I would not doubt, or wish, or lack anything at all: for I would have given myself all the perfections of which
+there is some idea in me, and thus I should myself be God. Nor
+should I suppose that what is lacking in me is perhaps more difficult
+to acquire than what is already in me, since on the contrary, it is plain
+that it was far more difficult for me, that is, a thinking thing or substance, to emerge from nothing than to acquire knowledge of the
+many things I do not know, since such knowledge is only an accident
+of this substance. But certainly, if I had this greater thing [existence]
+from myself, I should not have denied myself at least the things that
+can more easily be obtained; what is more, I should not have denied
+myself any of those things I perceive to be contained in the idea of
+God; for indeed none of them seems to me more difficult to achieve.
+But if any were in fact more difficult to achieve, certainly they would
+appear to me to be so, if I did indeed derive my other properties from
+myself, since I would experience the limits of my power with respect
+to them.
+And I cannot elude the force of these reasons by supposing that
+perhaps I have always been as I now am, as if it followed from that
+that there is no need to seek an author of my existence. For since all
+the time of a life can be divided into innumerable parts, of which
+each particular one in no way depends on the rest, it does not follow
+from the fact that I existed not long ago that I have to exist now,
+unless some cause, so to speak, creates me again at this moment, or
+in other words, conserves me in being. For it is clear, if one considers the nature of time, that the same power and action is required to
+conserve any thing, whatever it may be, in being during the individual moments in which it continues to exist, as would be needed to
+create the same thing from the start if it did not yet exist. So clear
+is this in fact that we may add to the list of things manifest by the
+natural light that the distinction between conservation and creation
+exists purely in our thought.*
+So therefore I need now to inquire of myself, whether I have some
+power, by means of which I can bring it to pass that this ‘I’* that now
+exists shall still exist at some time in the near future. For since I am
+nothing other than a thinking thing, or at least, to speak precisely,
+since I am now dealing only with that part of myself that is a thinking thing, if any power of this sort were in me, I should beyond doubt
+be conscious of it. But I can find no such power, and from this I very
+clearly realize [cognosco] that I depend upon some being distinct from
+myself.
+But perhaps this being is not God, and I was and am produced
+either by my parents or by some other causes less perfect than God,
+whatever they might be. No: for, as I have already said, it is plain that
+there must be at least as much in the cause as there is in the effect;
+and therefore, since I am a thinking thing, and one that has the idea
+of God in myself, it must be admitted that whatever cause is finally
+assigned to me must also itself be a thinking thing and one that has
+the idea of all the perfections I ascribe to God. And then of this thing
+too we can ask whether it exists of itself or by virtue of some other
+thing. For if it exists of itself, it is clear from the above that it must
+itself be God, because since it has from itself the power to exist, it
+undoubtedly has the power to possess in reality all the perfections of
+which it has the idea in itself, that is, all the perfections I conceive to
+be in God. But if, on the other hand, it exists in virtue of some other
+thing, then we shall ask whether this thing too exists of itself, or in
+virtue of some other thing, until finally we come to an ultimate cause:
+and this will be God.
+For it is sufficiently plain that here there is no possibility of an
+infinite regress,* especially because I am not dealing so much with
+the cause that produced me at some time in the past, as, above all,
+with the one that conserves me in the present time.
+Nor can it be imagined that perhaps many partial causes have
+come together to produce me, and that from one of them I received
+the idea of one of the perfections I attribute to God, and from
+another the idea of another perfection, so that all these perfections
+are found, indeed, somewhere in the universe, but not all combined
+together in any one being that would be God. For on the contrary,
+the unity, simplicity, or inseparability of all those things that are in
+God is one of the principal perfections that I understand to inhere in
+him. Nor, certainly, could the idea of this unity of all his perfections
+have been implanted in me by any cause from which I did not also
+derive the ideas of the other perfections: for such a cause could not
+have brought it about that I should understand them as simultaneously combined and inseparable, unless it had at the same time
+enabled me to know what they all were.
+Finally, as far as my parents are concerned, even if everything is
+true of them that I have ever thought to be so, certainly they do not
+conserve me in being, nor did they in any way produce me insofar as
+I am a thinking thing; they only implanted certain dispositions in the
+matter that I judged myself (that is, my mind, which for the moment
+I take to be identical with my self) to inhabit. And so there can be no
+difficulty here about them; but we must necessarily conclude that,
+from the bare fact that I exist, and that in me there is an idea of a
+supremely perfect being, that is, God, it is proved beyond question
+that God also exists.
+It remains for me only to examine in what manner I received this
+idea from God. For I did not derive it from the senses, nor did it
+ever thrust itself spontaneously on my attention, as do the ideas of
+sensible things, when the things themselves make an impression on
+the external sense-organs (or appear to do so). Nor is it a fiction,
+a creation of my own, for I cannot subtract anything from it, or add
+anything at all to it. It must therefore be that the idea is innate within
+me, in the same way as the idea of myself is innate within me.
+And certainly it is no wonder if God, when he created me,
+inscribed this idea within me, to serve, so to speak, as the mark by
+which the craftsman makes himself known in his handiwork. This
+mark does not have to be something distinct from the object itself.
+But, given this one basic fact that God created me, it is highly credible that I was in some way created in his image and likeness,* and
+that the likeness, in which the idea of God is contained, is perceived
+by me by the same faculty by which I myself am perceived by myself.
+That is, when I turn the eye of my mind on myself, I do not
+only understand myself to be an entity that is incomplete and that
+depends on another, and that is endowed with an indefinite aspiration to greater and greater or better things; but at the same time
+I understand that the being on whom I depend possesses all these
+greater things not only indefinitely and in potentiality but in actuality and infinitely, and is thus God. The whole force of the argument
+comes down to this, that I recognize that it cannot be that I should
+exist, with the nature I possess (that is, having the idea of God within
+myself), unless in reality God also exists—the same God whose idea
+is within me, that is, the one who possesses all the perfections that
+I cannot comprehend but can to some extent apprehend in my thinking, and who is subject to no kind of deficiency. From this it is
+sufficiently clear that he cannot be a deceiver: for all cunning and
+deception presuppose some shortcoming, as is plain by the natural
+light.
+But before I go more thoroughly into this, and at the same time
+investigate the other truths that can be deduced from it, I wish to
+remain here for some time in the contemplation of God himself,
+to ponder on his attributes, and to gaze on, wonder at, and worship
+the beauty of this immense light, as much as the eye of my understanding, shrouded as it is in darkness, is capable of doing. For, just
+as we believe by faith that the supreme happiness of the other life
+consists purely in the contemplation of the divine greatness, so
+we find also by experience that this contemplation, though far less
+perfect, affords us the greatest pleasure of which we are capable in
+this life.
+FOURTH MEDITATION
+of truth and falsity
+Over these last few days I have grown so accustomed to withdrawing
+my mind from the senses, and have so thoroughly grasped that true
+perceptions of bodily things are very rare, but that more can be
+known [cognosci] about the human mind, and still more about God,
+that I can now direct my thought without any difficulty away from
+things that can be imagined and towards those that are purely intelligible, and detached from all matter. And certainly the idea I have of
+the human mind, in so far as it is a thinking thing, not extended in
+length, breadth, and depth, or having any other bodily properties, is
+much more distinct than the idea of any bodily thing. And when
+I consider that I doubt, or that I am an incomplete and dependent
+thing, so clear and distinct an idea of an independent and complete
+being (that is, God) comes to my mind, and from this single fact that
+such an idea is in me, or that I exist possessing this idea, I so manifestly conclude that God also exists, and that all my existence, from
+one moment to the next, depends on him, that I can confidently
+assert that nothing can be more evidently or certainly discovered
+[cognosci] by human intelligence. And now I seem to glimpse a path
+by which, from this contemplation of the true God, in whom indeed
+all the treasures of the sciences and wisdom lie hidden, we can pass
+to the knowledge of other things.
+First of all, I recognize that it cannot happen that he should ever
+deceive me; for in all deceit and trickery some element of imperfection is to be found; and although to be able to deceive seems to be some
+indication of intelligence or power, nonetheless to wish to deceive is
+beyond doubt a proof of malice or feeble-mindedness, to which God
+cannot be liable.
+Besides, I know by experience that there is within me a faculty of
+judging, which I certainly received from God, along with everything
+else that is in me; and since he does not wish to deceive me, this
+God-given faculty must be such that I shall never go astray, as long
+as I use it correctly.
+It would seem that there is no room left for doubt on this matter,
+except that it would apparently follow from what has just been said,
+that I can therefore never be mistaken at all. For if whatever is in me,
+I have from God, and if he has not given me any faculty of making
+mistakes, it seems I can never be mistaken. And indeed, as long as
+I am thinking only of God, and directing my attention wholly to him,
+I cannot detect any cause of error or falsity; but when presently I turn
+back to myself, I find by experience that I am, on the contrary,
+subject to innumerable errors. When I investigate the cause of
+these, I observe that, besides the real and positive idea of God, or the
+supremely perfect being, there is also, so to speak, a certain negative
+idea of nothingness, or of that which is infinitely remote from all perfections, that presents itself to me; and I see also that I am so constituted as a medium term between God and nothingness, or between
+the supreme being and non-being, that, in so far as I was created by
+the supreme being, there is indeed nothing within me by which I can
+be deceived or led into error; but that, in so far as I have, in a way, a
+share of nothingness or non-being (in so far, in other words, as I am
+not myself the supreme being), and very many things are lacking to
+me, it does not seem so strange that I should be deceived. And thus
+I can understand, quite certainly, that error, in so far as it is error,
+is not something real dependent on God, but purely and simply a
+deficiency; and therefore that, in order to make mistakes I do not
+need a special mistake-making faculty given me by God for this
+purpose, but that it happens that I make mistakes, for the reason that
+the faculty of judging the truth, which he did give me, is not infinite
+in me.
+And yet this does not satisfy me completely. For error is not a pure
+negation but a privation,* a lack of some knowledge [cognitio] that
+ought to be in me in some way; and when I consider God’s nature, it
+does not seem possible that he should have endowed me with some
+faculty that is not perfect of its kind, or that is deprived of some
+perfection due to it. For if, the more skilful the craftsman, the more
+perfect the works he produces, what can have been produced by this
+supreme creator of everything that is not perfect in all its components? Nor is there any doubt that God could have created me
+incapable of being deceived; besides, there is no doubt that he wishes
+always what is best—but could it be better for me to be deceived
+than not?
+When I go into this more closely, it first occurs to me that I should
+not be surprised if God does some things the reasons for which I do
+not understand. Nor would there be any reason to doubt his existence
+if perhaps I discovered other things of which I cannot understand
+how or why he produced them. For since I already know [sciam] that
+my nature is very weak and limited, while on the other hand God’s
+is immense, incomprehensible, and infinite, it follows that I know
+[scio] quite clearly that he can do innumerable things of the causes of
+which I am ignorant; and for this reason alone, I judge that the whole
+category of causes that people are in the habit of seeking by considering the purposes of things* is of no use in the study of physics; for
+I think that it could only be rash of me to investigate God’s purposes.
+My next reflection is that we should not look at any one single
+creature in isolation, but at the whole universe of things, whenever
+we are inquiring whether God’s works are perfect. For what would
+perhaps appear (and not without reason) very imperfect if it were
+taken in isolation, is completely perfect if considered as a part of the
+universe; and although, since I have decided to doubt everything,
+I have not yet discovered [cognovi] for certain whether anything else
+exists besides God and myself, I cannot however deny, since I have
+become aware of the immense power of God, that many other things
+have been created by him, or at least could be created by him, in
+which case I too would exist as a part of the universe.
+Finally, coming closer to myself and investigating the nature of
+my errors (which are sufficient proof by themselves that there is
+some imperfection in me), I realize that they depend on two simultaneously operative causes, namely, the faculty I possess of acquiring
+knowledge [cognoscendi] and the faculty of choosing, or free will; that
+is, they depend on the intellect and the will simultaneously. For
+through the intellect alone I only perceive ideas on which I can pass
+judgement, nor can any error in the strict sense be found in it when
+considered from this precise viewpoint. For although, perhaps, there
+are innumerable things in existence of which the ideas are not in me,
+I cannot be said, strictly speaking, to be deprived of these ideas, but
+only, in a negative sense, to be without them; since, certainly, I can
+adduce no reason to prove that God should have given me a greater
+faculty of acquiring knowledge [cognoscendi] than the one he has
+given me; and although I understand him to be the most skilful
+craftsman possible, I do not therefore think that he should have
+endowed each individual piece of his handiwork with all the perfections with which he may endow some. Nor indeed can I complain
+that I have received from him an insufficiently wide-ranging and
+perfect will, or freedom of choice; for I experience it as unbounded
+by any limits. And it seems to me particularly important to note that
+there is no other property in me, apart from this one, that is so
+perfect or so great that I cannot understand how it could be more
+perfect or greater. For if, for example, I consider the faculty of
+understanding, I immediately recognize that in me it is very small
+and seriously limited; and at the same time I form the idea of another
+faculty that is far greater, one indeed that is supremely great and
+infinite, and, from the very fact that I can form the idea of it, I perceive that it belongs to the nature of God. By the same token, if
+I examine the faculty of remembering or imagining, or any other,
+I realize they are all very inadequate and restricted in me, but that in
+God they are boundless. It is only the will, or freedom of choice, that
+I experience in myself as so great that I can form the idea of none
+greater; so much so that it is chiefly on account of the will that
+I understand that I bear a certain image and likeness of God. For
+although the will is incomparably greater in God than in me, first, in
+virtue of the knowledge and power that are combined with it in him,
+and that make it stronger and more effective, and secondly, in virtue
+of its object, since its range is far greater, nonetheless, when it is considered strictly as it is essentially in itself, it does not seem to be
+greater in him than in me. This is because it consists purely in our
+ability to do or not to do a given thing (that is, to affirm or deny
+something, pursue something or avoid it); or rather, it consists
+purely in this: that we are moved in relation to that which the intellect presents to us as to be affirmed or denied, pursued or avoided, in
+such a way that we feel we are not being determined in that direction
+by any external force.* For, in order to be free, I do not have to
+be able to be moved in either direction.* On the contrary, the more
+I incline to one alternative, whether because I clearly understand that
+the good and the true are on that side, or because God so disposes my
+innermost thoughts,* the more freely I choose it. Certainly, neither
+divine grace nor natural knowledge [cognitio] ever diminishes freedom; on the contrary, they increase and reinforce it. On the other
+hand, the indifference I experience, when no reason impels me
+towards one alternative rather than the other, is the lowest degree of
+freedom, and is not a mark of perfection but only of a shortfall in my
+knowledge, or a certain negation;* for if I always clearly saw what is
+true and good, I would never need to deliberate about a judgement
+to be made or a course of action to be chosen; and in that case,
+although I would be fully free, I could never be indifferent.
+From all this, I perceive that the cause of my errors is neither the
+God-given power of willing, considered in itself, for it is extremely
+extensive and perfect of its kind; nor the power of understanding, for
+whatever I understand, since my understanding is a gift of God,
+most certainly I understand it correctly, nor is there any possibility
+of my being deceived in this. So what is the origin of my errors? It
+can only be this: that, since the range of the will is greater than that
+of the intellect, I do not confine it within the same limits, but extend
+it even to matters I do not understand;* and since it is indifferent to
+these, it easily falls away from the true and the good, and this is both
+how I come to be deceived and how I come to sin.*
+For example, when I was examining, over these last few days,
+whether anything existed in the world, and realized that, from the
+very fact that I was examining this point, it clearly followed that
+I existed, I could not indeed refrain from judging that what I so
+clearly understood was true. It was not that I was compelled to this
+by some external force, but that a great illumination of the intellect
+was followed by a great inclination of the will; and in this way my
+belief was all the freer and more spontaneous for my being less
+indifferent. But now, however, I not only know that I, in so far as
+I am a thinking thing, exist: a certain idea of bodily nature also presents itself to me, as a result of which I doubt whether the thinking
+nature that is within me, or rather that I myself am,* is distinct from
+this bodily nature, or whether they are both one and the same. (I am
+supposing here that no reason has yet occurred to my intellect to
+convince me in favour of one view or the other.) And from this fact
+alone, I am certainly indifferent as regards affirming or denying one
+view or the other, and indeed as regards making no judgement at all
+about the matter.
+But indeed, this indifference does not extend only to those matters
+about which the intellect has no knowledge at all, but also to all
+things in general that are not sufficiently clearly known by the intellect at the time when the will is deliberating about them. For however strongly probable conjectures may draw me to one alternative,
+the mere fact of knowing that they are only conjectures, and not
+certain and indubitable reasons, is sufficient to impel me to assent to
+the contrary view. This has been fully borne out in my own experience during these last few days, when, considering all the beliefs
+I had once very firmly held as true, I decided, simply because I had
+realized that it was possible to doubt them in some respect, to suppose them to be altogether false.
+Now, if indeed, whenever I do not sufficiently clearly and distinctly perceive where the truth lies, I refrain from passing judgement, it is clear that I am acting rightly and not being deceived. But
+if I either affirm or deny, then I am not making the right use of my
+freedom of choice; and if I adopt the view that is false, I shall be altogether deceived. Yet if I adopt the other view, although it happens to
+be the true one, I shall still be at fault, because it is manifest by the
+natural light that a decision on the part of the will should always be
+preceded by a perception on the part of the intellect. The privation
+in which the essence of error consists lies in this wrong use of free
+choice. The privation, that is, lies in the operation itself, in so far as
+it derives from me, but not in the faculty given to me by God, or in
+the operation in so far as that depends on him.*
+Nor do I have any grounds for complaining that God has not given
+me a more powerful intellectual capacity, or a greater natural light,
+than he actually has, since it is of the essence of a finite intellect that
+it is unable to understand many things, and to be finite is of the
+essence of a created intellect. Rather, I should be grateful to him,
+who has never owed me anything, for what he has bestowed on me.
+But I have no cause to think that I have been deprived by him of
+those things he has not given me, or that he has robbed me of them.
+I have no more reason to complain at his giving me a will that
+is more wide-ranging than my understanding; for since the will
+consists purely in a single property that is, so to speak, indivisible,
+its very nature seems to make it impossible that anything should
+be taken away from it. Indeed, the more extensive it is, the more
+grateful I should be to him who has given it to me.
+And finally, I have no right to complain that God cooperates with
+me in the production of those acts of the will, or those judgements,
+in which I am deceived; for these acts are altogether true and good,
+in so far as they depend on God, and it is in some ways a greater perfection in me to be able to perform them than not. For the privation
+in which alone the essence of falsity and guilt consists requires no
+cooperation on God’s part, since it is not a thing, nor a privation
+related to him as to its cause: it should be classed, purely and simply,
+as a negation.* For it is certainly no imperfection on God’s part that
+he has given me the freedom to assent or not to assent to some things
+of which he has implanted no clear and distinct perception in my
+intellect; but it is undoubtedly an imperfection on my part not to use
+this freedom properly, and to pass judgement on things I do not
+rightly understand. I see, however, that God could have easily
+brought it about that, while remaining free and endowed only with
+finite knowledge, I should never err: for instance, if he had implanted
+in my intellect a clear and distinct perception of everything upon
+which I would ever have to make up my mind; or if he had simply
+engraved on my memory, so deeply that I could never forget it, the
+resolution never to pass judgement about anything I do not clearly
+and distinctly understand. And I can easily grasp that, in so far as
+I consider myself as a totality, I would have been more perfect than
+I am now, if I had been so created by God. But, for all that, I cannot
+deny that in a way the universe as a whole is more perfect as a result
+of the fact that some of its parts are not immune from error, while
+others are, than it would have been if all its parts were entirely similar.
+And I have no right to complain that the part God has given me to
+play in the world is not the most prominent and perfect of all.
+Besides, even though I cannot refrain from error in the first of
+the ways just mentioned, which would involve my having an
+evident perception of everything about which I would ever need to
+make up my mind, I can in the second way, which simply involves
+my remembering that, whenever the truth of a matter is not clear,
+I should abstain from passing judgement. For although I find by
+experience that there is a weakness in my nature that means that
+I cannot always concentrate attentively on one and the same piece
+of knowledge [cognitioni], I can nonetheless, by careful and frequently repeated meditation, ensure that I remember this maxim
+whenever I need to, and thus I can acquire a certain habit of not
+making mistakes.
+And since the greatest and most distinctive perfection of a human
+being consists in this, I think I have derived no little profit from
+today’s meditation, since I have tracked down the cause of error and
+falsity. And indeed, this cause can be no other than I have explained.
+For whenever in passing judgement I so keep my will under control
+that it confines itself to items clearly and distinctly represented to it
+by the intellect, it certainly cannot come about that I should make a
+mistake; since every clear and distinct perception is something, and
+therefore cannot come from nothing, but necessarily derives from
+God—God, the supremely perfect being, whose nature is incompatible with deception. It is therefore undoubtedly true. And I have
+learned today not only what I should avoid in order not to be deceived,
+but at the same time what I must do in order to attain truth; for I certainly shall attain it, provided I pay sufficient attention to everything
+I perfectly understand, and keep it quite separate from everything
+else that I apprehend more confusedly and obscurely. And I shall
+take particular care to do this in future.
+FIFTH MEDITATION
+of the essence of material things; and again
+of god, that he exists
+There remain many attributes of God, and many aspects of the
+nature of myself, or my mind, for me to investigate. But perhaps I
+shall return to these another time, and for the moment nothing
+appears more urgent (now that I have realized what to avoid and
+what to do in order to attain truth) than to attempt to extricate myself
+from the doubts I have fallen into during these past days, and to see
+whether any certainty is possible with respect to material things.
+And indeed, before investigating whether any such things exist
+outside me, I should first consider the ideas of them, in so far as these
+ideas exist in my thought, and see which of them are distinct, and
+which confused.
+I can certainly distinctly imagine the quantity that philosophers
+commonly call ‘continuous’: that is, the extension of this quantity (or
+rather, of the thing to which the quantity is attributed) in length,
+breadth, and depth. I can count various parts within it. To each of
+these parts I ascribe various magnitudes, shapes, positions, and local
+motions, and to the motions I ascribe various durations.
+Not only are these things, considered in these general terms,
+clearly known and grasped by me: I also, if I pay close attention, perceive innumerable particular facts involving shape, number, motion,
+and suchlike—facts so plainly true, and so much in conformity with
+my nature, that when I first discover them I do not seem to be learning anything new, but rather to be remembering something I knew
+before, or to be noticing for the first time something that was in me
+already, although I had not previously turned the gaze of my mind in
+its direction.
+And what I think particularly needs to be considered here is this:
+that I find in myself innumerable ideas of certain things, that, even
+if, perhaps, they do not exist anywhere outside me, cannot yet be
+said to be nothing. And although, in a sense, whether I think of them
+or not is up to me, yet they are not inventions of my own mind, but
+they have true and immutable natures of their own. For instance,
+when I imagine a triangle, even if perhaps such a figure does not
+exist, and has never existed, anywhere at all outside my thought, it
+nonetheless certainly has a determinate nature, or essence, or form,
+that is immutable and eternal, which was not invented by me, and
+does not depend on my mind. This is clear from the fact that it
+is possible to demonstrate various properties of the triangle (for
+instance, that its three angles are equal to two right angles, and that
+the hypotenuse subtends the greatest angle, and so forth) which,
+whether I like it or not, I now clearly recognize to hold good, even if
+up to now I have never thought of them in any way when imagining
+a triangle. And therefore these properties were not invented by me.
+It would make no difference if I were to say that perhaps this
+idea of a triangle has come to me from things outside myself via the
+sense-organs, because, that is, I have occasionally seen bodies of a
+triangular shape. For I can think up innumerable other shapes that it
+is impossible to suspect ever reached me via the senses; and yet
+I can demonstrate several of their properties, just as I can with the
+triangle. And all of these properties are certainly true, since they are
+clearly known [cognoscuntur] by me, and therefore they are something, and not a pure nothing. For it is clear that everything that is
+true, is something; and I have already abundantly demonstrated that
+everything I clearly know [cognosco], is true. And even if I had not
+demonstrated this, the nature of my mind is such that I cannot in any
+case help assenting to the things I clearly perceive, at least, for as long
+as I clearly* perceive them; and I remember that even in past times,
+when I was as closely attached to the objects of the senses as it is
+possible to be, I always considered that truths of this kind that I
+clearly recognized, concerning shapes, or numbers, or other matters
+belonging to arithmetic or geometry or, in general, pure and abstract
+mathematics, were the most certain of all.
+But now, if, from the fact alone that I can produce the idea of a
+given thing from my thought, it follows that everything I clearly and
+distinctly perceive to belong to the thing does in fact belong to it,
+cannot I also find here a further proof of the existence of God?
+Certainly, I find the idea of him, that is, of a supremely perfect being,
+in myself, just as much as I find the idea of any shape or number.
+And I clearly and distinctly understand that eternal existence belongs
+to his nature—just as clearly and distinctly as I understand that the
+properties I can demonstrate of some shape or number belong in fact
+to the nature of that shape or number. So that, even if not all the conclusions I have come to in my meditations over the past few days
+were true, I would still have to ascribe the same degree of certainty to
+the existence of God that I up to now have ascribed to mathematical
+truths.
+To be sure, this is not altogether evident at first sight: it appears
+to be something of a sophism. For since I am accustomed in all other
+things to distinguish existence from essence, I can easily convince
+myself that existence can be separated from the essence of God, and
+thus that God can be thought of as not existing. But if one considers
+the matter more closely, it becomes plain that existence can no more
+be separated from the essence of God than we can separate from the
+essence of a triangle that the sum of its three angles adds up to two
+right angles, or than we can separate the idea of a mountain from the
+idea of a valley.* So true is this that the thought of a God (that is,
+a supremely perfect being) who lacks existence (that is, who lacks
+a certain perfection) is no less contradictory than the thought of a
+mountain without a valley.
+However, even if I can no more think of God without existence
+than I can think of a mountain without a valley, yet certainly, it does
+not follow from my thinking of a mountain as having a valley that any
+mountain exists in the world; similarly, from my thinking of God as
+existing, it does not seem to follow that God exists. For my thought
+imposes no necessity on things; and just as I am free to imagine a
+winged horse, even if no horse actually does have wings, so perhaps
+I can imagine the existence of a God, even though no God in fact exists.
+No: this is where the sophism is lurking here. The point is not
+that, from my inability to think of a mountain except with a valley, it
+follows that a mountain and a valley exist somewhere, but only that
+the mountain and the valley, whether they exist or not, cannot be
+separated from each other. Whereas from the fact that I cannot think
+of God except as existing, it follows that existence is inseparable from
+God, and therefore that he exists in reality. It is not that my thought
+brings his existence about, or that it imposes any necessity on anything, but, on the contrary, that the necessity of the thing itself, namely
+the existence of God, determines me to think it. Nor am I free to
+think of God without existence (that is, to think of the supremely
+perfect being without the supreme perfection), in the way I am free
+to imagine a horse with or without wings.
+Nor can it be maintained that, although it is necessary to admit
+that God exists, once I have supposed him to possess all perfections,
+since existence is one of these perfections, the original supposition
+was not itself necessary* (just as it is not necessary for me to think
+that all quadrilateral shapes can be inscribed in a circle, but, supposing I do think this, I must admit that a rhombus can be inscribed
+in a circle, which, however, is patently impossible). For although it
+is not necessary that I should ever find myself thinking of God,
+nonetheless, whenever I choose to think about the first and supreme
+being, and bring forth the idea of him, so to speak, from the treasury
+of my mind, I must necessarily credit him with all perfections, even
+if at the time I neither list them all nor consider them individually.
+And this necessity is quite sufficient for me subsequently, when
+I recognize that existence is a perfection, to conclude, quite rightly,
+that the first and supreme being exists. In the same way, it is not
+necessary that I should ever imagine any triangle: but whenever I want
+to consider a straight-sided shape having only three angles, I must
+necessarily credit it with properties from which it can be correctly
+inferred that the sum of its three angles does not exceed that of two
+right angles, even if I do not at the time realize this. On the other
+hand, when I am examining what shapes can be inscribed in a circle,
+there is absolutely no necessity for me to think that all quadrilaterals
+fall into this category: indeed, I cannot even imagine this to be true,
+as long as I am intending to accept only what I clearly and distinctly
+understand. Hence there is a great difference between false suppositions, such as this one, and true ideas innate within me, the first and
+most important of which is the idea of God. For indeed, I understand in many ways that this idea is not something fictitious that
+depends on my own thinking, but the image of a true and immutable
+nature: first, because no other thing can be conceived by me to the
+essence of which existence belongs, besides God himself; secondly,
+because I cannot conceive of two or more such Gods, and because,
+granted that one exists now, I plainly see that it is necessary both that
+he should have existed for all eternity up to now, and that he will
+continue to exist for an eternity in the future; and finally, because
+I perceive many other properties in God of which none can be
+subtracted or altered by me.
+But indeed, whatever kind of proof I use, the issue always comes
+down to this: that nothing convinces me fully but what I clearly and
+distinctly perceive. It is true that, of the things I so perceive, although
+there are several that are obvious to anyone, there are others that can
+be discovered only by those who look into the matter more closely
+and examine it carefully. Once, however, these latter have been discovered, they are counted as no less certain than the former. Just as,
+if we are dealing with a right-angled triangle, it does not so readily
+appear that that the square of the base is equal to the square of the
+sides as it does that the base is subtended by its greatest angle, nonetheless, once the first proposition has been grasped, it is as firmly
+believed as the second. But as far as God is concerned, certainly, if
+I were not overwhelmed by prejudices and if the images of sensible
+things were not pressing in on my thoughts from all directions,
+I should recognize nothing sooner and more readily than him. For
+what is more obvious in itself than that the supreme being exists, that
+is to say, that God, to whose essence alone existence belongs, exists?
+And although careful consideration was required before I was
+capable of perceiving this truth, now, however, not only am I equally
+certain of it as I am of anything else that seems completely certain,
+but, moreover, I also observe that the certitude of all these other
+things depends on it so completely that without it nothing can ever
+be perfectly known [sciri].
+For although my nature is such that, as long as I perceive
+something very clearly and distinctly, I cannot not believe that it is
+true, nonetheless, because my nature is also such that I cannot continuously fix the gaze of the mind on the same thing in order to perceive it clearly, and what often happens is that I remember judging
+something to be true, then, when I am no longer concentrating on the
+reasons for which I made that judgement, other reasons can be
+adduced that would easily (were I ignorant of God) shake me out of
+my opinion. And thus I should never have true and certain knowledge [scientia] of anything, but only vague and shifting opinions.
+Thus, for example, when I am considering the nature of a triangle, it
+certainly appears utterly evident to me (being, as I am, well versed in
+the principles of geometry) that its three angles are equal to two right
+angles; and I cannot not believe this is true, as long as I am concentrating on the proof; but, as soon as I have turned the eye of the mind
+in a different direction, then however well I remember that I grasped
+the proof very clearly, I can still easily find myself doubting its truth,
+if I am ignorant of God. For I can persuade myself that I was so made
+by nature that I am sometimes deceived in matters which I think
+I perceive entirely clearly, especially since I remember counting many
+things as true and certain that later, when guided by other reasons,
+I judged to be false.
+But once I have perceived that God exists, then because I grasped
+at the same time that everything else depends on him, and that he is
+no deceiver, and from this deduced that everything I clearly and
+distinctly perceive is necessarily true, then, even if I am no longer
+concentrating on the reasons why I judged this to be true, provided
+I remember that I did see it clearly and distinctly, no contrary reason
+can be adduced that can induce me to doubt it; and thus I have true
+and certain knowledge [scientia] of it. And not only of it, but of all the
+other propositions I remember demonstrating at some stage, such as
+the truths of geometry and others of the same kind. For what objections can now be raised against me? That I am so constituted as often
+to be deceived? But I know now [scio] that in matters I clearly understand, I cannot be deceived. That I once counted many things as true
+and certain that I later realized to be false? But I had perceived none
+of these clearly and distinctly, but, unaware as I was of this criterion
+of truth, perhaps I believed them for other reasons, which I later discovered to be less sound than I had thought. So what further objection can be raised? Perhaps (an objection I put to myself not long ago)
+I am sleeping, or all the things I am now thinking are no more true
+than the thoughts that occur to one who is asleep. But this makes no
+difference. For certainly, even if I were sleeping, if something is evident to my understanding, then it is altogether true.
+And so I plainly see that the certitude and truth of all
+knowledge [scientiae] depends on the knowledge [cognitione] of the
+true God alone: so much so, that before I had discovered this knowledge, I could have no perfect knowledge [scire] of anything else at all.
+But now innumerable truths, concerning both, on the one hand, God
+himself and other intellectual things and, on the other, the whole of
+this bodily nature which is the object of pure mathematics,* can be
+plainly known to me with certainty.
+SIXTH MEDITATION
+of the existence of material things, and the
+real distinction between mind and body
+It remains for me to examine whether material things exist. And
+indeed, I now know [scio] at least that, in so far as they are the object
+of pure mathematics, they can exist, since I perceive them clearly and
+distinctly. For there is no doubt that God is capable of producing
+everything I am capable of perceiving in this way; and I have never
+judged that anything was impossible for him to do, except when, in
+attempting to perceive it distinctly, I ran up against a contradiction.
+Besides, it seems to follow from the existence of the imaginative
+faculty, of which I experience myself as making use when dealing
+with these material things, that they exist. For if I consider more
+closely what kind of thing the imagination is, it appears to be nothing other than a certain application of the knowing faculty to a body
+intimately present to that faculty, and therefore existing.
+To make this plain, I shall first examine the difference that
+exists between imagination and pure intellection. For example, when
+I imagine a triangle, not only do I understand it to be a shape
+enclosed by three lines, but at the same time, with the eye of the
+mind, I contemplate the three lines as present, and this is what I call
+imagining. But if, on the other hand, I wish to think of a chiliogon,
+I do indeed understand that this is a shape consisting of a thousand
+sides, no less clearly than I understand that the triangle consists of
+three: but I do not imagine the thousand sides in the same way, that
+is, contemplate them as present. And although at the time, because
+I am accustomed always to imagine something whenever I am thinking of bodily things, I may perhaps picture some figure to myself
+in a confused fashion, it is quite clear that this is not a chiliogon,
+because it is not at all different from the picture I would also form
+in my mind if I were thinking about a myriogon,* or some other
+many-sided figure. Nor is it of any assistance in recognizing the
+properties by which the chiliogon differs from other polygons. But if
+I am dealing with a pentagon, I can certainly understand its shape,
+like that of the chiliogon, without the help of the imagination: but
+I can also imagine it, that is, by applying the eye of the mind to its
+five sides, and at the same time to the area contained within them;
+and here I observe very plainly that I need to make a particular
+mental effort in order to imagine, that I do not make when understanding. This further effort of the mind clearly indicates the
+difference between imagination and pure intellection.
+At this point, I consider that this power of imagining I possess, in
+so far as it differs from the power of understanding, is not integral to
+my essence, that is, to the essence of my mind; for even if I lacked it,
+I should nonetheless certainly remain the same person as I now am.
+From this it seems to follow that the imagination depends on something distinct from me.* And I can easily understand that if some
+body exists to which the mind is so closely joined that it may, whenever it chooses, apply itself, so to speak, to looking into it, it could
+be the case that this is exactly how I imagine corporeal things. So that
+this mode of thinking would differ from pure intellection in the
+following respect alone: that the mind, while it understands, turns
+itself in some way towards itself, and gazes on one of the ideas that
+are contained within itself; but, while it imagines, it turns itself
+towards the body, and considers something in it that corresponds
+either to an idea it understands itself* or to an idea perceived by
+the senses. I can readily understand, I say, how the imagination
+may function in this way, provided, that is, the body exists. And
+because no other equally convenient way of explaining it occurs to
+me, I therefore conclude with great probability that the body exists.
+But this is only a probability, and although I am investigating the
+whole matter with great care, I do not yet see that, from this distinct
+idea of bodily nature that I find in my imagination, any argument can
+be derived that will lead necessarily to the conclusion that some body
+exists.
+But I am accustomed to imagining many other things, besides this
+bodily nature that is the object of pure mathematics,* such as colours,
+sounds, pain, and suchlike: but none of these with equal distinctness.
+And because I perceive these things better by the senses, from which
+they seem to have made their way, with the help of memory, to the
+imagination, in order to examine them more conveniently, I should
+examine sensation at the same time, and see whether, from those
+things that are perceived by the form of thinking I call ‘sensation’,
+I can derive some decisive argument in favour of the existence of
+bodily things.
+And first of all, I will here go over in my memory what those
+things were that I previously thought were true, because they were
+perceived by the senses, and the reasons I had for thinking this. Then
+I shall weigh the reasons for which I later called these things into
+question. Finally, I shall consider what view I should now take.
+First of all, then, I had the sensation of having a head, hands, feet,
+and all the other parts comprising this body I used to consider as part
+of myself, or perhaps even as the whole of myself. Then I had the sensation of this body as situated among many other bodies by which it
+could be affected—harmed or benefited: and I measured the benefits
+by a certain feeling of pleasure and the harm by a feeling of pain. And
+besides pain and pleasure, I also had the sensation of hunger, thirst,
+and other such appetites in myself, not to mention various bodily
+propensities, to joy, to sadness, to anger, and other such passions.
+Outside myself, besides the extension, shapes, and motions of bodies,
+I had sensations of hardness, heat, and other tactile qualities in them;
+light, as well, and colours, and smells, and tastes, and sounds, the
+variety of which enabled me to distinguish the sky, the earth, the sea,
+and other bodies one from another. And surely it was not without
+reason that, on account of the ideas of all these qualities that presented
+themselves to my thought, and of which alone I had personal and
+immediate sensations, I believed I was sensing certain things quite
+distinct from my thought, that is to say, bodies from which these ideas
+proceeded. For I experienced these ideas as coming to me without any
+consent of mine: so much so, that neither could I have a sensation of
+any object, however much I wanted to, unless the object itself were
+present to a sense-organ, nor could I help having the sensation of it
+when it was present. And since the ideas perceived by the senses were
+much more vivid and emphatic,* and in their own way more distinct,
+than any of the ideas that I deliberately and knowingly formed* by
+myself in my meditations, or that I found engraved upon my memory,
+it seemed impossible that they should proceed from myself.* And so
+it had to be the case that they derived from some other things. But
+since I had no knowledge of these other things except from these ideas
+themselves, I could only suppose that the things were like the ideas.
+And also because I remembered that I had made use of my senses
+before I made use of my reason, and saw, as well, that the ideas I formed
+myself were not as emphatic as those I perceived by the senses, and
+were mostly put together from those ideas, I readily convinced myself
+that I had nothing at all in the intellect, that I had not previously had
+in the senses.* Nor was it without reason that I judged that the particular body I seemed specially entitled to call my own belonged more
+closely to me than any other body. For I could not ever be separated
+from it, as I could from the other bodies; I felt all my appetites and
+passions in it and for it; and finally I was aware of pain and pleasure
+in parts of it, but not in any other body existing outside it. But why
+this mysterious feeling of pain is followed by a feeling of sadness in
+the soul, and why the awareness of pleasure is followed by joy, or why
+the mysterious pangs in the stomach I call hunger prompt me to take
+food, while a dryness in the throat prompts me to drink, and so on,
+I certainly could not explain except by saying that nature teaches me
+that it is so. For there is plainly no affinity (at least, none that I understand) between the pangs in the stomach and the will to eat, or
+between the sensation of a thing that is causing pain and a thought of
+sadness arising from this feeling. And all the other things I judged
+concerning the objects of the senses, I thought I had also learned from
+nature. For I had persuaded myself that this was the way things were
+before I had considered any reasons by which this could be proved.
+But afterwards many experiences gradually undermined all the
+faith I had placed in the senses. For sometimes towers that from a
+distance had seemed round appeared from close up as square;* and
+giant statues perched on the top of those towers did not look particularly large to one gazing up from below; and by innumerable other
+such experiences I came to realize that in matters of the external
+senses our judgements are at fault. Not only the internal senses,
+moreover; the internal ones as well. For what can be more intimate
+than pain? Yet I had often heard from people whose arm or leg had
+been amputated, that they still occasionally seemed to feel pain in the
+part of the body they were missing; and therefore even in myself it
+did not seem to be wholly certain that one of my limbs was hurting,
+even though I was feeling pain in it. To these points I recently added
+two very general reasons for doubting. The first was that everything
+I have ever believed I was having a sensation of while awake, I can
+sometimes think I am having a sensation of while asleep; and since
+I do not believe that what I seem to see when asleep comes from anything existing outside me, I could not see any reason why I should
+believe this of the sensations I seem to have when awake. The second
+reason was that, since I was still ignorant of the author of my existence (or at least was pretending to be so),* I could see no reason why
+I could not be so constituted by nature as to be deceived, even in
+things that appeared to me entirely true. And as for the reasons by
+which I had previously convinced myself of the truth of sensible
+things, I could answer them without difficulty. For since I saw that
+I was impelled by nature to many things from which reason dissuaded me, I thought I should not place much faith in the teachings
+of nature. And although sense-perceptions do not depend on my
+will, I thought that I should not therefore conclude that they derived
+from things distinct from myself, because perhaps there might be some
+faculty within me, although yet unknown to me, that produces them.
+Now, however, that I begin to know myself and the author of my
+existence rather better, although I do not think that all that the senses
+seem to teach me is to be rashly accepted, I do not think that it
+should all be called in doubt.
+First, since I know that whatever I clearly and distinctly understand can be produced by God such as I understand it to be, then if
+I can clearly and distinctly understand one thing without another,
+this is sufficient for me to be certain that the one is distinct from the
+other, since they can at least be produced separately by God. By what
+power this separation comes about makes no difference to the judgement that the things are distinct. Next, from the very fact that I know
+[sciam] I exist, and that for the moment I am aware of nothing else at
+all as belonging to my nature or essence, apart from the single fact
+that I am a thinking thing, I rightly conclude that my essence consists in this alone, that I am a thinking thing. And although perhaps
+(or rather certainly, as I shall shortly claim) I have a body, which is
+very closely conjoined to me, yet because, on the one hand, I have a
+clear and distinct idea of myself, in so far as I am a thinking and not
+an extended thing, and, on the other, a distinct idea of the body, in
+so far as it is only an extended and not a thinking thing, it is certain
+that I am really distinct from my body,* and can exist without it.
+Moreover, I find in myself faculties of thinking in various specific
+ways—namely, the faculties of imagination and sensation—without
+which I can understand myself clearly and distinctly as a whole. But
+the converse is not true—I cannot understand them apart from an
+intelligent substance in which they inhere (for they contain a certain
+degree of intellection in their formal concept).* Hence I perceive that
+they are to be distinguished from me as modes are from a thing.*
+I also recognize various other faculties, such as those of changing
+place, and assuming various postures, that cannot be understood
+(any more than those just mentioned) without some substance in
+which to inhere, and that therefore cannot exist without it. But it is
+plain that, if indeed these exist, they must inhere in a bodily or
+extended substance—but not, however, an intelligent one; for the
+clear and distinct concept of them includes some measure of extension, but does not at all include intellection. Moreover, there is in
+me a certain passive faculty of sensation, that is, of receiving and
+knowing [cognoscendi] ideas of sensible things. But I could make no
+use of it at all, if there did not exist, either in me or in another being,
+some active faculty of producing or generating these ideas. Now this
+faculty cannot, certainly, exist in myself,* because it presupposes no
+intellection at all, and because these ideas are produced not only
+without my cooperation but often even against my will.* It therefore
+follows that it must exist in some substance distinct from me, which
+substance must contain, either formally or eminently, all the reality
+that exists objectively in the ideas produced by the faculty (as I have
+already pointed out above).* This substance is either a body, or a
+bodily nature, that formally contains all that is contained objectively
+in the ideas; or else it has to be God, or some other creature nobler
+than a body, in which this is contained eminently. But because God
+is no deceiver, it is altogether plain that he does not transmit these
+ideas to me immediately, or by the intermediary of some creature, in
+whom their objective reality is contained not formally but only eminently. For since he has certainly given me no faculty by which
+I might realize this to be true, but has, on the contrary, endowed me
+with a strong propensity to believe that these ideas are conveyed
+by bodily things, I cannot see how, if they were in fact from some
+other source, it would be possible to think of him except as a
+deceiver. And therefore bodily things exist. Perhaps, however, they
+do not all exist exactly as I apprehend them by the senses, since this
+sensory apprehension is very obscure and confused in many respects.
+But at least all those properties are in them that I clearly and distinctly understand: that is, all those, generally considered, that are
+included in the object of pure mathematics.*
+As to the remaining properties that are either purely particular
+(for instance, the sun’s being of a certain magnitude or shape) or less
+clearly understood (for instance, light, sound, pain, and suchlike),
+although they are very doubtful and uncertain, yet this basic fact,
+that God is no deceiver, and that therefore it cannot be the case that
+any falsity should be found in my opinions, unless there is also some
+God-given faculty in me for correcting it, offers me a firm hope of
+discovering the truth with respect to them as well. And certainly,
+there is no doubt that everything I am taught by nature contains
+some element of truth: for by nature, in a general sense, I now mean
+nothing other than either God himself, or the system of created
+things established by God; and by my own nature in particular,
+I mean nothing other than the combination of all the properties
+bestowed on me by God.
+Now there is nothing I am more emphatically taught by this
+nature of mine than that I have a body, with which there is something wrong when I feel pain, which needs food or drink, when
+I experience hunger or thirst, and so on and so forth. Hence I cannot
+doubt that there is some truth in all this.
+Nature likewise teaches me, through these very feelings of pain,
+hunger, thirst, and so forth, that I am not present in my body only as
+a pilot is present in a ship,* but that I am very closely conjoined to it
+and, so to speak, fused with it, so as to form a single entity with it.
+For otherwise, when the body is injured, I, who am nothing other
+than a thinking thing, would not feel pain as a result, but would perceive the injury purely intellectually, as the pilot perceives by sight
+any damage occurring to his ship; and when the body lacks food or
+drink, I would understand this explicitly, instead of having confused
+feelings of hunger and thirst. For certainly, these feelings of thirst,
+hunger, pain, and so forth are nothing other than certain confused
+modes of thinking, arising from the union and, so to speak, fusion of
+the mind with the body.
+Besides, I am further taught by nature that various other bodies
+exist around mine: of these, some are to be pursued by me, others
+avoided. And certainly, from the fact that I perceive very different
+colours, sounds, smells, tastes, degrees of heat, of hardness, and suchlike, I can validly conclude that in the bodies from which these varied
+sensory perceptions arise there are variations that correspond to
+them, even if, perhaps, they do not resemble them. And from the fact
+that some of these perceptions are pleasing to me, others displeasing,
+it is quite certain that my body, or rather myself as a whole, in so far
+as I am composed of a body and a mind, can be benefited or harmed
+by the surrounding bodies.
+But there are many other beliefs that, although I seem to be taught
+them by nature, I have in fact derived not from nature itself, but
+from a certain habit of judging without due consideration, and so
+these can easily turn out to be false. For instance, that every space in
+which nothing at all is happening that has an impact on my senses is
+a vacuum;* or that in a body that is hot, say, there is something altogether similar to the idea of heat in me; that in a white or green body,
+there is the same whiteness or greenness of which I have the sensation, in one that is bitter or sweet the same taste, and so on and so
+forth;* that stars and towers and whatever other distant bodies one
+can think of are only of the same size and shape as they appear to be
+to my senses, and so on. But there is a risk I may fail to perceive this
+matter sufficiently clearly if I do not first define more precisely what
+exactly I mean when I say that I am taught something by nature.
+Here I am taking ‘nature’ in a more restricted sense than when I use
+the term to denote the combination of all the properties bestowed on
+me by God. For in this combination there are many things that
+belong to the mind alone, such as my perception that what has happened cannot not have happened, and all the other things that I know
+by the natural light. These are not my concern here. There are also
+many that relate to the body alone, as that it has a tendency to fall
+downwards,* and suchlike. But I am not here concerned with these
+either, only with those things bestowed by God on me, as a composite of mind and body. Now nature in this sense teaches us to avoid
+those things that cause a sensation of pain, and pursue those that produce a sensation of pleasure, and so forth. But it does not appear that
+nature teaches us anything else that would enable us to reach any
+conclusion, on the basis of these sensory perceptions, about things
+existing outside ourselves, without a prior examination by the intellect; because it seems that a true knowledge [scire] of these belongs
+to the mind alone, but not to the composite entity. Thus, although a
+star affects my eye no more than the gleam of a small torch, there is
+no real or positive inclination here to believe that the star is no bigger
+than the torch:* but I formed this belief in childhood without any
+reason to support it. And although when I come close to the fire I feel
+heat, and in fact I feel pain when I come too close to it, there is certainly no reason that should persuade me that there is something in
+the fire like the heat, any more than there is something in it like the
+pain—only that there is something in the fire, whatever in fact it is,
+that produces these feelings of heat or pain. Again, although in a
+given space there may be nothing that affects the senses, it does not
+therefore follow that there is no body in it. But I see that in these, and
+in very many other things, I have grown accustomed to perverting
+the order of nature, because I use sensory perceptions, which were
+specifically given by nature for signifying to the mind* what things
+are beneficial or harmful to the composite of which the mind is
+part—for which purpose they are sufficiently clear and distinct—as
+if they were reliable criteria for immediately discerning the essence
+of bodies existing outside us. Of this, however, they signify nothing,
+except in very obscure and confused fashion.
+But I have already sufficiently examined how it can come to pass
+that, notwithstanding the goodness of God, my judgements are false.
+A further difficulty, however, arises here concerning these very
+things that are represented to me by nature as to be pursued or
+avoided, and concerning also the internal senses in which I seem to
+have discovered errors: as when someone, tricked by the pleasant
+taste of some food, absorbs a poison concealed in it. But in this case
+he is prompted by nature to desire only the source of the pleasant
+taste, not the poison of which he knows nothing. And nothing more
+is to be inferred from this than that this nature is not omniscient;
+which is not surprising, since, man being a limited creature, the only
+nature he can be endowed with is one of limited perfection.
+But yet we do quite frequently go astray even in things to which we
+are impelled by nature: as when sick people desire drink or food that
+will shortly do them harm. Someone might say here that they are led
+astray only because their nature has been corrupted:* but this does
+not remove the difficulty, because in truth, a sick human being is just
+as much a creature of God as a healthy one. And so it seems just as
+contrary to the goodness of God that his nature should be deceptive.
+Now a clock, an assembly of wheels and weights, obeys all the laws of
+nature just as strictly when it has been badly manufactured and does
+not tell the time accurately as when it fulfils the clockmaker’s wishes
+in every respect. And I can likewise consider the body of a human
+being as a kind of machine made up of bones, nerves, muscles, veins,
+blood, and skin so fitted together that, even if there were no mind
+within it, it would still have all the movements it currently has that do
+not result from the command of the will (and hence the mind). I can
+easily see that it would be natural, if, for example, the body were
+suffering from dropsy, for it to experience the dryness of the throat
+that usually communicates the sensation of thirst to the mind, so that,
+as a result, its nerves and other parts would be so disposed that it
+would have something to drink, thus making the disease worse; just
+as natural as it would be for a perfectly healthy body to be prompted
+by a similar dryness in the throat to take a drink that would do it good.
+And although, if we take into account the intended function of the
+clock, we can say that, when it fails to indicate the time correctly, it
+has fallen away from its nature; and likewise, if we consider the
+machine of the human body as designed so as to enable the movements that usually take place in it, I may think that it has gone astray
+from its own nature if its throat is dry at a time when drink will not
+conduce to its preservation, yet I can see perfectly clearly that this
+latter meaning of ‘nature’ is quite different from the former. For the
+latter meaning is nothing more than a denomination* dependent on
+my thinking, when I compare a sick human being and a badly made
+clock with my idea of a healthy human being and a well-made clock,
+and it tells us nothing about the actual things in question; whereas by
+the former I mean something that is actually found in the things
+themselves, and therefore contains a degree of truth.
+But certainly, even though, when considering the body suffering
+from dropsy, to speak of its nature being corrupted, on the grounds
+that its throat is dry and yet it does not need to drink, is merely an
+extrinsic denomination; yet if we consider the composite entity, that
+is, the mind as united to a body in this state (thirsty when drink
+would be harmful to it), this is not a pure denomination, but a genuine error of nature.* And so the question refuses to go away, how it
+is that the goodness of God does not prevent nature in this precise
+sense from being deceptive.
+Now, first of all, I observe here that there is a great difference
+between the mind and the body, in this respect, that the body of its
+nature is endlessly divisible, but the mind completely indivisible: for
+certainly, when I consider the mind, or myself in so far as I am purely
+a thinking thing, I can distinguish no parts in myself but understand
+myself to be a thing that is entirely one and complete. And although
+the whole mind appears to be united with the whole body, if the foot
+is cut off, or the arm, or any other part of the body, I know [cognosco]
+that nothing is therefore subtracted from the mind. Nor can the faculties of willing, perceiving by the senses, understanding, and so
+forth be said to be parts of the mind, since it is one and the same
+mind that wills, that senses, and that understands. On the other
+hand, however, no bodily or extended thing can be thought by me
+that I cannot mentally divide into parts, without any difficulty; and
+I therefore understand it is divisible. This point alone would suffice
+to show me that the mind is altogether distinct from the body, if I did
+not yet sufficiently know [scirem] this for other reasons.
+Next, I observe that the mind is not affected immediately by all the
+parts of the body, but only by the brain, or perhaps only by one very
+small part of the brain, namely that in which the ‘common sense’ is
+said to reside.* Whenever this part is affected in the same way, it represents the same thing to the mind, even if the other parts of the body
+happen to be differently affected at the same time. This is proved by
+innumerable observations* [experimenta] that there is no need to go
+into here.
+Moreover, I observe that it is of the nature of a body that none of
+its parts can be moved by another part somewhat distant from it,
+without its being able to be moved in the same way by any of the
+parts that lie between them, even when the more distant part is not
+involved in the movement. For instance, take a piece of string, with
+points A, B, C, and D. If the last part, D, is pulled, the first part, A,
+will be moved in exactly the same way as it would be moved if one of
+the intermediate points, B or C, were pulled, while the final point, D,
+remained immobile. By the same token, when I feel a pain in the foot,
+physics* teaches me that this sensation is produced by means of the
+nerves dispersed through the foot, which, since they extend upwards
+like strings as far as the brain, when plucked in the foot also pluck the
+inmost parts of the brain in which they terminate, thus stimulating a
+particular motion in these parts of the brain, which is so ordained by
+nature that it affects the mind with a feeling of pain apparently
+located in the foot. But because these nerves have to pass up the leg,
+the thigh, the loins, the back, and the neck in order to connect the
+foot and the brain, it can come about that, even if the part of the
+nerve that is in the foot is not affected, but only one of the intermediate parts, exactly the same movement will take place in the brain
+as takes place when the foot is injured, so that the mind will necessarily experience the same pain. And the same must apply to all our
+other sensations.
+Finally, I observe that, since each one of the motions that take
+place in the part of the brain that directly affects the mind produces
+only one sensation in the mind, no better explanation of this can be
+conceived than that the particular movement produces, of all the
+possible sensations it could produce, the sensation that most
+effectively and most frequently conduces to the preservation of the
+human being in good health. And experience bears witness that this
+applies to all the sensations with which nature has endowed us, and
+that therefore nothing at all can be found in them that does not bear
+witness to God’s immense power and goodness. Thus, for instance,
+when the nerves in the foot are violently and unusually stimulated,
+their movement, transmitted through the spinal cord to the inner
+parts of the brain, there gives a signal to the mind to experience a certain sensation, namely a pain experienced as being in the foot. By this
+the mind is stimulated to do its best to remove the cause of the pain,
+as being damaging to the foot. To be sure, the nature of man could
+have been so established by God that this same motion in the brain
+could have represented something different to the mind: it could
+have represented itself, in so far as it takes place in the brain, or in so
+far as it takes place in the foot, or in any of the places in between, or
+it could have represented something else altogether;* but nothing
+else would have been so conducive to the body’s preservation. In the
+same way, when we need to drink, a certain dryness originates in
+the throat, setting in motion the nerves there, and by their means the
+inner parts of the brain; and this motion affects the mind with the sensation of thirst, because in this situation there is nothing more useful
+to us to know than that we need a drink for the sake of preserving our
+health. And the same applies with all our other sensations.
+From all this, it is entirely plain that, notwithstanding God’s
+immense goodness, the nature of man, as a composite of mind and
+body, cannot but be liable to error at times. For if some cause not in
+the foot, but in some one of the other parts through which the nerves
+run on their way from the foot to the brain, or indeed in the brain
+itself, stimulates the very same motion as is usually stimulated by
+some injury to the foot, a pain will be felt as if in the foot, and our
+sense will be naturally deceived. This is because, since one and the
+same movement in the brain can only produce one and the same sensation in the mind, and since it is much more usually produced by
+some cause injuring the foot than by any other cause located somewhere else, it is in accordance with reason that it should always
+represent to the mind a pain in the foot rather than in any other part.
+And if sometimes a dryness in the throat arises, not from its usual
+cause, which is that the body’s health would be benefited by drinking, but from some other, contrary cause, as happens with those
+suffering from dropsy, it is better that it should deceive us in this
+latter case, than that, on the contrary, it should always deceive us
+when the body is healthy. And the same applies elsewhere.
+And this consideration will assist me greatly, not only to be aware
+of all the errors to which my nature is liable, but also to correct or
+avoid them easily. For certainly, since I know [sciam] that all our
+sensations indicate the truth far more frequently than the contrary,
+as far as the well-being of the body is concerned, and since in examining a particular case I can almost always draw on several of them,
+as well as on my memory, which connects present with past, and on
+my understanding, which has already discovered all the causes of
+error, I need no longer fear that the things the senses represent to me
+in ordinary life are false: on the contrary, the hyperbolic doubts of
+these past days can be dismissed as ridiculous. Especially the ultimate doubts concerning sleeping, which I could not distinguish from
+waking; for now I realize that there is a massive difference between
+them, inasmuch as dreams are never combined by my memory with
+the rest of the actions of my life, as happens with my waking experiences. For certainly if, while I was awake, someone suddenly appeared
+before me, and then immediately disappeared, as happens in dreams,
+in such a way, I mean, that I could not see where he was coming
+from or where he was going, I would not unreasonably judge it to
+be an apparition or a delusion produced by my brain, rather than a
+real person. But when things happen to me in such a way that I am
+distinctly aware of whence, where, and when they have come, and
+I connect the perception of them to the rest of my life, without any
+gaps, then I am well and truly certain that they are happening not in
+my sleep but when I am awake. Nor should I doubt even in the
+slightest degree of their truth, if after I have summoned all the senses,
+the memory, and the understanding to join in their examination,
+none of these reports anything that clashes with the report of the rest.
+For, from the fact that God is not a deceiver, it follows inescapably
+that in such cases I am not deceived. But because the necessities of
+action do not always allow us the opportunity for such a thorough
+examination, we must admit that human life is subject to frequent
+error in connection with particular things, and we must acknowledge
+the frailties of our nature.*
