@@ -89,8 +89,9 @@ export const installPicture = (appCtx) => {
     } catch { return null; }
   };
 
-  const ingestFile = (file, fileOpts = {}) =>
-    appCtx.runCancellable({ kind: 'file', label: `Reading ${file.name}…` }, async (signal, progress) => {
+  const ingestFile = (file, fileOpts = {}) => {
+    const targetTopicId = fileOpts.topicId || state.activeTopicId;
+    return appCtx.runCancellable({ kind: 'file', label: `Reading ${file.name}…` }, async (signal, progress) => {
       // Make the import reload-safe from the first byte: stash the file + open a durable job now,
       // before the (possibly slow) extractor even loads. Dropped the moment the source lands below.
       const fileJid = await beginFileJob(file);
@@ -112,7 +113,7 @@ export const installPicture = (appCtx) => {
           settleFile(signal.aborted ? 'stopped' : 'error', ((res && res.coverage && res.coverage.dropped) || ['no picture could be read']).join('; '));
           return null;
         }
-        const src = appCtx.addSource({ title: got.title || file.name, text: res.text, kind: 'audio', rights: 'local file', doc: res.doc });
+        const src = appCtx.addSource({ title: got.title || file.name, text: res.text, kind: 'audio', rights: 'local file', doc: res.doc, topicId: targetTopicId });
         settleFile('done');
         if (src) {
           src._media = got.meta.media ? { url: got.meta.media, kind: got.meta.mediaKind, isVideo: true } : null;
@@ -136,7 +137,7 @@ export const installPicture = (appCtx) => {
       // the source immediately (so it shows up as a source, playable, with its visualization),
       // reveal it, THEN run transcription in the background — only if there was signal to hear.
       if (got.meta?.modality === 'audio' && got.meta?.doc) {
-        const src = appCtx.addSource({ title: got.title || file.name, text: got.text, kind: 'audio', rights: 'local file', doc: got.meta.doc });
+        const src = appCtx.addSource({ title: got.title || file.name, text: got.text, kind: 'audio', rights: 'local file', doc: got.meta.doc, topicId: targetTopicId });
         // The source has landed and persists on its own now — the pre-source decode window the file
         // job covered is over. The original bytes (audio store, below) + the transcribe job carry
         // reload-safety from here, so drop the file job and its stashed copy rather than double-keep.
@@ -195,7 +196,7 @@ export const installPicture = (appCtx) => {
       // the log; re-parsing their rendered lines as prose would drop them. It is cheap and ready, so
       // the source lands WITH its doc in one step and its entity count shows at once.
       if (structured) {
-        const src = appCtx.addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', doc: got.meta.doc });
+        const src = appCtx.addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', doc: got.meta.doc, topicId: targetTopicId });
         settleFile('done');
         recordCoverage(src);
         // A caption's cues carry real timing, interpolated to word-level tokens — the same
@@ -212,7 +213,7 @@ export const installPicture = (appCtx) => {
       // finishReading folds it in when it is done. So a 2,500-page document never makes the reader
       // wait to see its source, and never freezes the tab on one synchronous sweep — until the read
       // lands, the registry simply shows that source's entity count as an ellipsis.
-      const src = appCtx.addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', defer: true });
+      const src = appCtx.addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', defer: true, topicId: targetTopicId });
       // The source has landed and persists (src.text rides the snapshot); the pre-source extract
       // window the file job covered is over. Drop it — a reload re-derives the reading lazily.
       settleFile('done');
@@ -246,6 +247,7 @@ export const installPicture = (appCtx) => {
       }
       return src;
     });
+  };
 
   Object.assign(appCtx, { ingestFile, recomposeVideoDoc, runWatch });
 };
