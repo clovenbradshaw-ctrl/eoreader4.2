@@ -170,15 +170,20 @@ export const installRegistry = (appCtx) => {
     src._eot = null;
     appCtx.deepReaders.delete(src.docId);
     try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { src.entCount = 0; }
-    try {
-      const props = doc.log ? emitEot(doc.log).lines.length : 0;
-      logIt('eot', `Encoded ${src.reg} into EoT — ${props} propositions`, src.reg);
-      const chapters = Array.isArray(doc?.chapters) ? doc.chapters.length : 0;
-      const entities = Number.isFinite(src.entCount) ? src.entCount : 0;
-      let findings = 0; try { findings = appCtx.findings?.().stats?.claims || 0; } catch { findings = 0; }
-      logIt('record', `Recorded and analyzed without an LLM — ${src.bytes.toLocaleString()} bytes verified · ${chapters} chapters · ${entities} entity candidates · ${findings} findings · ${props.toLocaleString()} EoT operations`, src.reg);
-    } catch (e) { logIt('skip', `EoT read failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
     appCtx.persist(); emit('sources');
+    // The EoT proposition tally is an O(events) walk of the whole log — a log line, not on the
+    // critical path (the reading already folded in above). It rides the background queue rather
+    // than blocking the fold-in with a second full read of a book the instant projectGraph made one.
+    appCtx.bgSerial(() => {
+      try {
+        const props = doc.log ? emitEot(doc.log).lines.length : 0;
+        logIt('eot', `Encoded ${src.reg} into EoT — ${props} propositions`, src.reg);
+        const chapters = Array.isArray(doc?.chapters) ? doc.chapters.length : 0;
+        const entities = Number.isFinite(src.entCount) ? src.entCount : 0;
+        let findings = 0; try { findings = appCtx.findings?.().stats?.claims || 0; } catch { findings = 0; }
+        logIt('record', `Recorded and analyzed without an LLM — ${src.bytes.toLocaleString()} bytes verified · ${chapters} chapters · ${entities} entity candidates · ${findings} findings · ${props.toLocaleString()} EoT operations`, src.reg);
+      } catch (e) { logIt('skip', `EoT read failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
+    }, { key: `eotlog:${src.docId}` });
     appCtx.sourceSummary(src.sn).catch(() => { /* a summary must never cost the record */ });
     appCtx.autoEntitySummaries(src);   // …and a topline for each of its dominant figures (telegram-only)
   };
@@ -202,6 +207,25 @@ export const installRegistry = (appCtx) => {
       src._eot = readIngest(doc, k === 12 && budget == null ? undefined : { k, ...(budget ? { budget } : {}) });
     }
     return src._eot;
+  };
+
+  // eotReady(snId) — the NON-BLOCKING accessor a render reaches for. eotFor's first call runs
+  // the Bayesian-surprise turning-point spine (readIngest → significanceSpine), which re-reads
+  // the whole log once per sampled cursor — O(budget · events), tens of seconds on a book. Called
+  // straight from the source-viewer render (index.html), that computed the whole spine SYNCHRONOUSLY
+  // in the very first frame after a big source landed, freezing the tab (the "glitch out" on War and
+  // Peace). This returns the memoised reading if it is ready, else schedules the heavy read on the
+  // background queue — ONE source's spine at a time, off the frame — and returns null for now,
+  // emitting when it lands so the surface re-renders with the reading folded in. Every eot consumer
+  // already treats null as "not ready yet" (the count reads 0, the surprise overlay is empty), so
+  // the viewer opens at once and its reading fills in a beat later instead of blocking on it.
+  const eotReady = (snId) => {
+    const src = sourceBySn(snId);
+    if (!src) return null;
+    if (src._eot) return src._eot;
+    appCtx.bgSerial(() => { try { eotFor(snId); emit('sources'); } catch { /* the record still stands */ } },
+                    { key: `eot:${src.docId}` });
+    return null;
   };
 
   // The ANSWER's own reading as one EoT document. The source viewer's facing page reads a recorded
@@ -303,5 +327,5 @@ export const installRegistry = (appCtx) => {
   const sourceHistoryJsonl = (snId, opts = {}) => sourceExport(snId, { ...opts, format: 'jsonl' });
   const sourceCursorJson = (snId, cursor = {}, opts = {}) => sourceExport(snId, { ...opts, cursor, format: 'cursor-json' });
 
-  Object.assign(appCtx, { addSource, answerEot, docFor, eotFor, finishReading, releaseParsesOutsideTopic, removeSource, sourceBySn, sourceRename, sourceUpdateMetadata, sourceExport, sourceHistoryJsonl, sourceCursorJson, topicDocs, topicReferentDocs, topicSources, topicSourcesAll });
+  Object.assign(appCtx, { addSource, answerEot, docFor, eotFor, eotReady, finishReading, releaseParsesOutsideTopic, removeSource, sourceBySn, sourceRename, sourceUpdateMetadata, sourceExport, sourceHistoryJsonl, sourceCursorJson, topicDocs, topicReferentDocs, topicSources, topicSourcesAll });
 };

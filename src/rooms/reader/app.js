@@ -68,6 +68,7 @@ import { nowIso, nowMs, RESEARCH_HOPS, wantsLongform, LONGFORM_MAX_TOKENS, domai
 export { keepGuardAlive, probeModelAlive, REFLECTION_CAP, recordReflections, LOG_CAP, appendLog };
 // ── the app ──────────────────────────────────────────────────────────────────
 import { buildApi } from './app/api.js';
+import { installSchedule } from './app/schedule.js';
 import { installTrail } from './app/trail.js';
 import { installPersistence } from './app/persistence.js';
 import { installJobs } from './app/jobs.js';
@@ -207,6 +208,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
 
   Object.assign(appCtx, { audit, client, emit, exportLog, fetchImpl, ledger, logIt, modelEngaged, monitor, murmur, state, subs, subscribe });
 
+  installSchedule(appCtx);   // bgSerial — the background queue every heavy after-read rides
   installTrail(appCtx);
   installPersistence(appCtx);
   installJobs(appCtx);
