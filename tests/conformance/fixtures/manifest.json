@@ -1,0 +1,237 @@
+{
+  "version": 1,
+  "generatedBy": "tests/conformance/fixtures/generate-manifest.mjs",
+  "scopeNote": "Starter corpus (~24 fixtures) vs. the spec's ~60-document target — see tests/conformance/README.md \"Known gaps\".",
+  "fixtures": [
+    {
+      "id": "muni-council-minutes-01",
+      "category": "municipal",
+      "path": "municipal/council-minutes-01.txt",
+      "sha256": "9cc7b049858c90ee66084dd05dd9eff0c73570895f810e69b87eeb66622d54e9",
+      "bytes": 3094,
+      "source": "original, authored for this suite (docs/parse-conformance-spec.md fixtures) — not a real municipal/legal/news document",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "city council minutes: motions, votes, an abstention, named officials"
+    },
+    {
+      "id": "muni-staff-report-01",
+      "category": "municipal",
+      "path": "municipal/staff-report-01.txt",
+      "sha256": "6e3edfbc904e79ec29506ef5546b93a6e6e2d3bc9ae686cb2048e97ce4adef85",
+      "bytes": 2065,
+      "source": "original, authored for this suite (docs/parse-conformance-spec.md fixtures) — not a real municipal/legal/news document",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "staff report recommending a contract award"
+    },
+    {
+      "id": "muni-rfp-excerpt-01",
+      "category": "municipal",
+      "path": "municipal/rfp-excerpt-01.txt",
+      "sha256": "b1783b0cbedaac7c8750dc301dacec7ccd235bc1c950975840c2d0944cad154e",
+      "bytes": 2038,
+      "source": "original, authored for this suite (docs/parse-conformance-spec.md fixtures) — not a real municipal/legal/news document",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "procurement RFP excerpt: numbered sections, defined terms, weighted criteria"
+    },
+    {
+      "id": "legal-docket-01",
+      "category": "legal",
+      "path": "legal/docket-01.txt",
+      "sha256": "5d1310389f37a1e7eb374b482dd09757e3719e3aea8d7b843345f69ec942a6c7",
+      "bytes": 1494,
+      "source": "original, authored for this suite (docs/parse-conformance-spec.md fixtures) — not a real municipal/legal/news document",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "court docket entries: dates, citation furniture, multiple parties"
+    },
+    {
+      "id": "legal-order-01",
+      "category": "legal",
+      "path": "legal/order-01.txt",
+      "sha256": "c0f2fd7a690005806ac4979f026dab1f0e1238f699df175dcade5d99a0e11c05",
+      "bytes": 2371,
+      "source": "original, authored for this suite (docs/parse-conformance-spec.md fixtures) — not a real municipal/legal/news document",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "court order: case caption, citations, headings I/II/III/IV"
+    },
+    {
+      "id": "legal-complaint-excerpt-01",
+      "category": "legal",
+      "path": "legal/complaint-excerpt-01.txt",
+      "sha256": "9652b1a672a1d5b0d6e3789184d5358d6ec7881461ebae76160e9ad56e8d0914",
+      "bytes": 2053,
+      "source": "original, authored for this suite (docs/parse-conformance-spec.md fixtures) — not a real municipal/legal/news document",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "civil petition excerpt: numbered paragraphs 1-9"
+    },
+    {
+      "id": "news-infrastructure-01",
+      "category": "news",
+      "path": "news/news-infrastructure-01.txt",
+      "sha256": "7cffc1d83c04ca51a9094d6a23d9a80f3cab85e9919d65e9c0afa8a68e14f017",
+      "bytes": 1956,
+      "source": "original, authored for this suite (docs/parse-conformance-spec.md fixtures) — not a real municipal/legal/news document",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "news article, byline, quoted officials"
+    },
+    {
+      "id": "news-officials-01",
+      "category": "news",
+      "path": "news/news-officials-01.txt",
+      "sha256": "cb2d85bb591e6a4200d75990dea3b4af3d3d9622932fce5fd9e838c97fea182a",
+      "bytes": 1617,
+      "source": "original, authored for this suite (docs/parse-conformance-spec.md fixtures) — not a real municipal/legal/news document",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "news article referencing the council-minutes-01 cast — cross-fixture entity overlap"
+    },
+    {
+      "id": "news-brief-01",
+      "category": "news",
+      "path": "news/news-brief-01.txt",
+      "sha256": "8a824abaf7aed7f33a801b526d36547e77599e4deae6ba87ca62824047693463",
+      "bytes": 460,
+      "source": "original, authored for this suite (docs/parse-conformance-spec.md fixtures) — not a real municipal/legal/news document",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "short wire-style brief"
+    },
+    {
+      "id": "literary-frankenstein",
+      "category": "literary",
+      "path": "../../fixtures/frankenstein.txt",
+      "sha256": "af10bac042d03e093ba6e6ef56f4b98f45a0c278d633c8f348da12590caf94a5",
+      "bytes": 428903,
+      "source": "Mary Shelley, Frankenstein; or, The Modern Prometheus (1818) — public domain; the file already vendored at tests/fixtures/frankenstein.txt for tests/individuation.test.js and friends, referenced here rather than duplicated",
+      "license": "public domain",
+      "notes": "long, heavy coref, the canonical un-named-referent case (\"the creature\")"
+    },
+    {
+      "id": "literary-the-lamplighter",
+      "category": "literary",
+      "path": "literary/the-lamplighter.txt",
+      "sha256": "a41e92f04ba08ca3aefd9728e717fc2c2b79bfdc15d51291e9cc26de41c33bd6",
+      "bytes": 3511,
+      "source": "original, authored for this suite (docs/parse-conformance-spec.md fixtures) — not a real municipal/legal/news document",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "short story, heavy pronoun coref, two never-named definite-description agents (\"the stranger\", \"the old woman\"), a possessive descriptor (\"her sister\") never named"
+    },
+    {
+      "id": "ocr-council-minutes",
+      "category": "ocr-damaged",
+      "path": "ocr-damaged/ocr-council-minutes.txt",
+      "sha256": "c85efeb41c18cb9f426bca508fa4efa33ba5a7adc8a30e45fcf63bb80bf22502",
+      "bytes": 1231,
+      "source": "original, authored for this suite (docs/parse-conformance-spec.md fixtures) — not a real municipal/legal/news document — synthetically OCR-damaged from muni-council-minutes-01 (line-wrap hyphenation, l/1/I and O/0 confusion, missing spaces)",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "simulated OCR damage, not a real scan"
+    },
+    {
+      "id": "ocr-legal-order",
+      "category": "ocr-damaged",
+      "path": "ocr-damaged/ocr-legal-order.txt",
+      "sha256": "8921eb0b5505f6b90f9aa56b32036f89d88633c7bc176c080c0909e5c80c3288",
+      "bytes": 1004,
+      "source": "original, authored for this suite (docs/parse-conformance-spec.md fixtures) — not a real municipal/legal/news document — synthetically OCR-damaged from legal-order-01",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "simulated OCR damage, not a real scan; heavier corruption than ocr-council-minutes"
+    },
+    {
+      "id": "adversarial-citations",
+      "category": "adversarial",
+      "path": "adversarial/adversarial-citations.txt",
+      "sha256": "06c4f43da0e02aba617e3793f8cdc05bcc64fe64030eb6280f6c6c57ba2791a5",
+      "bytes": 1188,
+      "source": "original, authored for this suite (docs/parse-conformance-spec.md fixtures) — not a real municipal/legal/news document",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "Tier 3 battery in prose form: abbreviations, decimals, money, ellipsis-adjacent quotes, citation strings"
+    },
+    {
+      "id": "adversarial-tables",
+      "category": "adversarial",
+      "path": "adversarial/adversarial-tables.txt",
+      "sha256": "77598f5226af8402a4eff6427e333807ce3837b24b5df4efbbe66bcfecbafa13",
+      "bytes": 979,
+      "source": "original, authored for this suite (docs/parse-conformance-spec.md fixtures) — not a real municipal/legal/news document",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "space-aligned table rows leaked into the text layer, interleaved with prose"
+    },
+    {
+      "id": "adversarial-allcaps",
+      "category": "adversarial",
+      "path": "adversarial/adversarial-allcaps.txt",
+      "sha256": "13d50d7eb97dadc1693418c9bfa654db139db436c6efc818c77b2b12ea6b6df2",
+      "bytes": 1191,
+      "source": "original, authored for this suite (docs/parse-conformance-spec.md fixtures) — not a real municipal/legal/news document",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "ALL-CAPS headers with no terminal punctuation, mid-sentence footnote markers"
+    },
+    {
+      "id": "degenerate-empty",
+      "category": "degenerate",
+      "path": "degenerate/empty.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "source": "generated",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "zero bytes"
+    },
+    {
+      "id": "degenerate-one-word",
+      "category": "degenerate",
+      "path": "degenerate/one-word.txt",
+      "sha256": "185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969",
+      "bytes": 5,
+      "source": "generated",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "a single word, no punctuation"
+    },
+    {
+      "id": "degenerate-huge-single-line",
+      "category": "degenerate",
+      "path": "degenerate/huge-single-line.txt",
+      "sha256": "8f8e6bb56a272b4b23dacaafcc7181984602edff314a3908412eaf049f122a3d",
+      "bytes": 60006,
+      "source": "generated",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "one ~60KB line, no newlines — scaled down from the spec's 8MB for repo size; see README for how to regenerate a larger instance locally"
+    },
+    {
+      "id": "degenerate-emoji-only",
+      "category": "degenerate",
+      "path": "degenerate/emoji-only.txt",
+      "sha256": "2d9896555e590f2b1f7bfac27aee907b06beaf81bb7ce2e59bcf04884378ed1a",
+      "bytes": 78,
+      "source": "generated",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "emoji only, no letters"
+    },
+    {
+      "id": "degenerate-rtl",
+      "category": "degenerate",
+      "path": "degenerate/rtl.txt",
+      "sha256": "35616aac646bc72036c9b4e6143f50aef56cbada7888b3f5100b0e0115a0e045",
+      "bytes": 157,
+      "source": "original, authored for this suite (Arabic)",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "right-to-left script"
+    },
+    {
+      "id": "degenerate-mixed-script",
+      "category": "degenerate",
+      "path": "degenerate/mixed-script.txt",
+      "sha256": "feb65effd98d687c122d7a03c71650ad5e7dbb2f36e9a2d9e1b1bde05e78a316",
+      "bytes": 149,
+      "source": "original, authored for this suite (Latin/Cyrillic/Japanese)",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "mixed-script document — Latin, Cyrillic, and Japanese names in one text"
+    },
+    {
+      "id": "degenerate-pure-whitespace",
+      "category": "degenerate",
+      "path": "degenerate/pure-whitespace.txt",
+      "sha256": "0b4f2e9e8c2b6342baab1f986bab13885c05e4fe9acfebfe71a061ea16332258",
+      "bytes": 15,
+      "source": "generated",
+      "license": "CC0 — original work, dedicated to the public domain for this suite",
+      "notes": "spaces, tabs, and newlines only"
+    }
+  ]
+}
