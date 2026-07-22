@@ -141,20 +141,8 @@ export const installPersistence = (appCtx) => {
     for (const s of state.sources) if (s.folderId && !folderIds.has(s.folderId)) s.folderId = null;
     state.ready = true;
     emit('ready');
-    // The model prewarms the moment the session is up (4.1's mount posture) so the
-    // first question never pays the download stall. Browser only — never in tests —
-    // and the ladder inside ensureModel already falls back webllm → wllama → echo.
+    // Lean boot: no local LLM/MiniLM prewarm on page open; load weights only on opt-in synthesis.
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-      setTimeout(() => {
-        appCtx.ensureModel().catch(() => { /* logged by the ladder */ });
-        // Warm the MiniLM meaning embedder at boot too, not lazily on the first ask. Retrieval's
-        // semantic channel — and the fold's referent-binding that the EOT answerability floor
-        // reads — is only trustworthy when this is live; warming it here means the FIRST question
-        // already gets meaning-scored retrieval instead of the lexical-only fallback that sends
-        // the surf wandering (the cold-start "fastest dolphin over a Vaporwave composite" case).
-        // Fire-and-forget and IndexedDB-cached, so it costs nothing on a warm return.
-        appCtx.warmMinilm();
-      }, 600);
       // THE MODEL KEEPER's triggers (healModel/verifyRestoredModel below): reload a model that
       // silently unloaded — a lost GPU device, a failed first load, an evicted engine — in the
       // background, at the moments recovery is likely to work, instead of on the next question's
