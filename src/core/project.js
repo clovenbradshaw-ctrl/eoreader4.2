@@ -76,14 +76,24 @@ const computeProjection = (log, frame) => {
   const ufind = (pm, x) => { let p = pm.get(x) ?? x; while (p !== (pm.get(p) ?? p)) p = pm.get(p) ?? p; return p; };
   const union = (pm, a, b) => { const ra = ufind(pm, a), rb = ufind(pm, b); if (ra !== rb) pm.set(ra, rb); };
 
-  // First pass: collect retractions so a SEG can undo a later-replayed event.
+  // First pass: collect retractions so a SEG can undo a later-replayed event. A
+  // role:corpus retraction is excluded here too (F4/F6, docs/corpus-fold §2.3) — a
+  // corpus fold must never reach into a document's own log and undo one of ITS events.
   for (const e of events) {
+    if (e.role === 'corpus') continue;
     if (e.op === 'SEG' && e.kind === 'retract' && e.refSeq != null) {
       retracted.add(e.refSeq);
     }
   }
 
   for (const e of events) {
+    // THE FIREWALL (F4, docs/corpus-fold §2.3): a role:corpus event never mints an entity,
+    // an edge, a merge, a void, or anything else this fold produces. Corpus folds live in
+    // the ledger in full (F6 — nothing here refuses to STORE one); this is the one place
+    // their CONTENT is kept out of a document's own claim ledger, however the two came to
+    // share one log. The prior these events seed instead (§2.2) is a perceiver/reading.js
+    // concern, not this projection's — that channel is deliberately untouched here.
+    if (e.role === 'corpus') continue;
     if (retracted.has(e.seq)) continue;
     // A carved absence — the document witnessing that a relation slot is VOID
     // (the four VOID emitters; an explicit_void note `A -> [void] : rel`, or a

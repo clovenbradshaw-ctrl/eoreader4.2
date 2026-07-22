@@ -41,7 +41,7 @@ const sealGeometry = (event) => {
 // collects it. An event with no `src`, or a log with no resolver, is checked by
 // the static checkpoints instead (tests/op-fidelity.test.js) and seals
 // byte-identically to before.
-export const createLog = ({ docId, contractOf = null } = {}) => {
+export const createLog = ({ docId, contractOf = null, role = null } = {}) => {
   const id = nextLogId++;
   const events = [];
   const subscribers = new Set();
@@ -60,12 +60,23 @@ export const createLog = ({ docId, contractOf = null } = {}) => {
       else if (!c.ops.includes(event.op))
         law1 = Object.freeze({ src, op: event.op, verdict: 'undeclared-op', declared: c.ops });
     }
+    // The corpus role (docs/corpus-fold §2.1, F1) — sealed HERE, the one chokepoint every
+    // event already passes through for seq/t/eo/law1, never trusted from a caller that could
+    // forget it. A corpus fold rides the SAME append (F1: no separate or simplified path);
+    // what marks it is this log's own `role` (a corpus item's whole log) or, failing that, the
+    // individual event's own `role` (a caller staging a mixed log). Either way the mark rides
+    // the sealed event itself, so a projection can read it without walking back to the log
+    // that produced it — the firewall (F4, enforced in core/project.js) needs nothing more.
+    // Omitted entirely (not a false-y key) on a plain document event, so an ordinary log's
+    // events stay byte-identical in shape to before this field existed.
+    const evRole = event.role ?? role ?? null;
     const sealed = Object.freeze({
       ...event,
       seq: events.length,
       t: event.t ?? Date.now(),
       ...(eo ? { eo } : {}),
       ...(law1 ? { law1 } : {}),
+      ...(evRole ? { role: evRole } : {}),
     });
     events.push(sealed);
     if (law1) law1Violations.push(sealed);
@@ -86,6 +97,7 @@ export const createLog = ({ docId, contractOf = null } = {}) => {
   return {
     id,
     docId,
+    role,
     append,
     retract,
     subscribe,
