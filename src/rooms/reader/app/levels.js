@@ -45,6 +45,17 @@ export const installLevels = (appCtx) => {
     if (!docId) return null;
     const direct = state.sources.find((s) => s.docId === docId);
     if (direct) return { src: direct, doc: appCtx.docFor(direct) };
+    // A COMPOSITE source's reading carries a JOINED docId — its members' ids, "…#1 + …#2 + …"
+    // (organs/in/composite.js), never the source's own docId. So a ref minted against that
+    // reading (topicTieredData, the tiered/solar graph) fails the direct lookup above, its
+    // entityProfile comes back null, and tieredData yields zero nodes — the per-source Graph
+    // (solar) tab then falls to "Nothing to place in orbit yet for that figure". Resolve it by
+    // the already-built reading's own docId: such a ref only exists because that composite was
+    // built, so its doc is memoised on `_doc` — a cheap, exact match, no re-parse. (A non-
+    // composite source's `_doc.docId` equals its own docId and is caught by `direct` above;
+    // the ~nl/~live readings live on separate fields, so this only ever matches a composite.)
+    const composite = state.sources.find((s) => s._doc && s._doc.docId === docId);
+    if (composite) return { src: composite, doc: composite._doc };
     if (docId.endsWith(NL_SUFFIX)) {
       const baseId = docId.slice(0, -NL_SUFFIX.length);
       const src = state.sources.find((s) => s.docId === baseId);
