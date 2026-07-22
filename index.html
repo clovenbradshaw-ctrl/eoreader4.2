@@ -5593,7 +5593,7 @@ class Component extends DCLogic {
         // scope, keeping the current kind) and redraw in place if the tab is showing — so a topic
         // switch never strands the previous topic's web nor blanks the canvas.
         if (this._wg) {
-          this._wg = { kind: ['causal', 'network', 'crosswalk', 'compare', 'solar'].includes(this._wg.kind) ? this._wg.kind : 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
+          this._wg = { kind: ['causal', 'network', 'crosswalk', 'compare', 'solar'].includes(this._wg.kind) ? this._wg.kind : 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, meaningFocus: null, hidden: new Set() };
           this._tgToggles = []; this._wgPanel = null; this._seedWgPanel();
           this.setState({ webGraphFor: this._wgMirror() });
           if (this.state.tab === 'graph' && this._tgEl) this._drawWebGraph();
@@ -6754,7 +6754,7 @@ class Component extends DCLogic {
   // yet. Returns whether it initialised (so the caller can mirror it into render state).
   _ensureTopicGraph() {
     if (this._wg) return false;
-    this._wg = { kind: 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
+    this._wg = { kind: 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, meaningFocus: null, hidden: new Set() };
     this._tgToggles = [];
     this._seedWgPanel();
     return true;
@@ -7683,7 +7683,7 @@ class Component extends DCLogic {
     // graph inline (setSourceGraphEl re-scopes to whichever container is live), so only a mode that
     // hosts neither the Graph tab nor the Overview tears it down — switching graph↔overview keeps
     // the chosen sun and just re-mounts in place.
-    if (mode !== 'graph' && mode !== 'overview' && this._srcGraph) { try { this._srcGraph.destroy(); } catch {} this._srcGraph = null; this._srcGraphEl = null; this._srcGraphSn = null; this._srcGraphEntId = null; }
+    if (mode !== 'graph' && mode !== 'overview' && this._srcGraph) { try { this._srcGraph.destroy(); } catch {} this._srcGraph = null; this._srcGraphEl = null; this._srcGraphSn = null; this._srcGraphEntId = null; this._srcGraphMeaningFocus = null; }
     // Keep the mobile view stack's top frame (if it's this same source) in sync with a live mode
     // switch, so navigating away and later Back-ing all the way through to this source restores
     // the mode actually left showing, not whatever it was at the moment it was first opened.
@@ -10749,7 +10749,7 @@ class Component extends DCLogic {
   // ends with a setState(tick) so the checkboxes and counts catch up.
   openWebGraph(docId, entId) {
     const label = (this._app.entityProfile(docId, entId) || {}).label || '';
-    this._wg = { kind: 'entity', scope: 'entity', docId, entId, entLabel: label, focusKey: null, focusLabel: null, hidden: new Set() };
+    this._wg = { kind: 'entity', scope: 'entity', docId, entId, entLabel: label, focusKey: null, focusLabel: null, meaningFocus: null, hidden: new Set() };
     this._tgToggles = [];
     this._setWgPanel(docId, entId);   // the details panel opens ON the entity the web is about
     // The web lives in the Graph tab now — go there and draw this entity's neighbourhood.
@@ -10762,7 +10762,7 @@ class Component extends DCLogic {
     // The causal DAG surface stays hidden until its reader is reliable enough to expose — any
     // kind outside this allowlist (same one setWebKind guards with) lands on the entity web.
     kind = (kind === 'network' || kind === 'crosswalk' || kind === 'compare' || kind === 'solar') ? kind : 'entity';
-    this._wg = { kind, scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
+    this._wg = { kind, scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, meaningFocus: null, hidden: new Set() };
     this._tgToggles = [];
     this._seedWgPanel();   // entity kind: the details panel opens on the topic's top figure
     const nav = opts.navigate !== false;
@@ -10992,7 +10992,7 @@ class Component extends DCLogic {
     const sn = this._activeSrc ? this._activeSrc() : null;
     const fresh = this._srcGraphEl !== el;
     if (!fresh && this._srcGraphSn === sn) return;   // same container + source — already drawn
-    if (this._srcGraphSn !== sn) this._srcGraphEntId = null;   // a different source starts with no sun chosen
+    if (this._srcGraphSn !== sn) { this._srcGraphEntId = null; this._srcGraphMeaningFocus = null; }   // a different source starts with no sun chosen
     this._srcGraphEl = el; this._srcGraphSn = sn;
     this._drawSourceGraph(el);
   }
@@ -11034,7 +11034,7 @@ class Component extends DCLogic {
       if (!ref) { this._drawSourceGraphChooser(el, ents); return; }
       const ego = this._app.solarMeaningData ? this._app.solarMeaningData(ref.docId, ref.entId) : this._app.tieredData(ref.docId, ref.entId);
       if (!ego.nodes || !ego.nodes.length) {
-        this._srcGraphEntId = null;
+        this._srcGraphEntId = null; this._srcGraphMeaningFocus = null;
         this._drawSourceGraphChooser(el, ents, 'Nothing to place in orbit yet for that figure — pick another.');
         return;
       }
@@ -11044,11 +11044,16 @@ class Component extends DCLogic {
       this._srcGraph = window.EO.mountSolarSystem(el, {
         nodes: ego.nodes, edges: ego.edges, centreId: `e:${ref.entId}`,
         spans, count: prof.mentionCount || spans.length,
+        // the camera lock survives this component's own re-mounts (this._srcGraphMeaningFocus is
+        // instance state, not local to one draw), the same pattern _drawSolar and the Question
+        // Result page's Meaning map use — a claim click here stays centred instead of snapping
+        // back to the sun.
+        focusId: this._srcGraphMeaningFocus, onFocus: (id) => { this._srcGraphMeaningFocus = id; },
         // a raw span jumps to its passage in the source — the deepest descent lands on the record
         onSpan: (sp) => { if (prof.sn != null && sp) { try { this._jumpTo(prof.sn, sp.text, sp.t0, sp.t1); } catch {} } },
         // a body click pivots this source's own sun onto it, in place (openEntity keeps the
         // source tab in front and turns the right rail to the new focus)
-        onPivot: (node) => { if (!node || !node.ref) return; this._srcGraphEntId = node.ref; this.openEntity(node.ref.docId, node.ref.entId); this._drawSourceGraph(el); },
+        onPivot: (node) => { if (!node || !node.ref) return; this._srcGraphEntId = node.ref; this._srcGraphMeaningFocus = null; this.openEntity(node.ref.docId, node.ref.entId); this._drawSourceGraph(el); },
         onOpen: (node) => { if (node && node.ref) this.openEntity(node.ref.docId, node.ref.entId); },
         onSelect: (node) => { if (node && node.kind === 'entity' && node.ref) this.openEntity(node.ref.docId, node.ref.entId); },
         countsLabel: `${ego.nodes.length} bodies · ${ego.edges.length} bonds`,
@@ -11071,7 +11076,7 @@ class Component extends DCLogic {
     el.querySelectorAll('.solar-pick').forEach((btn) => {
       btn.addEventListener('click', () => {
         const n = top[+btn.getAttribute('data-i')]; if (!n) return;
-        this._srcGraphEntId = n.ref; this.openEntity(n.ref.docId, n.ref.entId); this._drawSourceGraph(el);
+        this._srcGraphEntId = n.ref; this._srcGraphMeaningFocus = null; this.openEntity(n.ref.docId, n.ref.entId); this._drawSourceGraph(el);
       });
     });
   }
@@ -11081,6 +11086,7 @@ class Component extends DCLogic {
     this._wg.kind = kind;
     this._wg.hidden = new Set();                            // so reset the toggles and any focus and
     this._wg.focusKey = null; this._wg.focusLabel = null;  // land on the whole topic in the new kind
+    this._wg.meaningFocus = null;
     this._wg.scope = 'topic';
     this._wg.query = '';   // drop any stale crosswalk search scope too — the vocabularies differ
     this._seedWgPanel();   // entity kind reopens the panel on the top figure; network/causal have none
@@ -11090,7 +11096,7 @@ class Component extends DCLogic {
   }
   setWebScope(scope) {
     if (!this._wg) return;
-    this._wg.scope = scope; this._wg.hidden = new Set();
+    this._wg.scope = scope; this._wg.hidden = new Set(); this._wg.meaningFocus = null;
     if (scope === 'topic') { this._wg.focusKey = null; this._wg.focusLabel = null; }
     this.setState({ webGraphFor: this._wgMirror() });
     this._drawWebGraph();
@@ -11115,7 +11121,7 @@ class Component extends DCLogic {
     if (!this._wg || !ref) return;
     this._wg.scope = 'entity'; this._wg.docId = ref.docId; this._wg.entId = ref.entId;
     this._wg.entLabel = (this._app.entityProfile(ref.docId, ref.entId) || {}).label || '';
-    this._wg.hidden = new Set();
+    this._wg.hidden = new Set(); this._wg.meaningFocus = null;
     this._setWgPanel(ref.docId, ref.entId);   // the panel follows the focus
     this.setState({ webGraphFor: this._wgMirror() });
     this._drawWebGraph();
@@ -11231,6 +11237,11 @@ class Component extends DCLogic {
     this._tg = window.EO.mountSolarSystem(el, {
       nodes: show.nodes, edges: show.edges, centreId: `e:${w.entId}`,
       spans, count: prof.mentionCount || spans.length,
+      // the camera lock survives a redraw (an entity toggle, a scope change elsewhere in this
+      // tab) the same way research-review-surface.js's Meaning map does — w.meaningFocus is kept
+      // on `_wg`, which this whole tab already threads across every _drawWebGraph() call, so a
+      // claim click here no longer snaps back to the sun the instant something else redraws it.
+      focusId: w.meaningFocus, onFocus: (id) => { w.meaningFocus = id; },
       // a raw span jumps to its passage in the source — the deepest descent lands on the record
       onSpan: (sp) => { if (prof.sn != null && sp) { try { this._jumpTo(prof.sn, sp.text, sp.t0, sp.t1); } catch {} } },
       // a body click pivots the whole view to that entity's point of view
@@ -11246,7 +11257,7 @@ class Component extends DCLogic {
     if (!this._wg || !ref) return;
     this._wg.scope = 'entity'; this._wg.docId = ref.docId; this._wg.entId = ref.entId;
     this._wg.entLabel = (this._app.entityProfile(ref.docId, ref.entId) || {}).label || '';
-    this._wg.hidden = new Set();
+    this._wg.hidden = new Set(); this._wg.meaningFocus = null;
     this._setWgPanel(ref.docId, ref.entId);
     this.setState({ webGraphFor: this._wgMirror() });
     this._drawWebGraph();
@@ -13234,7 +13245,7 @@ class Component extends DCLogic {
     // _webGraphVals below returns the full view-model rather than the stub. Mutation-only (no
     // setState in render) — the panel seeds lazily on the first draw/click, like other caches here.
     if (graphExplorerLive && !this._wg) {
-      this._wg = { kind: 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
+      this._wg = { kind: 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, meaningFocus: null, hidden: new Set() };
       this._tgToggles = [];
     }
     // Which tiers are folded (collapsed by default): a tier is open only when graphOpen[key] is
