@@ -7044,7 +7044,12 @@ class Component extends DCLogic {
     // current source/topic and picks fresh figures.
     if (this.state.tab === 'rashomon' && tab !== 'rashomon' && this._rashomon) { try { this._rashomon.destroy(); } catch {} this._rashomon = null; this._rashomonEl = null; }
     // Picking a destination from the left drawer on mobile is a navigation — the drawer yields.
-    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}) };
+    // Landing fresh on the Sources tab (not just re-rendering while already on it) points the Drive
+    // at THIS topic's shelf rather than wherever explorerBucket was last left — otherwise the tab's
+    // own "Sources N" badge promises this topic's sources but the Drive opens on a stale "All
+    // sources" (or another topic's) view instead.
+    const enteringRegister = tab === 'register' && this.state.tab !== 'register';
+    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}), ...(enteringRegister ? { explorerBucket: 'topic', explorerFolder: null, explorerSel: null, explorerShowAll: false } : {}) };
     // Jumping straight to a root screen (the bottom tabs, or any of the "Ask about this topic" /
     // "View findings" style CTAs that land on the same five ids) is a deliberate reset of the
     // mobile view stack, not one more hop to chain onto — Back from a fresh root should never
@@ -13728,7 +13733,9 @@ class Component extends DCLogic {
     const wsObj = app.activeWorkspace();
     const wsName = wsObj ? wsObj.name : 'Workspace';
     const bucket = st.explorerFolder ? 'folder' : (st.explorerBucket || 'all');
-    const bucketLabel = { recent: 'Recent', starred: 'Starred', topic: 'In ' + this._term('corpus'), all: 'All sources' }[bucket] || 'All sources';
+    // Bare noun, not "In <corpus>" — scopeName below feeds sourcesHeading's own "SOURCES · N IN
+    // {scopeName}", so a pre-prefixed label here doubled up into "N IN IN SELECTED SOURCES".
+    const bucketLabel = { recent: 'Recent', starred: 'Starred', topic: this._term('corpus'), all: 'All sources' }[bucket] || 'All sources';
     const gotoBucket = (b) => () => this.setState({ explorerBucket: b, explorerFolder: null, explorerSel: null, explorerMenu: null, explorerShowAll: false });
     const gotoFolder = (id) => () => this.setState({ explorerFolder: id, explorerBucket: null, explorerSel: null, explorerMenu: null, explorerShowAll: false });
 
@@ -14489,11 +14496,13 @@ class Component extends DCLogic {
       // both shells and otherwise sits at the same height as that bar on mobile).
       omni: st.omni, toast: st.toast, toastBottom: st.isMobile ? '84px' : '26px', ...this._toastVals(st), dragOver: !!st.dragOver,
       // live recording — the mic button + the take panel
-      // The Home tab (Source Explorer) is a self-contained surface with its OWN left rail (Quick
-      // Access · Folders · Vault), so the app's global topic/source rail stands down there — otherwise
-      // the sources list twice and two left rails compete. It returns on every other tab.
-      leftOpen: st.leftOpen && st.tab !== 'register', rightOpen: st.rightOpen,
-      panelBackdrop: !!st.isMobile && ((st.leftOpen && st.tab !== 'register') || st.rightOpen), closePanels: () => this.closePanels(),
+      // The Sources tab (Source Explorer) used to stand the app's global topic/source rail down
+      // and swap in its own left rail (Quick Access · Folders · Vault) instead — but that made the
+      // workspace/topic nav disappear and reappear on every tab switch. Now it stays put like every
+      // other tab; setTab's enteringRegister branch scopes the Drive to the current topic so its
+      // own rail doesn't just repeat the same source list.
+      leftOpen: st.leftOpen, rightOpen: st.rightOpen,
+      panelBackdrop: !!st.isMobile && (st.leftOpen || st.rightOpen), closePanels: () => this.closePanels(),
       leftBtnFg: st.leftOpen ? '#5B4BE6' : '#9A9AA4', rightBtnFg: st.rightOpen ? '#5B4BE6' : '#9A9AA4',
       onOmniSubmit: (e) => this.onOmniSubmit(e), onOmniInput: (e) => this.onOmniInput(e),
       omniAttach: () => this.pickFile(),
