@@ -203,7 +203,14 @@ export const installRegistry = (appCtx) => {
       // than whichever sentence happened to sit on a coarse stride.
       const nUnits = ((doc && (doc.units || doc.sentences)) || []).length;
       const k = Math.max(12, Math.min(220, Math.round(nUnits / 20)));
-      const budget = nUnits > 900 ? Math.min(1800, Math.max(900, Math.round(nUnits / 2))) : undefined;
+      // The spine is O(budget · events): readingAt rebuilds its prior from the WHOLE log at every
+      // sampled cursor, so a big budget on a book is a LOT of calculation — the very cost that made a
+      // large upload stall. significanceSpine was designed for FLAT cost (a bounded sample on a
+      // stride, honest about its grain); the old `nUnits / 2` (up to 1800) threw that away and made a
+      // whole book read thousands of times over. Keep the budget BOUNDED — denser than the library
+      // default for a medium document, capped for a huge one — so the peaks stay a fair skeleton while
+      // the read stops scaling its cost with the document's length. (~2× less work on a novel.)
+      const budget = nUnits > 900 ? Math.min(800, Math.max(600, Math.round(nUnits / 12))) : undefined;
       src._eot = readIngest(doc, k === 12 && budget == null ? undefined : { k, ...(budget ? { budget } : {}) });
     }
     return src._eot;
