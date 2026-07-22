@@ -1,0 +1,29 @@
+REQUEST FOR PROPOSALS NO. 25-11
+CITY OF FAIRVIEW HEIGHTS
+WATER TREATMENT FACILITY CONTROL SYSTEM UPGRADE
+
+SECTION 1. INTRODUCTION
+
+The City of Fairview Heights ("the City") invites qualified firms to submit proposals for the design and installation of a supervisory control and data acquisition ("SCADA") system upgrade at the Fairview Heights Water Treatment Facility ("the Facility"). Proposals are due no later than 4:00 p.m. local time on June 2, 2025, to the office of the Purchasing Director, Omar Sadiq.
+
+SECTION 2. BACKGROUND
+
+The Facility was constructed in 1987 and last upgraded in 2003. The existing control system, supplied by Corvane Systems, is no longer supported by the manufacturer. The Utilities Director, Marguerite Okonkwo, has determined that continued reliance on the existing system poses an operational risk to the City's water supply.
+
+SECTION 3. SCOPE OF WORK
+
+3.1 The selected firm ("the Contractor") shall furnish all labor, materials, and equipment necessary to replace the SCADA system described in Exhibit A.
+3.2 The Contractor shall coordinate all work with the Facility's Plant Manager, Desmond Prewitt, to avoid interruption of water service.
+3.3 The Contractor shall provide training to Facility staff upon completion of installation.
+
+SECTION 4. PROPOSAL REQUIREMENTS
+
+Each proposal shall include, at minimum: (a) a statement of qualifications; (b) a proposed project schedule; (c) an itemized cost estimate; and (d) references from at least three comparable municipal projects completed within the past five years.
+
+SECTION 5. EVALUATION CRITERIA
+
+Proposals will be evaluated by a panel chaired by Okonkwo on the following weighted criteria: technical approach (35%), cost (30%), relevant experience (20%), and proposed schedule (15%). The City reserves the right to reject any and all proposals.
+
+SECTION 6. QUESTIONS
+
+Questions regarding this Request for Proposals shall be directed in writing to Sadiq no later than May 19, 2025. The City will not consider any question submitted after that date.
