@@ -20,12 +20,12 @@
 //
 // Pure and DOM-free (like ground/reflect.js): the chat renders what this returns.
 
-import { classifyProvenance } from './provenance.js';
+import { classifyProvenance, namedFigures, isContrastiveLoser } from './provenance.js';
+import { STOPWORDS } from '../../core/index.js';
 
 // CITE_VERBATIM — the overlap at or above which a lexical match is a genuine LIFT: so much of the
 // claim is the passage's own words that the surface IS the grounding, and no propositional check is
-// owed (the same 0.6 the groundSpans doc-guard treats as near-verbatim). Below it, shared vocabulary
-// is not yet evidence of a lift.
+// owed (the same 0.6 the groundSpans doc-guard treats as near-verbatim); below it, shared vocabulary is not yet evidence of a lift.
 export const CITE_VERBATIM = 0.6;
 
 // citationHolds(claim, passageText, lexScore) → may this lexical match stand as a CITATION?
@@ -54,10 +54,10 @@ export const citationHolds = (claim, passageText, lexScore) => {
 };
 
 // The content terms a span binds on — the same shape the reader's _researchTerms and the
-// witness's contentWords use: lowercased words of ≥3 chars, function words stripped. The one
-// unavoidable lexical boundary (a span arrives as words); past it, meaning decides.
-const STOP = new Set(('a an the of to in on at by for with and or but nor so yet as is was were are be been being it its it\'s he she they them his her their him this that these those not no into out over under up down off then than now once would will do did had has have from about into their our your my me we you i').split(' '));
-const terms = (s) => (String(s ?? '').toLowerCase().match(/[a-z][a-z0-9'’-]{2,}/g) || []).filter((t) => !STOP.has(t));
+// witness's contentWords use: lowercased words of ≥3 chars, function words stripped (the
+// closed class is core/stopwords.js, shared with rooms/doc/ground.js). The one unavoidable
+// lexical boundary (a span arrives as words); past it, meaning decides.
+const terms = (s) => (String(s ?? '').toLowerCase().match(/[a-z][a-z0-9'’-]{2,}/g) || []).filter((t) => !STOPWORDS.has(t));
 // The same content-term read, exported: the self-read weld's refold signal uses it
 // so "does this sentence carry enough content to bind anywhere" is ONE rule here
 // and there — a connective that binds nowhere is scaffolding, never contamination.
@@ -170,10 +170,22 @@ export const groundSpans = (spans, { passages = [], doc = null, minOverlap = 0.3
       // conservation passages: every sentence touches "conservation / species / international", so
       // raw overlap marked fabricated IUCN/WWF/right-whale claims "sourced" and the badge read
       // "matched"). Three witnesses, strongest first: the doc's coref-intact reading ('void' is a
-      // definitive deny, 'witnessed' a definitive pass); else whether the CITED PASSAGE itself
+      // DEFINITIVE deny — checked before the verbatim-lift shortcut below, never overridable by
+      // lexical overlap alone, or a claim that shares a passage's words while asserting the relation
+      // that passage actually denies would still "lift" — e.g. a passage naming two contrasted
+      // figures, "chose Cincinnati over Purdue": a claim about EITHER one scores near-verbatim
+      // against the very same sentence, so only the coref-intact reading can tell which one it
+      // actually witnesses; 'witnessed' a definitive pass); else whether the CITED PASSAGE itself
       // witnesses the claim (citationHolds — the SAME propositional gate the render binder reads,
       // one rule for the inline citation and the badge alike). A parse fault degrades to the lift.
-      if (wit === 'void' && lex.score < CITE_VERBATIM) return llm(text, 'assertion');
+      if (wit === 'void') return llm(text, 'assertion');
+      // The same guard, run directly against the MATCHED passage: the CITE_VERBATIM shortcut
+      // below is a bag-of-words score that never consults classifyProvenance at all, so a short
+      // claim that fails to parse into a clean relation (wit null, not 'void') — or one whose
+      // own phrasing happens to echo BOTH sides of the passage's comparison, rescuing `wit` to
+      // 'witnessed' — would otherwise sail through on lexical overlap alone. Ask directly: does
+      // this claim even NAME a figure the passage itself marks as the rejected side?
+      if ([...namedFigures(text)].some((f) => isContrastiveLoser(lex.passage.text, f))) return llm(text, 'assertion');
       if (lex.score >= CITE_VERBATIM || wit === 'witnessed') return sourced(text, { ...lex.passage, score: lex.score });
       if (citationHolds(text, lex.passage.text, lex.score)) return sourced(text, { ...lex.passage, score: lex.score });
       return llm(text, 'assertion');

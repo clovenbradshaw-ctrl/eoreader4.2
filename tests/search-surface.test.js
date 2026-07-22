@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { parseQuery } from '../src/rooms/reader/search-record.js';
 import { routeIntent, subjectTerms, routeSurface } from '../src/rooms/reader/search-surface.js';
 import { highlight, scanAll, sourceRail } from '../src/rooms/reader/search-surface-scan.js';
+import { parseText } from '../src/perceiver/parse/index.js';
 
 // A tiny two-source record: a document that names Walton and a stub that does not.
 const SOURCES = [
@@ -91,6 +92,24 @@ test('cast filters to the subject when one is named, else shows everyone', () =>
   assert.equal(none.cast.length, 2);                        // → the whole cast, not empty
 });
 
+// ── the cast excludes what grain (perceiver/parse/grain.js) confidently reads as NOT a figure ──
+// "who is here" used to answer with every admitted referent — a place named as often as a
+// character was as much "cast" as Walton. A referent graded 'setting' or 'kind' is excluded; one
+// the grain reader HELD (no `grain` field at all, same as every pre-grain entity) stays in, so an
+// ordinary record with no grain signal answers exactly as it always did.
+test('cast excludes a referent graded setting or kind, keeps one the grain reader held', () => {
+  const entities = [
+    { label: 'Walton', docId: 'd1', entId: 'e1', sn: 1, mentions: 3, sourceCount: 1, grain: 'figure' },
+    { label: 'Geneva', docId: 'd1', entId: 'e2', sn: 1, mentions: 30, sourceCount: 1, grain: 'setting' },
+    { label: 'the crew', docId: 'd1', entId: 'e3', sn: 1, mentions: 8, sourceCount: 1, grain: 'kind' },
+    { label: 'Margaret', docId: 'd1', entId: 'e4', sn: 1, mentions: 2, sourceCount: 1 },   // grain undefined: held
+  ];
+  const surf = routeSurface('who is here', providers({ record: { entities: [], claims: [] }, entities }), { template: 'cast' });
+  assert.equal(surf.template, 'cast');
+  assert.deepEqual(surf.cast.map((c) => c.label).sort(), ['Margaret', 'Walton'],
+    'Geneva (setting) and "the crew" (kind) are excluded; Margaret (held) stays');
+});
+
 test('contrast surface prefers contested claims', () => {
   const surf = routeSurface('where do the sources disagree', providers());
   assert.equal(surf.template, 'contrast');
@@ -136,4 +155,67 @@ test('every search fills the structured fold slots up front', () => {
   assert.ok(surf.elements.find((e) => e.key === 'occurrences').count >= 1);
   assert.ok(surf.cast.length > 0, 'cast slot is filled even for a question');
   assert.ok(surf.concepts.some((c) => c.label === 'Walton'), 'graph concepts include relevant figures');
+});
+
+// ── a real cross-source conflict reaches this page (it used to reach only the Findings tab) ──
+
+test('routeSurface surfaces a real cross-source numeric conflict in Contrast', () => {
+  const conflictSources = [
+    { sn: 1, reg: 'S-0001', title: 'Plan', text: 'The seawall will cost $120M.' },
+    { sn: 2, reg: 'S-0002', title: 'Audit', text: 'The seawall will cost $300M according to auditors.' },
+  ];
+  const docs = {
+    1: parseText('The seawall will cost $120M.', { docId: 'd1' }),
+    2: parseText('The seawall will cost $300M according to auditors.', { docId: 'd2' }),
+  };
+  const surf = routeSurface('seawall cost', {
+    sources: conflictSources, record: { entities: [], claims: [] },
+    docFor: (s) => docs[s.sn], scopeSignal: () => true,
+  });
+  const row = surf.contrast.find((c) => c.origin === 'measure');
+  assert.ok(row, 'a measure conflict row is present');
+  assert.equal(row.status, 'Contested');
+  assert.match(row.text, /\$120M/);
+  assert.match(row.text, /\$300M/);
+  assert.equal(surf.contrastKind, 'contested');
+});
+
+test('routeSurface: no cross-source conflict, no measure row', () => {
+  const agreeingSources = [
+    { sn: 1, reg: 'S-0001', title: 'Plan', text: 'The seawall will cost $120M.' },
+    { sn: 2, reg: 'S-0002', title: 'Audit', text: 'The seawall has an approved budget of $120M.' },
+  ];
+  const docs = {
+    1: parseText('The seawall will cost $120M.', { docId: 'd1' }),
+    2: parseText('The seawall has an approved budget of $120M.', { docId: 'd2' }),
+  };
+  const surf = routeSurface('seawall cost', {
+    sources: agreeingSources, record: { entities: [], claims: [] },
+    docFor: (s) => docs[s.sn], scopeSignal: () => true,
+  });
+  assert.ok(!surf.contrast.some((c) => c.origin === 'measure'));
+});
+
+// ── void: the corpus can now say plainly it does not address a question ──
+
+test('routeSurface: void when no enabled source addresses the named referent at all', () => {
+  const source = { sn: 1, reg: 'S-0001', title: 'A', text: 'The seawall project began in 2020.' };
+  const doc = parseText('The seawall project began in 2020.', { docId: 'd1' });
+  const surf = routeSurface('What does Godzilla think of the seawall?', {
+    sources: [source], record: { entities: [], claims: [] },
+    docFor: () => doc, scopeSignal: () => true,
+  });
+  assert.equal(surf.answerable.void, true);
+  assert.equal(surf.answerable.kind, 'elsewhere');
+  assert.equal(surf.answerable.term, 'Godzilla');
+});
+
+test('routeSurface: not void when a source actually names the referent asked about', () => {
+  const source = { sn: 1, reg: 'S-0001', title: 'A', text: "Margaret is Walton's sister." };
+  const doc = parseText("Margaret is Walton's sister.", { docId: 'd1', genderCoref: true });
+  const surf = routeSurface('Who is Margaret?', {
+    sources: [source], record: { entities: [], claims: [] },
+    docFor: () => doc, scopeSignal: () => true,
+  });
+  assert.equal(surf.answerable.void, false);
 });

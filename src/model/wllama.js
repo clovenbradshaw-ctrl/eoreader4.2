@@ -275,6 +275,34 @@ registerBackend('wllama', (opts = {}) => {
       }
       await completion;
     },
+    // model/interface.js's OPTIONAL field-weight capability. ONE forward pass — tokenize, decode,
+    // read the next-token distribution wllama already exposes for custom sampling (getLogits) —
+    // never a sampling loop, never parsed prose. `choices` are matched case-insensitively at a word
+    // boundary against each candidate token's own detokenization (so "yes"/"Yes"/"YES" all count,
+    // "yesterday" does not), summed and renormalized over `choices` only. Returns null when NEITHER
+    // choice's first token appears in the read-out top-K at all — no signal, not a coin-flip guess.
+    // kvClear() resets the context first: weigh() is meant to be called once per candidate in a
+    // field, back to back, and a stale KV cache from the PRIOR candidate would bleed into this one.
+    async weigh(messages, choices, opts = {}) {
+      if (!inst) throw new Error('wllama: not loaded');
+      return gate(async () => {
+        await inst.kvClear();
+        const tokens = await inst.tokenize(toPrompt(messages), true);
+        await inst.decode(tokens, {});
+        const logits = await inst.getLogits(opts.topK ?? 40);
+        const matchers = choices.map((c) => new RegExp(`^\\s*${String(c).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i'));
+        const mass = choices.map(() => 0);
+        for (const { token, p } of logits) {
+          const piece = await inst.detokenize([token], true);
+          matchers.forEach((re, i) => { if (re.test(piece)) mass[i] += p; });
+        }
+        const total = mass.reduce((a, b) => a + b, 0);
+        if (total <= 0) return null;
+        const out = {};
+        choices.forEach((c, i) => { out[c] = mass[i] / total; });
+        return out;
+      });
+    },
   };
 });
 

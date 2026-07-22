@@ -32,7 +32,7 @@ export const structureSurface = (doc, idxs) => {
   const events = snapshot(doc);
   const label = new Map();
   for (const e of events) if (e.op === 'INS' && !label.has(e.id)) label.set(e.id, e.label);
-  const name = (id) => ({ id, label: label.get(id) || id });
+  const name = (id) => ({ id, label: label.get(id) || id, figure: label.has(id) });   // figure: INS-witnessed endpoint
 
   const figures = new Map();
   const relations = [];
@@ -48,7 +48,7 @@ export const structureSurface = (doc, idxs) => {
       // the noun (sister → sibling, captain → leads) — null when it doesn't. The
       // type is the projection the relation algebra reasons over; the surface
       // string stays untouched for the notes register.
-      case 'SIG': relations.push({ op: e.op, src: name(e.src), tgt: name(e.tgt), via: e.via, type: typeOf(e.via)?.type || null, polarity: e.polarity || '+', modality: e.modality || 'realis', idx: e.sentIdx }); break;
+      case 'SIG': relations.push({ op: e.op, src: name(e.src), tgt: name(e.tgt), via: e.via, type: typeOf(e.via)?.type || null, srcKind: e.srcKind || null, tgtKind: e.tgtKind || null, coupling: e.w ?? null, confidence: e.confidence ?? null, polarity: e.polarity || '+', modality: e.modality || 'realis', idx: e.sentIdx }); break;
       case 'SYN': if (e.kind === 'merge') merges.push({ from: name(e.from), to: name(e.to), idx: e.sentIdx }); break;
       case 'SEG': if (e.kind === 'retract') splits.push({ refSeq: e.refSeq, idx: e.sentIdx }); break;
     }
@@ -76,14 +76,15 @@ export const structureSurface = (doc, idxs) => {
 // Grete's id). The display name is layered on top (admission.labelOf), never the
 // identity itself. Matching is against the ADMITTED figures only — never an
 // arbitrary noun — so a sentence cannot fuzz its way onto a figure it never named.
+const bare = (t) => t.replace(/['’]s$/, '');       // a possessive names its owner: "Raskolnikov's" → Raskolnikov
 export const namedReferents = (doc, question) => {
   if (!doc?.admission?.admitted || !doc.log) return [];
-  const qset = new Set(tok(question));
+  const qset = new Set(tok(question).map(bare));
   if (qset.size === 0) return [];
   const rep = projectGraph(doc.log).representative || ((id) => id);
   const ids = new Set();
   for (const [label, id] of doc.admission.admitted) {
-    const lt = tok(label);                       // a label matches only if every
+    const lt = tok(label).map(bare);             // a label matches only if every
     if (lt.length && lt.every((t) => qset.has(t))) ids.add(rep(id));  // word is named
   }
   return [...ids];

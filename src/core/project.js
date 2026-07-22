@@ -20,6 +20,7 @@
 
 import { discriminatorIndex, evaluateSameAs, normLabel } from './asterisk.js';
 import { deriveNull } from './voidnull.js';
+import { memoizeOnLog, canonicalJSON } from './memo-log.js';
 
 export const DEFAULT_PROJECTION_RULES = Object.freeze({
   // Mass decays at γ per unit of stream-distance from the cursor (unit.js —
@@ -38,43 +39,19 @@ export const DEFAULT_PROJECTION_RULES = Object.freeze({
   same_as_min_convergence: 1,
 });
 
-const memo = new WeakMap(); // log → { length, frameSig, result }
-
 export const projectGraph = (log, frame = {}) => {
   const rules     = { ...DEFAULT_PROJECTION_RULES, ...(frame.rules || {}) };
   const fullFrame = { ...frame, rules };
-  const frameSig  = canonicalFrame(fullFrame);
-  const cached    = memo.get(log);
-  if (cached && cached.length === log.length && cached.frameSig === frameSig) {
-    return cached.result;
-  }
-  const result = computeProjection(log, fullFrame);
-  memo.set(log, { length: log.length, frameSig, result });
-  return result;
+  return _projectGraph(log, fullFrame);
 };
 
 export const projectionStats = (log) => {
-  const c = memo.get(log);
-  return c
-    ? { cached: true, atLength: c.length, frameSig: c.frameSig }
-    : { cached: false };
-};
-
-const canonicalFrame = (f) => {
-  // Deterministic serialization: sorted keys, recursive on plain objects.
-  // Rules are a plain object so the inner keys must also be sorted.
-  const ser = (v) => {
-    if (v && typeof v === 'object' && !Array.isArray(v)) {
-      const keys = Object.keys(v).sort();
-      return '{' + keys.map(k => JSON.stringify(k) + ':' + ser(v[k])).join(',') + '}';
-    }
-    return JSON.stringify(v);
-  };
-  return ser(f);
+  const c = _projectGraph.stats(log);
+  return c.cached ? { cached: true, atLength: c.atLength, frameSig: c.sig } : { cached: false };
 };
 
 const computeProjection = (log, frame) => {
-  const events    = log.snapshot();
+  const events    = Array.isArray(log.events) ? log.events : log.snapshot();  // live frozen append-only array (read-only fold) — no per-miss full copy
   const entities  = new Map();
   const edges     = [];
   const voidsRaw  = [];
@@ -99,14 +76,24 @@ const computeProjection = (log, frame) => {
   const ufind = (pm, x) => { let p = pm.get(x) ?? x; while (p !== (pm.get(p) ?? p)) p = pm.get(p) ?? p; return p; };
   const union = (pm, a, b) => { const ra = ufind(pm, a), rb = ufind(pm, b); if (ra !== rb) pm.set(ra, rb); };
 
-  // First pass: collect retractions so a SEG can undo a later-replayed event.
+  // First pass: collect retractions so a SEG can undo a later-replayed event. A
+  // role:corpus retraction is excluded here too (F4/F6, docs/corpus-fold §2.3) — a
+  // corpus fold must never reach into a document's own log and undo one of ITS events.
   for (const e of events) {
+    if (e.role === 'corpus') continue;
     if (e.op === 'SEG' && e.kind === 'retract' && e.refSeq != null) {
       retracted.add(e.refSeq);
     }
   }
 
   for (const e of events) {
+    // THE FIREWALL (F4, docs/corpus-fold §2.3): a role:corpus event never mints an entity,
+    // an edge, a merge, a void, or anything else this fold produces. Corpus folds live in
+    // the ledger in full (F6 — nothing here refuses to STORE one); this is the one place
+    // their CONTENT is kept out of a document's own claim ledger, however the two came to
+    // share one log. The prior these events seed instead (§2.2) is a perceiver/reading.js
+    // concern, not this projection's — that channel is deliberately untouched here.
+    if (e.role === 'corpus') continue;
     if (retracted.has(e.seq)) continue;
     // A carved absence — the document witnessing that a relation slot is VOID
     // (the four VOID emitters; an explicit_void note `A -> [void] : rel`, or a
@@ -191,7 +178,7 @@ const computeProjection = (log, frame) => {
         // never enter union-find as a hard union — it is HELD as a candidate and
         // resolved later by discriminator convergence (the asterisk block below).
         else if (e.kind === 'same_as?')
-          sameAsRaw.push({ from: e.from, to: e.to, seq: e.seq, label: e.label, sentIdx: e.sentIdx ?? null });
+          sameAsRaw.push({ from: e.from, to: e.to, seq: e.seq, label: e.label, sentIdx: e.sentIdx ?? null, match: e.match ?? null });
         // A confirmed split: identity is asserted UNestablished-as-one, not merely
         // undiscriminated. Held on the SIDE the same way same_as? is — it never
         // touches `parent` directly, it is read by the asterisk block below, which
@@ -255,8 +242,14 @@ const computeProjection = (log, frame) => {
           conflicts: [{ via: 'user', a: [], b: [], conflict: 1, reason: 'asserted distinct' }],
           user: !!s.user };
       }
+      // An INFLECTION candidate arrives already carrying its evidence: a shared stem that survived
+      // the complementary-distribution veto (pipeline.js). Its convergence is that distributional
+      // fact, not a shared discriminator edge — which within one document is too sparse to read — so
+      // it promotes unless the field finds a functional CONFLICT (minConvergence 0). A cross-source
+      // label echo still needs positive edge convergence: there the label alone is not evidence.
+      const mc = c.match === 'inflection' ? 0 : minConv;
       const ev = evaluateSameAs(ra, rb,
-        { discriminatorsOf: (r) => discr.get(r), minConvergence: minConv, functionalVias: fvias });
+        { discriminatorsOf: (r) => discr.get(r), minConvergence: mc, functionalVias: fvias });
       return { c, ...ev };
     });
     for (const d of decided) if (d.verdict === 'promote') parent.set(find(d.c.from), find(d.c.to));
@@ -397,3 +390,5 @@ const computeProjection = (log, frame) => {
     rev: events.length,
   });
 };
+
+const _projectGraph = memoizeOnLog(computeProjection, { sig: canonicalJSON });

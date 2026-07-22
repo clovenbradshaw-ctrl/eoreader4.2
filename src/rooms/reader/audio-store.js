@@ -12,6 +12,8 @@
 // absent (Node, tests, private-mode quirks) so callers never branch on capability. Never throws —
 // a persistence fault leaves the session copy playing and just reports `persisted:false`.
 
+import { resolveOpfsDir } from '../../store/index.js';
+
 export const opfsAvailable = () =>
   typeof navigator !== 'undefined' && !!navigator.storage &&
   typeof navigator.storage.getDirectory === 'function';
@@ -29,10 +31,7 @@ export const createAudioStore = ({ dir = MEDIA_STORE_DIR } = {}) => {
   const mem = new Map();   // key → Uint8Array: the fallback when OPFS is absent or a write failed
   let dirPromise = null;
   const directory = async () => {
-    if (!opfsAvailable()) return null;
-    if (!dirPromise) dirPromise = navigator.storage.getDirectory()
-      .then((root) => root.getDirectoryHandle(dir, { create: true }))
-      .catch(() => null);
+    if (!dirPromise) dirPromise = resolveOpfsDir(dir);
     return dirPromise;
   };
 

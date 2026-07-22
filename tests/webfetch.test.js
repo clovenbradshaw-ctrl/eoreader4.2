@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   parseFeed, htmlToText, createWebClient, searchAndAdmit, fetchAndAdmit, routeKind, SEARCH_SOURCES, DEFAULT_FEED_PROXY,
+  relevanceScore, isRelevant,
 } from '../src/organs/ingest/webfetch.js';
 
 // The live half over the CORS feed proxy (docs/web-search.md): GET <proxy>?url=<URL> → raw body.
@@ -72,6 +73,19 @@ test('the client builds the proxy URL as ?url=<encoded> and returns the body', a
   const r = await c.fetchUrl('https://news.example/rss?q=a&b=2');
   assert.equal(seen, 'https://p.example/feed?url=' + encodeURIComponent('https://news.example/rss?q=a&b=2'));
   assert.equal(r.text, 'BODY');
+});
+
+test('fetchUrlBytes reads the SAME proxied URL but as bytes, not a lossy text decode', async () => {
+  const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0xff, 0xfe, 0x00]);   // "%PDF-" + non-UTF8 bytes
+  let seen = null;
+  const fetchImpl = async (u) => {
+    seen = u;
+    return { ok: true, status: 200, arrayBuffer: async () => pdfBytes.buffer, text: async () => { throw new Error('should not be called'); } };
+  };
+  const c = createWebClient({ proxy: 'https://p.example/feed', fetchImpl });
+  const r = await c.fetchUrlBytes('https://site.example/report.pdf');
+  assert.equal(seen, 'https://p.example/feed?url=' + encodeURIComponent('https://site.example/report.pdf'), 'same proxy hop as fetchUrl');
+  assert.deepEqual([...r.bytes], [...pdfBytes], 'the exact bytes ride through — nothing decoded/re-encoded');
 });
 
 const WIKI = JSON.stringify({ query: { search: [
@@ -177,6 +191,49 @@ test('fetchAndAdmit pulls a page through the proxy and admits its text', async (
   const { doc, record } = await fetchAndAdmit('https://example.org/a', { client });
   assert.equal(record.url, 'https://example.org/a');
   assert.match(doc.text, /Grete\nShe played the violin\./);
+});
+
+// ── relevance gating — an off-topic hit should not be admitted just because it was returned ──
+
+test('relevanceScore: a shared place name is not the same question', () => {
+  const query = 'what caused the 1919 Boston molasses flood';
+  const onTopic = { title: 'Great Molasses Flood', text: 'A wave of molasses killed 21 in a 1919 Boston disaster.' };
+  const offTopic = { title: 'Honolulu molasses spill', text: 'A 2013 pipeline leak spilled molasses into the harbor.' };
+  const unrelated = { title: 'Orange Line (MBTA)', text: 'A rapid transit line serving Greater Boston.' };
+  assert.ok(relevanceScore(query, onTopic) > relevanceScore(query, offTopic), 'the real flood article scores higher than a same-word namesake');
+  assert.ok(relevanceScore(query, offTopic) > 0, 'it does share ONE word — the score is not zero, just low');
+  assert.equal(relevanceScore(query, unrelated) < 0.34, true, 'sharing only "Boston" is not enough');
+});
+
+test('isRelevant: a 1-word query is never gated (no way to tell off-topic from same-topic-different-wording)', () => {
+  assert.equal(isRelevant('grete', { title: 'Kafka\'s Metamorphosis', text: 'A look back at the novella.' }), true);
+});
+
+test('isRelevant reproduces the reported failure: 8 Wikipedia hits for a Boston 1919 flood query reduce to the one real match', () => {
+  const query = 'what caused the 1919 Boston molasses flood';
+  const hits = [
+    { title: 'Great Molasses Flood', text: 'The 1919 disaster in Boston killed 21 when a molasses tank burst, flooding the streets.' },
+    { title: 'Honolulu molasses spill', text: 'A 2013 pipeline leak in Honolulu harbor spilled molasses.' },
+    { title: 'Boston', text: 'Boston is the capital and most populous city of Massachusetts.' },
+    { title: 'History of New Orleans', text: 'New Orleans was founded in 1718 by French colonists.' },
+    { title: 'Orange Line (MBTA)', text: 'A rapid transit line serving Greater Boston.' },
+    { title: 'History of Italian Americans in Boston', text: 'Italian immigration to the North End of Boston began in the 1860s.' },
+  ];
+  const kept = hits.filter((h) => isRelevant(query, h));
+  assert.equal(kept.length, 1, `only the real match should survive (kept: ${kept.map((h) => h.title).join(', ')})`);
+  assert.equal(kept[0].title, 'Great Molasses Flood');
+});
+
+test('searchAndAdmit skips off-topic hits before spending a fetch on them', async () => {
+  const wikiUrl = 'https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=1919%20Boston%20molasses%20flood&format=json&srlimit=2';
+  const WIKI_MIXED = JSON.stringify({ query: { search: [
+    { title: 'Great Molasses Flood', snippet: 'The 1919 disaster in Boston killed 21 when a molasses tank burst.' },
+    { title: 'Orange Line (MBTA)', snippet: 'A rapid transit line serving Greater Boston.' },
+  ] } });
+  const client = createWebClient({ proxy: 'https://p.example/feed', fetchImpl: fakeFetch({ [wikiUrl]: WIKI_MIXED }) });
+  const admitted = await searchAndAdmit('1919 Boston molasses flood', { client, kind: 'wikipedia', k: 2 });
+  assert.equal(admitted.length, 1, 'the off-topic transit-line hit is not admitted as a source');
+  assert.match(admitted[0].doc.text, /molasses/);
 });
 
 // Live contract check against the real proxy — opt-in (the default run stays offline/green):

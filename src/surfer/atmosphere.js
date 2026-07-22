@@ -198,12 +198,21 @@ export const atmosphereFromActivations = (activations, basisOrPrior, { alpha = 0
   // The per-window null: which windows read in a departed key past chance.
   const windows = windowDepartures(centered, sigmaC);
   const deps = windows.map(w => w.departure);
+  const W = Math.min(WINDOW, activations.length);
   let verdict = 'corpus-weather';
   const anomalousWindows = [];
   if (deps.length >= 4) {
     for (const w of windows) {
       const nul = deriveNull(deps, { scale: 'linear', alpha, leaveOut: w.departure });
-      if (Number.isFinite(nul) && w.departure > nul) anomalousWindows.push({ at: w.at, departure: round(w.departure) });
+      if (!Number.isFinite(nul) || w.departure <= nul) continue;
+      // RELATIVISTIC / LOCAL TONE (docs/referents-recursed-up-the-domain-axis.md, D4). The
+      // global tone above is one reading off one ρ — the reconstructed global field that, one
+      // Domain down, collapsed every referent into one blob. A departed window reads in its
+      // OWN key, so give it its OWN tone: the dominant Ground cell of the UNCENTERED window
+      // mass. Now a document surfaces its several local atmospheres (the family frame reads
+      // evaluative while the creature frame reads unsettled) instead of one flattened weather.
+      const localTone = toneOf(buildDensity(activations.slice(w.at, w.at + W)).rho, basis);
+      anomalousWindows.push({ at: w.at, departure: round(w.departure), tone: localTone });
     }
     verdict = anomalousWindows.length ? 'anomalous' : 'corpus-weather';
   } else {

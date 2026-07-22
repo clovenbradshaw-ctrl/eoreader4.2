@@ -22,9 +22,11 @@
 
 import { createLog }         from '../../core/index.js';
 import { projectGraph }      from '../../core/index.js';
+import { DEF, deriveNull }    from '../../core/index.js';
 import { createConventions } from '../../core/conventions/index.js';
 import { tok }               from '../../perceiver/parse/index.js';
 import { attachReading }     from '../ingest/index.js';
+import { createEmbeddingMemo } from '../../model/embed-store.js';
 
 // mm:ss(.d) for a time in seconds — the reader's clock on the waveform.
 const clock = (sec) => {
@@ -161,29 +163,67 @@ const flagWindow = (energies, times, a, b, thresholdLin) => {
   return { flags, eWin, tWin };
 };
 
-// The threshold that separates signal from noise INSIDE a window — its own 20th-percentile
-// floor lifted by `marginDb`, never below a hard absolute floor. Computing it per window is
-// what makes the holons NEST: a phrase-level signal holon re-reads its own quiet level, so
-// the louder syllables inside it rise as sub-holons.
-const windowThreshold = (eWin, marginDb, absFloorLin) => {
-  const sorted = eWin.slice().sort((x, y) => x - y);
-  const floorLin = percentile(sorted, 0.2);
-  const lifted = floorLin * Math.pow(10, marginDb / 20);
-  return Math.max(lifted, absFloorLin);
+// The threshold that separates signal from noise INSIDE a window — the same null-gated
+// elbow DEF finds in an eigenvalue spectrum (spectral.js/voidnull.js), pointed instead at
+// the window's own SORTED log-energies: the boundary between the loud tier and the quiet
+// tier is the largest gap between consecutive sorted values, kept only if it beats what
+// the OTHER gaps in this window would produce by chance. Reading gaps rather than a
+// percentile-vs-mean deviation is what makes this work when the loud tier is the MAJORITY
+// of the window (a phrase that talks more than it pauses) — a plain noise-null (fit to
+// "the bulk", assumed to be most of the population) systematically overshoots there,
+// because the bulk it fits ends up a mix of both tiers. Energy reads on a log scale
+// (loudness perception itself is logarithmic, hence dB) so a gap is a genuine ratio, not
+// an absolute difference dwarfed by the tier's own linear dynamic range. `absFloorLin`
+// floors what counts as "energy" at all (the mic/quantisation floor), same role it always
+// had. Computing this per window is what makes the holons NEST: a phrase-level signal
+// holon re-reads its own two-tier split, so the louder syllables inside it rise as
+// sub-holons.
+//
+// DEF's own null is an EXTREME-VALUE bound: "is the single largest of N gaps bigger than
+// the max N chance draws would produce" (voidnull.js) — the right question for a spectrum
+// with a few dominant components over a flat tail, where N is a handful of eigenvalues.
+// Here N is the frame count, and a real clip runs thousands of 20ms frames — long before a
+// word is ever heard, N alone can put the bound several σ out of reach of any gap a smooth,
+// continuously-varying energy track (real speech breathing, room tone under a broadcast
+// compressor — no true digital silence, no sharp two-level step) will ever produce, correction
+// scaling being what it is. That is a DIFFERENT question from the one this window actually
+// asks: not "is this gap a freak outlier among thousands", but "does this window's own louder
+// half sit a real ratio above its own quieter half" — ONE decision, not a bound on the max of
+// many. So when the many-gap bound abstains, retry the SAME largest gap as that one decision:
+// N=2, the minimal multiple-comparison, exactly the fix boundedNull already applies to this
+// identical overshoot for bounded signals (voidnull.js) — ported to the log scale energy
+// needs (boundedNull itself is linear-only, unsuited to a dB-wide range). A window that is
+// genuinely flat (true noise/silence, no tier to find) still abstains at N=2 — nothing there
+// for even the gentler bound to clear — so a hush still reads as a hush.
+const windowThreshold = (eWin, alpha, absFloorLin) => {
+  // Floor, never discard: a frame of true digital silence (energy exactly 0) is the
+  // clearest possible instance of the quiet tier, not a missing sample — dropping it
+  // would remove the exact population the split needs to compare the loud tier against.
+  const logE = eWin.map((e) => Math.log(Math.max(e, absFloorLin)));
+  if (logE.length < 2) return Infinity;
+  const sorted = logE.slice().sort((a, b) => b - a);   // descending, log-space
+  const { idx, gap, abstain } = DEF(sorted, { alpha, window: sorted.length });
+  if (!abstain) return Math.exp((sorted[idx - 1] + sorted[idx]) / 2);   // the midpoint back in linear energy
+  const gaps = [];
+  for (let i = 1; i < sorted.length; i++) gaps.push(sorted[i - 1] - sorted[i]);
+  const floor2 = deriveNull(gaps, { scale: 'log', alpha, N: 2, leaveOut: gap });
+  if (Number.isFinite(floor2) && gap > floor2 && idx > 0 && idx < sorted.length)
+    return Math.exp((sorted[idx - 1] + sorted[idx]) / 2);
+  return Infinity;
 };
 
 // ── the nested holons ────────────────────────────────────────────────────────────────────
 // separateHolons(mono, SR, opts) → the whole clip as ONE holon whose children alternate
 // signal / noise, each signal child recursively holding its own louder bursts.
 //
-// opts: { frameMs, marginDb, minDur, maxDepth, absFloorDb }
+// opts: { frameMs, alpha, minDur, maxDepth, absFloorDb }
 export const separateHolons = (mono, sampleRate, opts = {}) => {
   const {
     frameMs = 20,        // energy-frame length
-    marginDb = 6,        // how far above the local floor a frame must sit to count as signal
+    alpha = 0.05,        // the Born tolerance — how readily a frame clears the derived floor
     minDur = 0.2,        // a holon shorter than this is a leaf (no further nesting)
     maxDepth = 3,        // deepest nesting the ear resolves
-    absFloorDb = -55,    // nothing below this absolute dBFS is ever called signal
+    absFloorDb = -55,    // nothing below this absolute dBFS is ever called signal (the null's grain)
   } = opts;
 
   const { rms: energies, times, frameDur } = frameEnergies(mono, sampleRate, frameMs);
@@ -198,7 +238,7 @@ export const separateHolons = (mono, sampleRate, opts = {}) => {
     if (depth >= maxDepth || (b - a) < minDur * 2) return [];
     const { flags, eWin, tWin } = flagWindow(energies, times, a, b, 0);
     if (eWin.length < 2) return [];
-    const thr = windowThreshold(eWin, marginDb, absFloorLin);
+    const thr = windowThreshold(eWin, alpha, absFloorLin);
     // Re-flag against the derived threshold.
     for (let i = 0; i < eWin.length; i++) flags[i] = eWin[i] > thr ? 1 : 0;
     let runs = runsFromFlags(flags, eWin, tWin, frameDur);
@@ -246,7 +286,7 @@ export const separateHolons = (mono, sampleRate, opts = {}) => {
     signalSeconds, noiseSeconds,
     signalRatio: duration > 0 ? signalSeconds / duration : 0,
     count, depth: deepest,
-    marginDb, absFloorDb, frameMs,
+    alpha, absFloorDb, frameMs,
   };
 };
 
@@ -416,12 +456,10 @@ export const ingestAcoustic = (spec = {}) => {
   // waveform click resolves to.
   doc.holonAt = (t) => top.find((c) => t >= c.start - 0.02 && t <= c.end + 0.02) || null;
 
-  const vecByOrgan = new Map();
-  doc.sentenceEmbeddings = async (embedder) => {
-    const key = embedder?.id || 'default';
-    if (!vecByOrgan.has(key)) vecByOrgan.set(key, Promise.all(sentences.map((s) => embedder.embed(s))));
-    return vecByOrgan.get(key);
-  };
+  const sentMemo = createEmbeddingMemo();   // globally budgeted (model/embed-store.js)
+  doc.sentenceEmbeddings = async (embedder) =>
+    sentMemo.get(embedder?.id || 'default', sentences.length, () => Promise.all(sentences.map((s) => embedder.embed(s))));
+  doc.releaseEmbeddings = () => sentMemo.release();
 
   return doc;
 };

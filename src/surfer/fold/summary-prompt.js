@@ -164,12 +164,27 @@ export const referentiallyContained = (text, surface) => {
 // ── realize — packet → summary, model-optional, floor-guaranteed ─────────────────────
 // The whole pipeline in one call: build the ask, decode (INJECTED `phrase` — the
 // caller wires model.phrase / speak; fold/ imports no model), discipline the output,
-// gate it referentially, and fall back to the telegram whenever the model is absent,
-// fails, scaffolds, or fabricates. The result always says which voice shipped and,
-// on a gate rejection, what the model tried to add — the audit trail the bench reads.
+// gate it referentially, GROUND it against what was read, and fall back to the telegram
+// whenever the model is absent, fails, scaffolds, fabricates, or speaks past the record.
+// The result always says which voice shipped and, on a rejection, why — the audit trail
+// the bench reads.
+//
+// TWO firewalls, not one. The referential gate (summaryAdditions) guards REFERENTS: a
+// name or number the packet never carried is fabrication, deterministically caught. But
+// a small model can write a fluent, plausible summary entirely from its own training
+// using ONLY the packet's own vocabulary — no novel referent, so the referential gate
+// passes it, yet nothing in it traces to what was actually read (the answer path's VOID
+// case). That is the second firewall's job: `ground` (INJECTED, optional — the caller
+// wires the enactor grounding stack: groundSpans → groundSummary → supportVerdict) holds
+// the referentially-clean draft to the record and reports whether it stands on a source
+// or on the void. A summary that grounds to nothing read ships the telegram — the honest
+// floor — rather than passing the model's recollection off as a reading of the document.
+// The gate guards the names; the ground guards the meaning. Absent an injected `ground`
+// the behaviour is exactly as before (referential gate only), so callers opt in.
 
 export const realizeSummary = async (packet, {
   phrase = null, detail = 'standard', sentences = null, maxSentences = null, telegram = null,
+  ground = null,
 } = {}) => {
   const tier = tierOf(detail);
   const want = sentences ?? tier.sentences;
@@ -190,6 +205,19 @@ export const realizeSummary = async (packet, {
   const additions = summaryAdditions(cleaned, packetSurface(packet));
   if (additions.names.length || additions.numbers.length) {
     return { text: floor, via: 'telegram-gated', additions, rejected: cleaned, raw, detail };
+  }
+  // The referential gate passed — no novel name or number. Now the SECOND firewall: does
+  // the draft actually stand on what was read? A grounding verdict of 'void' (substantive
+  // claims that trace to nothing read) or 'empty' (no checkable claim at all) means the
+  // model wrote past the record — ship the honest floor. 'partial'/'sourced' ride. A
+  // thrown verdict (parse fault) must never cost a summary, so it degrades to shipping.
+  if (typeof ground === 'function') {
+    let verdict = null;
+    try { verdict = ground(cleaned, packet); } catch { verdict = null; }
+    if (verdict && verdict.supported === false && (verdict.kind === 'void' || verdict.kind === 'empty')) {
+      return { text: floor, via: 'telegram-ungrounded', additions, rejected: cleaned, raw, detail, ground: verdict };
+    }
+    if (verdict) return { text: cleaned, via: 'model', additions, raw, detail, ground: verdict };
   }
   return { text: cleaned, via: 'model', additions, raw, detail };
 };

@@ -22,12 +22,14 @@
 // no read dependency), so this import stays acyclic.
 
 import { readingAt } from '../perceiver/index.js';
-import { deriveNull, buildDensity, eigenLenses, vonNeumann, commutator, projectorFrom, cellAt } from '../core/index.js';
+import { deriveNull, boundedNull, buildDensity, eigenLenses, vonNeumann, commutator, projectorFrom, cellAt, terrainInfo } from '../core/index.js';
 import { createEnactedLoop, calibrateReader } from '../enactor/enact/index.js';
 import { atmosphereFromActivations, corpusSigma, centroidBasis } from './atmosphere.js';
 import { updateStance } from './stance.js';
 import { bornSalience, figureSalience, linkSalience, linksBySentence } from './salience.js';
 import { chorusStops } from './chorus.js';
+import { topDims, labelPattern, nameDivergence } from './lens-naming.js';
+import { siteTerrainAt, GRAIN_WEIGHT } from './terrain.js';
 
 // The reach: a little behind the anchor (to read the frame it sits inside), mostly
 // ahead (a surf rides forward, and the arrow of time orders the frame axis).
@@ -36,18 +38,17 @@ const DEFAULT_REACH = Object.freeze({ behind: 4, ahead: 16, maxStops: 5 });
 export const surfFold = (doc, anchor = 0, opts = {}) => {
   const units = doc?.units || doc?.sentences || [];
   const S = units.length;
-  const empty = { anchor: 0, stops: [], peak: 0, focus: null, field: [], recCursors: [], recAxes: [], rode: 'bayesian-figure' };
+  const empty = { anchor: 0, stops: [], peak: 0, focus: null, field: [], recCursors: [], recAxes: [], rode: 'bayesian-void' };
   if (S === 0) return empty;
 
   // ADAPTIVE REACH (opt-in, opts.reach === 'adaptive'): let the surf get as much as it needs.
   // The fixed window (behind/ahead) bounds the surf by an arbitrary distance — too narrow for
   // a whole-arc question (the anchor's frame and the crisis it builds to can be 30 sentences
   // apart). Adaptive reach reads the field over the WHOLE document and lets the NOISE NULL
-  // decide how much is structure: the boundary mode (deriveNull) is forced on, and the stop
-  // count is uncapped, so a cursor arrests iff its surprise beats what the document's own
-  // non-cohering bulk throws up by chance. "As much as it needs" is then bounded by signal,
-  // not by a window — the same self-terminating discipline the idle/think loops use. Default
-  // (no opts.reach) is byte-identical: the fixed window, the median rule, maxStops = 5.
+  // decide how much is structure, and the stop count is uncapped, so a cursor arrests iff its
+  // surprise beats what the document's own non-cohering bulk throws up by chance. "As much as
+  // it needs" is then bounded by signal, not by a window — the same self-terminating
+  // discipline the idle/think loops use.
   const adaptive = opts.reach === 'adaptive';
   const { behind, ahead, maxStops } = adaptive
     ? { behind: S, ahead: S, maxStops: Infinity }
@@ -156,37 +157,51 @@ export const surfFold = (doc, anchor = 0, opts = {}) => {
         threadLinks ? Math.max(0, ...(threadLinks.get(c) || []).map((l) => linkSalience(threadFigs, l))) : 0,  // the link
       )
     : null;
-  // Compose the conditioners multiplicatively — a cursor must be both on the chosen reading
-  // (lens) and on the thread (salience) to score. Either alone is the single-condition case.
-  const cond = (lensCond && threadCond) ? (c) => lensCond(c) * threadCond(c)
-    : (lensCond || threadCond || null);
+  // TERRAIN CONDITIONING (surfer/terrain.js GRAIN_WEIGHT, shared with write/gravity.js's
+  // turnWeights): condition the score by the Site-face GRAIN at each cursor — Ground weighs
+  // less, Figure is the baseline, Pattern would weigh more (docs/referents-recursed-up-the-
+  // domain-axis.md D4: terrain typing and the surf's own arrest physics were two parallel
+  // systems that never met). opts.terrainAware defaults false → terrainCond is null → byte-
+  // identical to today, matching the same default-off discipline as the weight-of-the-turn
+  // coupling (write/gravity.js TERRAIN_GRAVITY).
+  const terrainCond = opts.terrainAware
+    ? (c) => { const t = siteTerrainAt(doc, c); const info = t ? terrainInfo(t) : null; return info ? (GRAIN_WEIGHT[info.grain] ?? 1) : 1; }
+    : null;
+  // Compose the conditioners multiplicatively — a cursor must be on the chosen reading
+  // (lens), the thread (salience), AND its terrain's own weight to score. Any subset present
+  // reduces to that subset's product; none present → null → byte-identical.
+  const conditioners = [lensCond, threadCond, terrainCond].filter(Boolean);
+  const cond = conditioners.length ? (c) => conditioners.reduce((acc, f) => acc * f(c), 1) : null;
   const scoreOf = (f) => (cond ? f.bayes * cond(f.idx) : f.bayes);
   const scoreAt = (c) => (cond ? bayesAt(c) * cond(c) : bayesAt(c));
   const scoreSeries = cond ? field.map(scoreOf) : reachBayes;
 
-  // Adaptive reach reads structure off the noise null (the principled "how much"), so the
-  // boundary mode is forced on there — with a default alpha if the caller named none. A fixed
-  // window keeps the median rule unless the caller opts into a boundary alpha (byte-identical).
-  const alpha = Number.isFinite(opts.alpha) ? opts.alpha : (adaptive ? 0.05 : null);
-  const useBoundary = Number.isFinite(alpha);
-  const band = useBoundary ? null : medianOf(scoreSeries);
-  let isPeak;
-  if (useBoundary) {
-    for (const f of field) {
-      const sc = scoreOf(f);
-      const nul = deriveNull(scoreSeries, { scale: 'linear', alpha, leaveOut: sc });
-      f.verdict = sc > nul ? 'SYN' : 'NUL';   // beats the noise null → structure; else held
-    }
-    isPeak = (f) => f.verdict === 'SYN';
-  } else {
-    isPeak = (f) => scoreOf(f) > band;
+  // The noise null is the sole arrest rule (docs/segment-by-significance.md — "no
+  // hand-picked threshold where deriveNull can decide") — but the QUESTION each cursor
+  // answers is "is THIS ONE candidate real, against the reach's background," not "is this
+  // the most extreme of N repeated draws": a single decision, the same discipline SEG
+  // itself uses for exactly this shape of question (voidnull.js boundedNull, N=2), not
+  // deriveNull's full multi-comparison correction — which barely loosens across the
+  // realistic range of reach sizes (z≈2.57 at 10 candidates, 2.81 at 21, 3.08 at 50: an
+  // email and this default window are almost equally strict under it) and so silently
+  // starved short/normal-length reaches of any candidate at all. boundedNull's own
+  // fallback (the reach's median, when the derived line can't be trusted) replaces the
+  // old separate median MODE with the median as this primitive's own designed edge case —
+  // "the constant holds only at the edge the physics cannot reach" (voidnull.js), not a
+  // second competing arrest rule.
+  const alpha = Number.isFinite(opts.alpha) ? opts.alpha : 0.05;
+  for (const f of field) {
+    const sc = scoreOf(f);
+    const nul = boundedNull(scoreSeries, { alpha, leaveOut: sc, ceiling: Infinity, fallback: medianOf(scoreSeries) });
+    f.verdict = sc > nul ? 'SYN' : 'NUL';   // beats the noise null → structure; else held
   }
+  const isPeak = (f) => f.verdict === 'SYN';
   // THE CHORUS (opts.chorus, chorus.js). Off (the default) → `chorus` is null and the
-  // incumbent median-rule / void-boundary arrest below runs VERBATIM, byte-identical to
-  // today. On, several rides (significance, novelty, and — with a thread — the relevance
-  // channels) each nominate against their own noise null and merge born-soft; the chorus
-  // returns the stop list, or null to defer to the incumbent arrest when the reach was too
-  // thin to tell signal from chance. A pure read of the field/readings already computed.
+  // void-boundary arrest below runs. On, several rides (significance, novelty, and — with
+  // a thread — the relevance channels) each nominate against their own noise null and
+  // merge born-soft; the chorus returns the stop list, or null to defer to the incumbent
+  // arrest when the reach was too thin to tell signal from chance. A pure read of the
+  // field/readings already computed.
   const chorus = opts.chorus
     ? chorusStops({ field, readings, a, recCursors, maxStops, doc, alpha: alpha ?? 0.05 }, opts)
     : null;
@@ -217,14 +232,14 @@ export const surfFold = (doc, anchor = 0, opts = {}) => {
   let best  = votes.get(focus) || 0;
   for (const [f, v] of votes) if (v > best) { best = v; focus = f; }
 
-  const base = { anchor: a, stops: stopList, peak, focus, field, recCursors, recAxes, rode: chorus ? 'chorus' : (useBoundary ? 'bayesian-void' : 'bayesian-figure') };
+  const base = { anchor: a, stops: stopList, peak, focus, field, recCursors, recAxes, rode: chorus ? 'chorus' : 'bayesian-void' };
 
   // THE SIGNIFICANCE COLUMN (Tracks B/C/D). Off unless activations are supplied AND at
   // least one significance opt is set — so the default surf is byte-identical (the new
   // fields never appear). The passes read off ONE density operator ρ built over the
   // doc's significance activations (core/spectral.js), each gated by deriveNull. Pure on
   // vectors, so this runs unchanged on text, music, video — omnimodal for free.
-  const wantSig = activations && (opts.atmosphere || opts.lensReport || opts.lens || opts.paradigm || opts.stance);
+  const wantSig = activations && (opts.atmosphere || opts.lensReport || opts.lens || opts.paradigm || opts.stance || opts.unnamedFrames);
   if (!wantSig) return base;
   return { ...base, ...significancePass(activations, opts, { field, peak }) };
 };
@@ -241,17 +256,35 @@ export const significancePass = (activations, opts, surf = {}) => {
   // by a spectral null — a lens is REAL only when its weight beats what a random
   // spectrum of this rank throws up by chance (deriveNull on the eigenvalues). The von
   // Neumann entropy is the NPOV scalar AND the predictive uncertainty of the next unit.
-  if (opts.lensReport || opts.lens || opts.paradigm) {
-    const spectrum = eigenLenses(rho).map(l => l.weight);
+  if (opts.lensReport || opts.lens || opts.paradigm || opts.unnamedFrames) {
+    const alpha = opts.alpha ?? 0.05;
+    const fullSpectrum = eigenLenses(rho);
+    const spectrum = fullSpectrum.map(l => l.weight);
     const lensEntropy = vonNeumann(spectrum);
     const k = Number.isFinite(opts.k) ? opts.k : 4;
     const top = eigenLenses(rho, { k });
     const lenses = top.map(({ lens, weight }) => {
-      const nul = deriveNull(spectrum, { scale: 'linear', alpha: opts.alpha ?? 0.05, leaveOut: weight });
-      return { weight: round(weight), real: Number.isFinite(nul) ? weight > nul : false, lens };
+      const nul = deriveNull(spectrum, { scale: 'linear', alpha, leaveOut: weight });
+      // The naming (lens-naming.js): read off the cube's own operator verbs, never invented
+      // words — only meaningful against a keyed basis, so unlabelled when opts.prior is bare.
+      const pattern = basis?.keys ? topDims(lens, basis.keys) : [];
+      return { weight: round(weight), real: Number.isFinite(nul) ? weight > nul : false, lens,
+               pattern, label: labelPattern(pattern) };
     });
     out.lenses = lenses;
     out.lensEntropy = round(lensEntropy);
+
+    // UNNAMED FRAMES (Track C, fold-before-gate — docs/referents-recursed-up-the-domain-axis.md
+    // D3). The per-eigenvector null above is the star-scale gate: a frame whose Born mass is
+    // SCATTERED across several weak eigen-directions — each below the null — is dropped, exactly
+    // as the creature's mass, scattered across creature/monster/wretch, fell below the
+    // per-epithet gate. The recovery is the referent recovery verbatim: pool directions that
+    // share a BARYCENTER (read in the same passages) and gate the POOLED mass. Report-only,
+    // opt-in, byte-identical when off — and measurement-first: whether a real frame is ever
+    // split-mass this way is an open measurement (the spec's honest seam), so it defaults off.
+    if (opts.unnamedFrames)
+      out.unnamedFrames = foldUnnamedFrames(fullSpectrum, activations, spectrum,
+                                            { alpha, supportTau: opts.frameSupportTau });
   }
 
   // ATMOSPHERE (Track B): the Ground-grain tone + KL departure from the corpus prior.
@@ -291,6 +324,11 @@ const paradigmReading = (activations, rho, basis, opts) => {
   const docProj = projectorFrom(eigenLenses(rho, { k: m }).map(l => l.lens));
   const sigProj = projectorFrom(eigenLenses(sigma.rho, { k: m }).map(l => l.lens));
   const incommensurability = commutator(docProj, sigProj);
+  // WHICH commitments diverge (lens-naming.js): the dimensions where the document's
+  // dominant subspace and the corpus prior's disagree most — read more into X, less into Y —
+  // not just the bare incommensurability scalar this pass shipped with until now.
+  const diagOf = (p) => (basis?.keys || []).map((_, i) => p[i]?.[i] ?? 0);
+  const divergence = basis?.keys ? nameDivergence(diagOf(docProj), diagOf(sigProj), basis.keys) : { pattern: [], label: null };
 
   // Baseline: split the doc in two and measure how much two commensurable halves'
   // bases non-commute. A handful of splits gives the chance distribution.
@@ -348,6 +386,8 @@ const paradigmReading = (activations, rho, basis, opts) => {
     // mis-framed: the basis itself fails to commute past baseline → ascend (REC the
     // Paradigm). under-read: it still commutes → stay at the Lens, retrieve more.
     verdict: beatsBaseline ? 'mis-framed' : 'under-read',
+    pattern: divergence.pattern,
+    label: divergence.label,
     rec,
   };
 };
@@ -367,6 +407,73 @@ const bornWeight = (lens, v) => {
 };
 
 const round = (x) => Math.round(x * 1e4) / 1e4;
+
+// cosine of two non-negative support profiles — the barycenter overlap test below.
+const cosineSupport = (a, b) => {
+  let dot = 0, na = 0, nb = 0;
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+  const d = Math.sqrt(na) * Math.sqrt(nb);
+  return d > 1e-12 ? dot / d : 0;
+};
+
+// foldUnnamedFrames — the fold-before-gate recovery for the Lens
+// (docs/referents-recursed-up-the-domain-axis.md, D3). The individual-eigenvector null is the
+// star-scale gate that kills a split-mass frame; this pools the sub-null directions that ORBIT
+// ONE BARYCENTER (read in the same passages) and gates the POOLED mass, the referent recovery
+// one Domain up. Pure over the spectrum + activations; returns the admitted unnamed frames.
+//   fullSpectrum  eigenLenses(rho) — every {weight, lens}, the whole spectrum
+//   activations   the per-unit significance vectors — the frame's SUPPORT is read off these
+//   spectrum      the bare eigenvalue list (the null's background)
+// A frame is admitted only when (a) it pools ≥2 directions each individually sub-null and (b)
+// those directions share support above supportTau (so two DISTINCT nameless frames stay apart —
+// the spec's held-apart bodies) and (c) the pooled mass beats the null over the rest of the
+// spectrum. Report-only: nothing is merged into any Lens, it is a surfaced candidate.
+export const foldUnnamedFrames = (fullSpectrum, activations, spectrum, { alpha = 0.05, supportTau = 0.5 } = {}) => {
+  const acts = activations || [];
+  // Candidates: the individually sub-null directions, each carrying its support profile
+  // (per-unit Born weight |⟨L|vᵤ⟩|²) — its barycenter over the reading. A direction already
+  // admitted as a real Lens is not "unnamed" and is excluded.
+  const cand = [];
+  fullSpectrum.forEach(({ lens, weight }, idx) => {
+    const nul = deriveNull(spectrum, { scale: 'linear', alpha, leaveOut: weight });
+    if (Number.isFinite(nul) && weight > nul) return;
+    cand.push({ idx, lens, weight, support: acts.map((v) => bornWeight(lens, v)) });
+  });
+  if (cand.length < 2) return [];
+
+  // Single-link clustering by support overlap: two weak directions belong to ONE frame when
+  // their support profiles align (they read in the same passages). This is the barycenter test.
+  const n = cand.length;
+  const parent = Array.from({ length: n }, (_, i) => i);
+  const find = (x) => { while (parent[x] !== x) x = parent[x] = parent[parent[x]]; return x; };
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++)
+      if (cosineSupport(cand[i].support, cand[j].support) >= supportTau) parent[find(i)] = find(j);
+  const groups = new Map();
+  for (let i = 0; i < n; i++) { const r = find(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(i); }
+
+  const frames = [];
+  for (const idxs of groups.values()) {
+    if (idxs.length < 2) continue;                       // a lone weak direction is just weak
+    const members = idxs.map((i) => cand[i]);
+    const pooled = members.reduce((s, m) => s + m.weight, 0);
+    // Gate the pooled body against the spectrum with ALL members left out (the leave-one-out
+    // of evaluate.js, generalised to the group — the pool is tested against the bulk it is not).
+    // Exclusion is by spectrum INDEX, not by value: degenerate eigenvalues collide, and a
+    // value filter would wrongly evict every background direction that happens to share a
+    // member's weight, starving the null below MIN_SAMPLES.
+    const memberIdx = new Set(members.map((m) => m.idx));
+    const bg = spectrum.filter((_, i) => !memberIdx.has(i));
+    const nul = deriveNull(bg, { scale: 'linear', alpha });
+    frames.push({
+      pooledWeight: round(pooled), rank: idxs.length,
+      real: Number.isFinite(nul) && pooled > nul,
+      members: members.map((m) => ({ weight: round(m.weight), lens: m.lens })),
+    });
+  }
+  return frames.filter((f) => f.real);
+};
 
 const clampIdx = (x, S) => Math.max(0, Math.min(S - 1, x | 0));
 const medianOf = (xs) => {

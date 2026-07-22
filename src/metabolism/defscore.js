@@ -18,20 +18,23 @@ import { VERDICTS } from '../core/index.js';
 import { createJudgmentLog } from '../core/index.js';
 import { violatesB1 } from '../core/index.js';
 
-// The four typed commitments. INDETERMINATE is the one suspended verdict — abstention, the
-// honest "I lack the witness to cut same-from-other", never counted as a commitment.
+// The typed commitments. INDETERMINATE is the one suspended verdict — abstention, the
+// honest "I lack the witness to cut same-from-other", never counted as a commitment. The
+// resolution-face verdicts (core/resolution-face.js) are typed cells too, not abstentions.
 export const CONFIDENT = Object.freeze(new Set([
-  VERDICTS.CORROBORATED, VERDICTS.UNSUPPORTED, VERDICTS.CONTRADICTED, VERDICTS.OFF_DIAGONAL,
+  VERDICTS.CORROBORATED, VERDICTS.CONSONANT, VERDICTS.CIRCUMSTANTIAL,
+  VERDICTS.CONTRADICTED, VERDICTS.UNDERMINED, VERDICTS.UNSUPPORTED, VERDICTS.SILENT,
+  VERDICTS.OFF_DIAGONAL,
 ]));
 
 // Verdict polarity for the stability read: +1 supports, −1 denies, 0 suspends. A polarity FLIP
-// between the partial and the full reading is an OVERTURN — the fatal transition; 0→±1 is a
-// suspension strengthened by more evidence, the transition a well-shaped DEF is built for.
+// between the partial and the full reading is an OVERTURN. CONSONANT/CIRCUMSTANTIAL carry
+// Binds' sign; UNDERMINED/SILENT carry Cuts'/Doesn't-bear's — the same sign as their shipped
+// Bearing-row neighbor, differing only in Determinacy.
 export const POLARITY = Object.freeze({
-  [VERDICTS.CORROBORATED]:  1,
-  [VERDICTS.CONTRADICTED]: -1,
-  [VERDICTS.UNSUPPORTED]:  -1,
-  [VERDICTS.OFF_DIAGONAL]: -1,
+  [VERDICTS.CORROBORATED]: 1, [VERDICTS.CONSONANT]: 1, [VERDICTS.CIRCUMSTANTIAL]: 1,
+  [VERDICTS.CONTRADICTED]: -1, [VERDICTS.UNDERMINED]: -1,
+  [VERDICTS.UNSUPPORTED]: -1, [VERDICTS.SILENT]: -1, [VERDICTS.OFF_DIAGONAL]: -1,
   [VERDICTS.INDETERMINATE]: 0,
 });
 

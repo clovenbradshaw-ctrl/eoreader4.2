@@ -7,6 +7,7 @@ export { buildFeed } from './feed.js';
 export { loadShapeLibrary, buildShapeLibrary, parseExemplars } from './shape.js';
 export { proposeWebSearch, searchAnnouncement, anchorTopicless, COST_NOTICE } from './propose.js';
 export { runTurnWithWeb, runWebFollowup, verifyAgainstWeb, formulateSearchQuery } from './web.js';
+export { createSpeculativeWeb, normalizeQuery, viableQuery } from './prefetch.js';
 export { runCuriousResearch, runTurnWithResearch, researchAnnouncement,
          curiosityOf, profileOf, foldInto, leadsFrom, plausibleLead, nextQuery, researchTerms } from './research.js';
 export { runCorroborationWalk, runTurnWithCorroboration, backingFromReflection,
@@ -17,6 +18,7 @@ export { modelDisambiguator, chooseSense, biasTopic, sharpenSeed, parseSensePrio
          discriminate, senseAnnouncement, SENSE_W } from './disambiguate.js';
 export { modelClarifyGate, readDiscourse, phaticFromSpeech, clarifyDemandOf } from './meta-route.js';
 export { shredTtl, makeArchive, shredExpired, nextShredTime } from './archive.js';
+export { recordIntakeDefs } from './intake.js';
 
 // (seam healing) re-exported so the module stays behind the entrance
 export { extendLibraryWithNavPool } from './nav-pool.js';

@@ -17,6 +17,7 @@
 // present the graph projection is byte-identical (tests/credence-parity).
 
 import { createBetaFilter, createEwFilter } from './filters.js';
+import { memoizeOnLog, canonicalJSON } from '../../core/index.js';
 
 // The five writes, the only credence inputs (§3). A DEF credence verdict (§8) is
 // an OUTPUT the book asserts, not an input channel, so it is deliberately absent.
@@ -248,19 +249,6 @@ export const weightByIndep = (corroborators) => {
   return Math.max(0, w);
 };
 
-// Deterministic canonical serialization of the relevant frame, mirroring
-// project.js canonicalFrame — sorted keys, recursive on plain objects — so the
-// memo key is stable and a replay hits the same cache (conformance §7).
-const canonical = (v) => {
-  if (v && typeof v === 'object' && !Array.isArray(v)) {
-    return '{' + Object.keys(v).sort()
-      .map(k => JSON.stringify(k) + ':' + canonical(v[k])).join(',') + '}';
-  }
-  return JSON.stringify(v);
-};
-
-const memo = new WeakMap();   // log → { length, frameSig, result }
-
 // eventsUpTo — the cursor bound. The credence cursor is the trajectory's own time
 // index (each event carries its `cursor`); where absent we fall back to the log
 // seq. A null frame.cursor folds the whole log. Implemented here rather than on
@@ -272,19 +260,12 @@ const eventsUpTo = (events, cursor) =>
 
 export const projectCredence = (log, frame = {}) => {
   const rules = { ...DEFAULT_CREDENCE_RULES, ...((frame.rules && frame.rules.credence) || {}) };
-  const frameSig = canonical({ cursor: frame.cursor ?? null, rules });
-  const cached = memo.get(log);
-  if (cached && cached.length === log.length && cached.frameSig === frameSig) {
-    return cached.result;
-  }
-  const result = compute(log, frame, rules);
-  memo.set(log, { length: log.length, frameSig, result });
-  return result;
+  return _projectCredence(log, frame, rules);
 };
 
 export const credenceStats = (log) => {
-  const c = memo.get(log);
-  return c ? { cached: true, atLength: c.length, frameSig: c.frameSig } : { cached: false };
+  const c = _projectCredence.stats(log);
+  return c.cached ? { cached: true, atLength: c.atLength, frameSig: c.sig } : { cached: false };
 };
 
 const compute = (log, frame, rules) => {
@@ -323,6 +304,14 @@ const compute = (log, frame, rules) => {
 
   return freezeBook(book);
 };
+
+// Memoized on (log.length, frameSig) via core's shared memoizeOnLog — mirroring
+// project.js's projectGraph exactly, down to the canonical (sorted-key) frame
+// serialization (canonicalJSON, also core's), so the memo key is stable and a
+// replay hits the same cache (conformance §7).
+const _projectCredence = memoizeOnLog(compute, {
+  sig: (frame, rules) => canonicalJSON({ cursor: frame.cursor ?? null, rules }),
+});
 
 // The public, read-only shape: Map<source_id, Map<domain, state>>, each state the
 // spec's credence(source, domain, cursor) record (§6). Frozen so a caller cannot

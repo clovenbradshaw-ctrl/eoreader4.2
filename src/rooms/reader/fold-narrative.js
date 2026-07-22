@@ -47,6 +47,10 @@ const surfRead = (surf) => {
   const parts = [];
   const v = lab(surf.atmosphere?.verdict); if (v) parts.push(v);
   const tone = lab(surf.atmosphere?.tone); if (tone) parts.push(tone);
+  // The relativistic read (D4): distinct local keys among the departed windows — the document
+  // reading in several keys, not one. Only when it genuinely departs (≥2 distinct local tones).
+  const localTones = new Set((surf.atmosphere?.anomalousWindows || []).map((w) => w.tone?.label).filter(Boolean));
+  if (localTones.size >= 2) parts.push(`${localTones.size} local keys`);
   const para = lab(surf.paradigm); if (para) parts.push(para);
   if (surf.stance && surf.stance.guard) parts.push('guard held');
   return parts.length ? parts.join(' · ') : null;

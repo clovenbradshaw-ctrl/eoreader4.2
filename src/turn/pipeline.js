@@ -15,7 +15,7 @@
 
 import { stages } from './stages.js';
 import { sourceDocsOf, citeOriginsOf, citeUnitsOf, citeTextsOf } from './cites.js';
-import { stageFace } from './stage-faces.js';
+import { stageFace, PIPELINE_STAGES } from './stage-faces.js';
 import { createJudgmentLog } from '../core/index.js';
 import { proposeWebSearch } from './propose.js';
 import { createCompositeDoc } from '../organs/in/index.js';
@@ -139,9 +139,11 @@ const llmBrief = (ctx) => {
 // retrieval returned tangential spans (no void), yet the answer earned no witness and shares
 // only the passages' vocabulary. It asks the reader to judge its own draft against the lines
 // and, on a clear "not supported", replaces the unwitnessed draft with an honest absence.
-const PIPELINE = [
-  'route', 'expect', 'converse', 'retrieve', 'inquire', 'fold', 'predict', 'answerable', 'gate', 'reason', 'prompt', 'llm', 'bind', 'factcheck', 'revise', 'veto', 'absence', 'validate', 'settle',
-];
+// The stage order — one list, stage-faces.js's STAGE_SPEC (the §5 table, in reading
+// order), which this pipeline used to keep a second, hand-copied array of. They can
+// no longer drift: this list drives execution, its key order there drives the
+// printed trace.
+const PIPELINE = PIPELINE_STAGES;
 
 // `classifier`/`adjacency` are the geometric organ the edge-grounding fact-check needs
 // for its meaning-distance verdicts; threaded through like `embedder`, optional, and
@@ -611,6 +613,7 @@ const summarize = (name, ctx, ms) => {
                               contradicted:  ctx.factcheck?.counts?.contradicted  || 0,
                               unsupported:   ctx.factcheck?.counts?.unsupported   || 0,
                               indeterminate: ctx.factcheck?.counts?.indeterminate || 0,
+                              silent:        ctx.factcheck?.counts?.silent        || 0,
                               offDiagonal:   ctx.factcheck?.counts?.offDiagonal   || 0,
                               refuse:        ctx.factcheck?.refuse || false };
     case 'revise':   return { ...base,

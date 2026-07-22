@@ -41,6 +41,15 @@ export const STANCES = Object.freeze({
 // rides; Figure and Pattern are inscribed into it. The Interpretation row is the
 // spec's Significance row: Atmosphere (ambient meaning-tone), Lens (a reading
 // under a frame), Paradigm (the frame-of-frames).
+//
+// THE GROUND COLUMN IS THE PRIOR COLUMN (docs/ground-column §0). Void / Field /
+// Atmosphere are not terrains anchored to a span — they are the three channels of
+// EXPECTATION a reading is read against, realised as the three prior channels in
+// perceiver/reading.js: Void = NOVELTY (the cold-start reserve, a prior over what has
+// not yet been seen), Field = priorBond (a prior over what is connected to what),
+// Atmosphere = priorProp (a prior over what is taken to be the case). A Lens
+// (perceiver/lens.js) conditions those channels; a Paradigm is the distribution over
+// Lenses (wiki/terrains.js Paradigm.requiredEdges: instances ≥ 2).
 export const TERRAINS = Object.freeze({
   Existence:      Object.freeze({ Ground: 'Void',       Figure: 'Entity', Pattern: 'Kind'     }),
   Structure:      Object.freeze({ Ground: 'Field',      Figure: 'Link',   Pattern: 'Network'  }),

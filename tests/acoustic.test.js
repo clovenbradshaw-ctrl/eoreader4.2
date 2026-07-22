@@ -113,6 +113,33 @@ test('separateHolons: a hairline dropout inside a phrase does not shatter it int
   assert.equal(h.signalSpans.length, 1, 'a hairline dropout is coalesced, not split');
 });
 
+test('separateHolons: a low-dynamic-range, continuously-varying clip (compressed speech) still finds its signal', () => {
+  // Real speech is rarely the clean on/off step the other tests use — a broadcast AGC or a
+  // phone/VoIP codec holds loudness inside a narrow band and never reaches true digital
+  // silence. Build a clip with NO discrete tiers at all: syllable-rate and phrase-rate
+  // amplitude wobble over a two-tone carrier, riding a modest (~8 dB) envelope with a little
+  // broadband texture — before this fix, DEF's many-frame elbow test (calibrated for a
+  // handful of eigenvalues, not thousands of energy frames) abstained on a gap this gentle
+  // and read the whole clip as noise, silently skipping transcription of real, sustained speech.
+  const n = Math.round(10 * SR);
+  const x = new Float32Array(n);
+  let rnd = 7;
+  const rand = () => { rnd = (rnd * 1103515245 + 12345) & 0x7fffffff; return rnd / 0x7fffffff; };
+  const base = 0.1, swing = base * (Math.pow(10, 8 / 20) - 1);   // ~8 dB of headroom above the base
+  for (let i = 0; i < n; i++) {
+    const t = i / SR;
+    const syll = 0.5 + 0.5 * Math.sin(2 * Math.PI * 6.3 * t + 2 * Math.sin(t * 1.9));
+    const phrase = 0.5 + 0.5 * Math.sin(2 * Math.PI * 0.3 * t);
+    const env = base + swing * 0.5 * (syll * 0.7 + phrase * 0.3);
+    const carrier = Math.sin(2 * Math.PI * (150 + 60 * Math.sin(t * 0.9)) * t) * 0.6
+                  + Math.sin(2 * Math.PI * (320 + 90 * Math.sin(t * 1.3)) * t) * 0.4;
+    x[i] = env * carrier + (rand() - 0.5) * env * 0.5;
+  }
+  const h = separateHolons(x, SR);
+  assert.ok(h.signalSpans.length > 0, 'a continuously modulated, low-contrast clip is still signal, not silence');
+  assert.equal(h.signalSeconds, 10, 'a clip that never actually goes quiet reads as signal throughout');
+});
+
 // ── raising the reading onto the spine ───────────────────────────────────────────────────
 
 test('ingestAcoustic: the holons land as a readable doc that encodes into EoT', () => {

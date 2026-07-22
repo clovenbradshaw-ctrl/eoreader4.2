@@ -58,6 +58,7 @@ import { createReaderApp } from './app.js';
 import { wireEotFeed } from './eot-feed.js';
 import { APP_NAME, APP_VERSION } from './provenance.js';
 import { mountTieredGraph } from './tiered-graph.js';
+import { mountSolarSystem } from './solar-system.js';
 import { mountFacingRenderer, assembleDocument, splitSource, runnableSrcdoc } from '../render/index.js';
 import * as readerRender from './reader-render.js';
 import * as reveal from './reveal.js';
@@ -74,6 +75,18 @@ import { createChatRoom, mountChat, mountChatLauncher } from '../chat/index.js';
 import { createDatabase } from '../../store/index.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
+import { mountBinvis } from './binvis-surface.js';
+import { mountRawText } from './rawtext-surface.js';
+import { mountPdfView } from './pdf-view-surface.js';
+import { mountResearchReview } from './research-review-surface.js';
+import { mountReaderSurface } from './reader-surface.js';
+import { mountLedger } from './ledger-surface.js';
+import { assembleQuestionResult, buildLedger, holonMeaningData, STANDINGS } from './question-result.js';
+import * as binvis from '../../surfaces/binvis/index.js';
+import * as rawtext from '../../surfaces/rawtext/index.js';
+import { createPipelineSurface } from './pipeline-surface.js';
+import * as evidence from './evidence.js';
+import { renderArticleHTML, WIKI_PANEL_CSS } from '../../wiki/index.js';
 const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a session; the ring's bytes, not its count, were the cost
 // The peripheral sense (src/murmur, docs/murmur.md) — a continuously-running, near-zero-cost
 // background faculty that watches the same fold geometry the turn emits and raises IMPRESSIONS
@@ -92,10 +105,14 @@ const app = createReaderApp({ audit, murmur });
 // ledger's named verbs, so the full terminal shows the machine in its own syntax with
 // no instrumented call sites. It only READS those streams and writes to a ring buffer:
 // nothing enters the answer, and murmur lines ride the enactor door (witness:false), so
-// the §9 firewall holds. `notate` (core) prints each line's operator faces. The terminal
+// the §9 firewall holds — though the terminal surfaces murmur as its OWN filter bucket
+// (∿ sense), distinct from the model's real acts (◂). `notate` (core) prints each line's operator faces. The terminal
 // mounts with fab:false — the murmur strip is its sole opener (its click calls
 // eotTerminal.open()), so there is no second bottom-corner button beside the audit console.
-const eot = createEotLedger({ capacity: 500 });
+// Capacity is deep (not 500): the murmur voices CONTINUOUSLY, so a shallow ring fills with
+// murmur alone and rolls the sparse reads/searches/turns off the front — the terminal would
+// then show "just the murmur". A deep ring keeps the whole session's real operations too.
+const eot = createEotLedger({ capacity: 4000 });
 wireEotFeed({ app, audit, murmur, eot });
 let eotTerminal = null;
 try { eotTerminal = mountEotTerminal(eot, { hotkey: true, startOpen: false, fab: false, notate }); }
@@ -306,9 +323,19 @@ const render = Object.freeze({
   },
 });
 
+// The n8n/TouchDesigner-style wiring surface — a source's derivations to a sink (pipeline-*.js).
+const pipeline = createPipelineSurface({ app });
+
+// The audit console (see console-surface.js). Mounted here, before window.EO is built, so
+// the frozen object below captures the real handle rather than the pre-mount null.
+let eoConsole = null;
+try { eoConsole = mountConsole(document.body, { audit, app, appName: APP_NAME, version: APP_VERSION, fab: false }); }
+catch (e) { console.warn('[EO] console not mounted', e); }
+
 window.EO = Object.freeze({
   app,
   render,   // the facing-page WYSIWYG renderer — open a source (HTML/CSS/JS) rendered live beside its code
+  pipeline, // the n8n/TouchDesigner-style wiring surface — open({sourceIds}), plus the graph CRUD + run
   parse,
   readingAt,
   groundSpans, groundSummary, supportVerdict,
@@ -318,12 +345,39 @@ window.EO = Object.freeze({
   murmur,   // the peripheral sense — the surface subscribes for the real-time murmur strip (audit-only)
   eot,               // the EOT operation ledger (docs/eot-ledger.md) — snapshot/subscribe/export the machine's own trail
   eotTerminal,       // the full activity terminal's mount handle — the murmur strip opens it on click (open/close/toggle)
+  console: eoConsole,   // the audit console's mount handle (docs above) — Settings' "Console" row opens/closes it
   workspace,
-  mountTieredGraph,
+  mountTieredGraph, mountSolarSystem,   // …and the EOGraph solar surface (rooms/reader/solar-system): an egocentric, POV-pivoting view — an entity at the centre, its existence/structure/meaning ringing out as three regimes (quantum · chemistry · orbital), wired as the Graph tab's EOGraph kind
   mountDagSurface,   // the two-cursor causal DAG surface (surfer/dag) — topic-wide + per-entity, with toggles
   readerRender,   // source→book reader + native-page render, for the source viewer's tabs
   reveal,   // the chat typewriter's pace (bounded catch-up) — pure, so the freeze regression is CI-tested
+  // the byte-structure surface (Aldo Cortesi's binvis) — a document's bytes on a Hilbert curve,
+  // coloured by class/entropy/significance. index.html wires mountBinvis into the Structure tab.
+  binvis: Object.freeze({ ...binvis, mount: mountBinvis }),
+  // the raw-text surface — a source's own text, line-numbered, uninterpreted: the layer
+  // between the Native tab's kind-aware render and Structure's raw-byte mosaic above.
+  // index.html wires mountRawText into the Raw tab.
+  rawtext: Object.freeze({ ...rawtext, mount: mountRawText }),
+  pdfView: Object.freeze({ mount: mountPdfView }),   // the PDF page surface (pdf.js → canvas) — index.html wires it into the PDF tab
+  // Research Review (docs/research-review.md) — a search result becomes a provisional, inspectable
+  // corpus (discovered/reviewed/admitted) before anything joins a real topic. Mounted, binvis-style.
+  researchReview: Object.freeze({ mount: mountResearchReview }),
+  // the terrain-typed article renderer (docs/terrain-typed-templates.md, src/wiki/render.js)
+  // — pure string-in/string-out, so the dc surface can render a hero without importing
+  // engine internals. app.heroArticleFor(docId, entId) (rooms/reader/app/wiki.js) supplies
+  // the article; this is only the render function + its scoped CSS.
+  // (docs/entity-panel-terrain-hero.md)
+  wiki: Object.freeze({ renderArticleHTML, WIKI_PANEL_CSS }),
+  // The reader room, one engine at two widths (docs/EO_MVP_Integration_Guide.md): the holonic
+  // reading (paradigm ⊃ atmosphere ⊃ lens) and the grounding standing (corroborated · contested ·
+  // single-source · void), rendered as two projections of one tree — a collapsible ledger outline
+  // and the mountSolarSystem orbit — with the full click-down to the base spans each claim stands on.
+  // mount(el, { reading, onOpenSource, resolveSpan }); the pure assembly layer is exposed too, plus
+  // mountLedger (the standalone collapsible-outline projection) and STANDINGS so a host that owns its
+  // own shell (index.html's MVP centre) can build a holon tree and mount just the ledger.
+  reader: Object.freeze({ mount: mountReaderSurface, mountLedger, assembleQuestionResult, buildLedger, holonMeaningData, STANDINGS }),
   firstSurfaceKind,   // which surface a fresh import opens first (causal DAG / entity web) — pure, CI-tested
+  evidence,   // the evidence-modal contract — a waveform mark → the five-region modal shape (docs/omnimodal-waveform.md)
   projectTranscript, wordsToText,   // the interactive transcript fold (baseline + edits/redactions → live reading)
   encodeWav, applyRedactions,       // audio DSP for the Listen surface's redaction re-synthesis + WAV export
 
@@ -345,6 +399,9 @@ window.EO = Object.freeze({
 });
 
 console.info('[EO] engine bridge up — window.EO', Object.keys(window.EO));
+// Signal any DC surface that support.js mounted before this deferred module ran (it captured a null
+// engine and waits on 'eo:ready' to bind to window.EO). A later-mounting surface reads window.EO direct.
+try { if (typeof window !== 'undefined' && window.dispatchEvent) window.dispatchEvent(new Event('eo:ready')); } catch { /* no window (tests/node) */ }
 
 // Drop the floating E2EE-chat launcher into the page. It stays hidden until a Matrix
 // session is live (reusing the archive login) and never touches the reader surface.
@@ -354,10 +411,3 @@ catch (e) { console.warn('[EO] chat launcher not mounted', e); }
 // …and the encrypted-vault launcher, gated the same way (sits just above the chat FAB).
 try { if (typeof document !== 'undefined') mountVaultLauncher(document.body, { vault, matrix }); }
 catch (e) { console.warn('[EO] vault launcher not mounted', e); }
-
-// …and the audit console — a bottom-docked developer terminal that streams, live,
-// every turn stage, session event, engine log, and stall, tapping ONLY this membrane
-// (audit + app + console.*). Its own no-progress detector mirrors the engine's stall
-// watchdog in the surface, so a freeze like the essay hang is visible as it happens.
-try { if (typeof document !== 'undefined') mountConsole(document.body, { audit, app, appName: APP_NAME, version: APP_VERSION }); }
-catch (e) { console.warn('[EO] console not mounted', e); }

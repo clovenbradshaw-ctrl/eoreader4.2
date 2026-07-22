@@ -89,8 +89,9 @@ export const installPicture = (appCtx) => {
     } catch { return null; }
   };
 
-  const ingestFile = (file, fileOpts = {}) =>
-    appCtx.runCancellable({ kind: 'file', label: `Reading ${file.name}…` }, async (signal, progress) => {
+  const ingestFile = (file, fileOpts = {}) => {
+    const targetTopicId = fileOpts.topicId || state.activeTopicId;
+    return appCtx.runCancellable({ kind: 'file', label: `Reading ${file.name}…` }, async (signal, progress) => {
       // Make the import reload-safe from the first byte: stash the file + open a durable job now,
       // before the (possibly slow) extractor even loads. Dropped the moment the source lands below.
       const fileJid = await beginFileJob(file);
@@ -112,7 +113,7 @@ export const installPicture = (appCtx) => {
           settleFile(signal.aborted ? 'stopped' : 'error', ((res && res.coverage && res.coverage.dropped) || ['no picture could be read']).join('; '));
           return null;
         }
-        const src = appCtx.addSource({ title: got.title || file.name, text: res.text, kind: 'audio', rights: 'local file', doc: res.doc });
+        const src = appCtx.addSource({ title: got.title || file.name, text: res.text, kind: 'audio', rights: 'local file', doc: res.doc, topicId: targetTopicId });
         settleFile('done');
         if (src) {
           src._media = got.meta.media ? { url: got.meta.media, kind: got.meta.mediaKind, isVideo: true } : null;
@@ -136,7 +137,7 @@ export const installPicture = (appCtx) => {
       // the source immediately (so it shows up as a source, playable, with its visualization),
       // reveal it, THEN run transcription in the background — only if there was signal to hear.
       if (got.meta?.modality === 'audio' && got.meta?.doc) {
-        const src = appCtx.addSource({ title: got.title || file.name, text: got.text, kind: 'audio', rights: 'local file', doc: got.meta.doc });
+        const src = appCtx.addSource({ title: got.title || file.name, text: got.text, kind: 'audio', rights: 'local file', doc: got.meta.doc, topicId: targetTopicId });
         // The source has landed and persists on its own now — the pre-source decode window the file
         // job covered is over. The original bytes (audio store, below) + the transcribe job carry
         // reload-safety from here, so drop the file job and its stashed copy rather than double-keep.
@@ -178,7 +179,7 @@ export const installPicture = (appCtx) => {
         }
         return src;
       }
-      const structured = ['table', 'json', 'binary', 'music'].includes(got.meta?.modality) && got.meta?.doc;
+      const structured = ['table', 'json', 'binary', 'music', 'subtitle'].includes(got.meta?.modality) && got.meta?.doc;
       // The coverage receipt — proof that 100% of the file was processed, or the named account of
       // what could not be (import-file.js) — rides the source and the ledger, whichever path lands it.
       const cov = got.meta?.coverage;
@@ -195,9 +196,12 @@ export const installPicture = (appCtx) => {
       // the log; re-parsing their rendered lines as prose would drop them. It is cheap and ready, so
       // the source lands WITH its doc in one step and its entity count shows at once.
       if (structured) {
-        const src = appCtx.addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', doc: got.meta.doc });
+        const src = appCtx.addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', doc: got.meta.doc, topicId: targetTopicId });
         settleFile('done');
         recordCoverage(src);
+        // A caption's cues carry real timing, interpolated to word-level tokens — the same
+        // src.words shape an ASR transcript lands on, so sync-reduce.js reads either uniformly.
+        if (src && got.meta?.modality === 'subtitle' && Array.isArray(got.meta.words)) { src.words = got.meta.words; appCtx.persist(); }
         return src;
       }
 
@@ -209,11 +213,14 @@ export const installPicture = (appCtx) => {
       // finishReading folds it in when it is done. So a 2,500-page document never makes the reader
       // wait to see its source, and never freezes the tab on one synchronous sweep — until the read
       // lands, the registry simply shows that source's entity count as an ellipsis.
-      const src = appCtx.addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', defer: true });
+      const src = appCtx.addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', defer: true, topicId: targetTopicId });
       // The source has landed and persists (src.text rides the snapshot); the pre-source extract
       // window the file job covered is over. Drop it — a reload re-derives the reading lazily.
       settleFile('done');
       recordCoverage(src);
+      // A code file's language (import-file.js's CODE_LANG_BY_EXT) — read by the Native tab's
+      // highlighter (code-highlight.js) and the Overview landing page's "Language" row.
+      if (src && got.meta?.language) src.language = got.meta.language;
       // A PDF opens AS A PDF first — the real pages, not the reflowed book — so keep its original
       // bytes for that surface (the reader is one tab away). Best-effort, off the critical path:
       // fired, not awaited, so the (background) OCR read never waits on the OPFS write, and a fault
@@ -240,6 +247,7 @@ export const installPicture = (appCtx) => {
       }
       return src;
     });
+  };
 
   Object.assign(appCtx, { ingestFile, recomposeVideoDoc, runWatch });
 };

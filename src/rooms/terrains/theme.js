@@ -36,11 +36,16 @@ export const ACTION = {
 // Domain → a hue family (the answer's "Domain picks the hue"), desaturated so it reads calm.
 export const DOMAIN_HUE = { Existence: '#5aa9e6', Structure: '#46c39e', Interpretation: '#d3a24a' };
 
-// Categorical palettes for the recolour channels + the washes.
-export const KIND_HUE    = { org: '#5aa9e6', product: '#d3a24a', person: '#a882e6', doc: '#46c39e', group: '#e88aa0' };
+// Categorical palettes for the recolour channels + the washes. The fixed-passage keys
+// (org/product/…, governing/vendor/…, surveillance/…) sit alongside the feedback-scene keys
+// (support/delivery/…, positive/negative/neutral) so either scene reads in named colour without
+// touching this table again; huesForKeys() (below) covers whatever key a THIRD scene invents.
+export const KIND_HUE    = { org: '#5aa9e6', product: '#d3a24a', person: '#a882e6', doc: '#46c39e', group: '#e88aa0',
+  support: '#5aa9e6', delivery: '#e88aa0', speed: '#7f9cf5', staff: '#a882e6', process: '#e0975a', service: '#5bc6c2', experience: '#c78be6', general: '#8b93a2' };
 export const CLUSTER_HUE = { governing: '#5aa9e6', vendor: '#d3a24a', public: '#46c39e' };
 export const TONE_HUE    = { amber: '#d3a24a', blue: '#5aa9e6', violet: '#a882e6', green: '#46c39e' };
-export const FRAME_HUE   = { surveillance: '#a882e6', 'public-safety': '#46c39e' };
+export const FRAME_HUE   = { surveillance: '#a882e6', 'public-safety': '#46c39e',
+  positive: '#46c39e', negative: '#d3a24a', neutral: '#5aa9e6' };
 export const ENT_HUES    = ['#5aa9e6', '#d3a24a', '#a882e6', '#46c39e', '#e88aa0', '#7f9cf5', '#e0975a', '#5bc6c2', '#c78be6'];
 
 // A stable hue per entity id (identity recolour), by first appearance in the scene.
@@ -50,10 +55,24 @@ export const identityHues = (entities) => {
   return m;
 };
 
-// The hue an entity mark wears under the active recolour channel.
-export const hueForEntity = (mark, recolor, idHues) =>
-  recolor === 'kind'    ? (KIND_HUE[mark.colorKey] || '#8b93a2') :
-  recolor === 'network' ? (CLUSTER_HUE[mark.colorKey] || '#8b93a2') :
+// The same cycling assignment, generalized to any key list — a derived scene's category
+// column (Network cluster) is open-ended (whatever values the CSV's own column carries), so
+// there is no fixed table to pre-populate the way KIND_HUE/FRAME_HUE are. Merge this UNDER a
+// fixed palette (`{ ...huesForKeys(keys), ...FIXED_HUE }`) so known keys keep their designed
+// colour and only the unknown ones fall back to a generated one.
+export const huesForKeys = (keys) => {
+  const m = {}; let i = 0;
+  for (const k of keys) if (k != null && !(k in m)) m[k] = ENT_HUES[i++ % ENT_HUES.length];
+  return m;
+};
+
+// The hue an entity mark wears under the active recolour channel. `kindPalette`/`clusterPalette`
+// default to the fixed dictionaries above but a caller painting a derived scene (feedback.js)
+// passes its own merged palette (huesForKeys(...) ∪ the fixed table) so an open-ended key still
+// gets a real colour instead of falling through to grey.
+export const hueForEntity = (mark, recolor, idHues, kindPalette = KIND_HUE, clusterPalette = CLUSTER_HUE) =>
+  recolor === 'kind'    ? (kindPalette[mark.colorKey] || '#8b93a2') :
+  recolor === 'network' ? (clusterPalette[mark.colorKey] || '#8b93a2') :
                           (idHues[mark.colorKey] || idHues[mark.id] || '#8b93a2');
 
 export const CSS = `
@@ -69,6 +88,18 @@ export const CSS = `
 .tr-head{flex:0 0 auto;padding:15px 22px 14px;border-bottom:1px solid var(--line);background:var(--panel)}
 .tr-title{font-weight:600;font-size:15px;letter-spacing:-.01em}
 .tr-sub{color:var(--dim);font-size:12px;margin-top:4px;max-width:104ch}
+/* source bar — demo passage vs. a loaded CSV */
+.tr-source{flex:0 0 auto;padding:10px 22px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.tr-src-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tr-src-label{font-size:11px;color:var(--faint);letter-spacing:.04em;margin-right:2px}
+.tr-src-btn{font:inherit;font-size:12px;padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.tr-src-btn:hover{border-color:var(--accent)}
+.tr-src-btn.on{border-color:var(--accent);color:var(--accent);background:${withAlpha('#5bc6c2', .1)}}
+.tr-src-paste{display:flex;gap:8px;margin-top:8px;align-items:flex-start}
+.tr-src-paste textarea{flex:1 1 auto;font-family:var(--mono);font-size:12px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;resize:vertical;min-height:64px}
+.tr-src-use{font:inherit;font-size:12px;padding:6px 13px;border-radius:8px;border:1px solid var(--accent);background:${withAlpha('#5bc6c2', .12)};color:var(--accent);cursor:pointer;flex:0 0 auto}
+.tr-src-stat{margin-top:7px;font-size:11.5px;color:var(--dim);font-family:var(--mono)}
+.tr-src-err{margin-top:7px;font-size:11.5px;color:var(--neg)}
 .tr-body{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:366px 1fr;overflow:hidden}
 @media (max-width:840px){.tr-body{grid-template-columns:1fr;overflow:auto}}
 .tr-side{border-right:1px solid var(--line);background:var(--panel);padding:20px 18px;overflow:auto}

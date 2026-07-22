@@ -1,0 +1,405 @@
+{
+  "count": 205,
+  "bars": [
+    {
+      "label": "Elizabeth Lavenza",
+      "mentions": 82,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Henry Clerval",
+      "mentions": 74,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Justine Moritz",
+      "mentions": 46,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Felix",
+      "mentions": 45,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Dear Victor",
+      "mentions": 28,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Safie",
+      "mentions": 22,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "William",
+      "mentions": 21,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "England",
+      "mentions": 19,
+      "sourceCount": 1,
+      "grain": "figure"
+    }
+  ],
+  "rows": [
+    {
+      "label": "Elizabeth Lavenza",
+      "mentions": 82,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Henry Clerval",
+      "mentions": 74,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Justine Moritz",
+      "mentions": 46,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Felix",
+      "mentions": 45,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Dear Victor",
+      "mentions": 28,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Safie",
+      "mentions": 22,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "William",
+      "mentions": 21,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "England",
+      "mentions": 19,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Frankenstein",
+      "mentions": 18,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Agatha",
+      "mentions": 17,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Mr Kirwin",
+      "mentions": 12,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Thank God",
+      "mentions": 11,
+      "sourceCount": 1,
+      "grain": null
+    },
+    {
+      "label": "a creature",
+      "mentions": 11,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Margaret",
+      "mentions": 10,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "De Lacey",
+      "mentions": 9,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Arabian",
+      "mentions": 9,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Waldman",
+      "mentions": 7,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Beaufort",
+      "mentions": 7,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Cornelius Agrippa",
+      "mentions": 7,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Presently Ernest",
+      "mentions": 7,
+      "sourceCount": 1,
+      "grain": null
+    },
+    {
+      "label": "Mont Blanc",
+      "mentions": 7,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Krempe",
+      "mentions": 7,
+      "sourceCount": 1,
+      "grain": null
+    },
+    {
+      "label": "Captain Walton",
+      "mentions": 5,
+      "sourceCount": 1,
+      "grain": null
+    },
+    {
+      "label": "Jura",
+      "mentions": 5,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Turk",
+      "mentions": 5,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Good God",
+      "mentions": 4,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Ireland",
+      "mentions": 4,
+      "sourceCount": 1,
+      "grain": "figure"
+    },
+    {
+      "label": "Mont Salêve",
+      "mentions": 4,
+      "sourceCount": 1,
+      "grain": null
+    },
+    {
+      "label": "Paradise Lost",
+      "mentions": 3,
+      "sourceCount": 1,
+      "grain": null
+    },
+    {
+      "label": "Having",
+      "mentions": 3,
+      "sourceCount": 1,
+      "grain": "figure"
+    }
+  ],
+  "excluded": [
+    {
+      "label": "Geneva",
+      "mentions": 34,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "Ingolstadt",
+      "mentions": 16,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "Switzerland",
+      "mentions": 10,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "Paris",
+      "mentions": 10,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "London",
+      "mentions": 8,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "Italy",
+      "mentions": 7,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "Heaven",
+      "mentions": 6,
+      "sourceCount": 1,
+      "grain": "kind"
+    },
+    {
+      "label": "Leghorn",
+      "mentions": 6,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "Scotland",
+      "mentions": 5,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "Oxford",
+      "mentions": 5,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "Werter",
+      "mentions": 5,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "Edinburgh",
+      "mentions": 4,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "Chamounix",
+      "mentions": 4,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "Strasburgh",
+      "mentions": 4,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "Belrive",
+      "mentions": 4,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "France",
+      "mentions": 4,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "Nature",
+      "mentions": 3,
+      "sourceCount": 1,
+      "grain": "kind"
+    },
+    {
+      "label": "About",
+      "mentions": 3,
+      "sourceCount": 1,
+      "grain": "kind"
+    },
+    {
+      "label": "Plainpalais",
+      "mentions": 3,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "Perth",
+      "mentions": 3,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "Germany",
+      "mentions": 3,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "Matlock",
+      "mentions": 3,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "Man",
+      "mentions": 1,
+      "sourceCount": 1,
+      "grain": "kind"
+    },
+    {
+      "label": "Destruction",
+      "mentions": 1,
+      "sourceCount": 1,
+      "grain": "kind"
+    },
+    {
+      "label": "Omnipotence",
+      "mentions": 1,
+      "sourceCount": 1,
+      "grain": "kind"
+    },
+    {
+      "label": "Empires",
+      "mentions": 1,
+      "sourceCount": 1,
+      "grain": "kind"
+    },
+    {
+      "label": "Rhine",
+      "mentions": 1,
+      "sourceCount": 1,
+      "grain": "setting"
+    },
+    {
+      "label": "Tower",
+      "mentions": 1,
+      "sourceCount": 1,
+      "grain": "kind"
+    }
+  ]
+}

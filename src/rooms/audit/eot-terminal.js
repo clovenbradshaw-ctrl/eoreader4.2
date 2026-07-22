@@ -63,6 +63,16 @@ const addressOf = (rec) => {
   return [organ, document, record, leafParam(rec)].map((s) => String(s).slice(0, 40)).join('.');
 };
 
+// Which stream a line belongs to — the terminal's filter bucket. The DOOR is the
+// §8 type law (perceiver = the world it read · enactor = the model's own act), but
+// the peripheral sense (kind:'murmur') rides the enactor door AND fires continuously,
+// so lumped in with real acts it both hides the sparse route/prompt/generate lines
+// and, over a session, floods them off the ring. We split it out as its own bucket:
+// 'read · world', 'act · model', and 'murmur · sense' each filter independently, so
+// the console shows EVERYTHING — and everything EXCEPT the murmur — not one or the
+// other. Murmur is still reafferent (its door is unchanged); this is a view, not a law.
+export const eotBucket = (rec) => (rec && rec.kind === 'murmur' ? 'murmur' : (rec && rec.door) || 'enactor');
+
 // two-digit clock off the record's epoch ms (no argless Date — ms is on the record)
 const clock = (ms) => {
   try { const d = new Date(ms); const p = (n) => String(n).padStart(2, '0');
@@ -98,6 +108,7 @@ const CSS = `
 .eotl-chip.eotl-on{background:#182634;color:#e6edf4;border-color:#2f6feb;}
 .eotl-chip.eotl-perc.eotl-on{border-color:#2ea043;color:#7ee787;}
 .eotl-chip.eotl-enac.eotl-on{border-color:#d29922;color:#f0c674;}
+.eotl-chip.eotl-murm.eotl-on{border-color:#8a6fbf;color:#c4b3ff;}
 .eotl-in{background:#0b1017;border:1px solid #24303d;color:#c7d0da;border-radius:6px;padding:3px 8px;font:inherit;font-size:11px;width:150px;}
 .eotl-in::placeholder{color:#8b98a8;}
 .eotl-btn{border:1px solid #24303d;background:#121a24;color:#a9b4c2;border-radius:6px;padding:3px 9px;cursor:pointer;font:inherit;font-size:11px;}
@@ -110,8 +121,11 @@ const CSS = `
 .eotl-door{text-align:center;font-weight:700;user-select:none;}
 .eotl-perc .eotl-door{color:#2ea043;}
 .eotl-enac .eotl-door{color:#d29922;}
+.eotl-murm .eotl-door{color:#8a6fbf;}
 .eotl-line{color:#c7d0da;}
 .eotl-perc .eotl-line{color:#c9d8cd;}
+.eotl-murm .eotl-line{color:#b9b2cc;}
+.eotl-murm .eotl-addr{color:#5f567a;}
 .eotl-sig{color:#79c0ff;}
 .eotl-flag{color:#ff7b72;font-weight:700;}
 .eotl-prov{color:#7d8a99;}
@@ -159,6 +173,7 @@ export const mountEotTerminal = (ledger, { hotkey = true, startOpen = false, not
       <span class="eotl-chip eotl-flt eotl-on" data-door="all">all</span>
       <span class="eotl-chip eotl-flt eotl-perc" data-door="perceiver">▸ read · world</span>
       <span class="eotl-chip eotl-flt eotl-enac" data-door="enactor">◂ act · model</span>
+      <span class="eotl-chip eotl-flt eotl-murm" data-door="murmur">∿ murmur · sense</span>
       <input class="eotl-in" data-find placeholder="filter…" />
       <span class="eotl-spacer"></span>
       <span class="eotl-btn" data-act="pause">pause</span>
@@ -190,7 +205,7 @@ export const mountEotTerminal = (ledger, { hotkey = true, startOpen = false, not
   const state = { open: !!startOpen, paused: false, door: 'all', find: '', count: 0, stuck: true };
 
   const matches = (rec) => {
-    if (state.door !== 'all' && rec.door !== state.door) return false;
+    if (state.door !== 'all' && eotBucket(rec) !== state.door) return false;
     if (state.find) {
       const hay = `${rec.eot} ${rec.kind || ''} ${rec.agent} ${JSON.stringify(rec.raw || '')}`.toLowerCase();
       if (!hay.includes(state.find)) return false;
@@ -200,8 +215,9 @@ export const mountEotTerminal = (ledger, { hotkey = true, startOpen = false, not
 
   const rowEl = (rec) => {
     const el = document.createElement('div');
-    el.className = `eotl-row eotl-${rec.door === 'perceiver' ? 'perc' : 'enac'}`;
-    const glyph = rec.door === 'perceiver' ? '▸' : '◂';
+    const b = eotBucket(rec);
+    el.className = `eotl-row eotl-${b === 'perceiver' ? 'perc' : b === 'murmur' ? 'murm' : 'enac'}`;
+    const glyph = b === 'perceiver' ? '▸' : b === 'murmur' ? '∿' : '◂';
     const raw = rec.raw && Object.keys(rec.raw).length
       ? `<pre class="eotl-raw">${ESC(JSON.stringify(rec.raw, null, 2))}</pre>` : '';
     if (raw) el.classList.add('eotl-clk');
@@ -212,7 +228,7 @@ export const mountEotTerminal = (ledger, { hotkey = true, startOpen = false, not
     el.innerHTML =
       `<span class="eotl-seq">${rec.seq}</span>` +
       `<span class="eotl-time">${clock(rec.ts)}</span>` +
-      `<span class="eotl-door" title="${rec.door} · ${rec.witness ? 'can witness' : 'cannot witness'}">${glyph}</span>` +
+      `<span class="eotl-door" title="${b} · ${rec.witness ? 'can witness' : 'cannot witness'}">${glyph}</span>` +
       `<span class="eotl-line">${paint(rec.eot)}${faceSpan}${rec.kind ? ` <span class="eotl-kind">· ${ESC(rec.kind)}</span>` : ''}` +
       ` <span class="eotl-addr" title="organ.document.record.parameter — where in the machine this lands">${ESC(addressOf(rec))}</span></span>` +
       raw;

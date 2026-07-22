@@ -9,6 +9,7 @@
 // reaches the network; this mechanical layer fetches and the admission core binds.
 
 import { admitWebSource } from './websource.js';
+import { decodeEntities, htmlToText } from './html-text.js';
 import { GUTENBERG_SOURCES, GUTENBERG_FULLTEXT } from './gutenberg.js';
 import { WIKIMEDIA_SOURCES, WIKIMEDIA_FULLTEXT } from './wikimedia.js';
 import { ARXIV_SOURCES, ARXIV_FULLTEXT } from './arxiv.js';
@@ -26,102 +27,15 @@ export const DEFAULT_FEED_PROXY = 'https://n8n.intelechia.com/webhook/feed';
 // default (the proxy's Accept headers prefer feeds); swap `searchUrl` for another engine.
 const NEWS_RSS = (q) => `https://news.google.com/rss/search?q=${encodeURIComponent(q)}`;
 
-const decodeEntities = (s) => String(s || '')
-  .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
-  .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-  .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
-  .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
-  .replace(/&#39;|&apos;/g, "'").replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
-
 const firstTag = (block, name) => {
   const m = new RegExp(`<${name}\\b[^>]*>([\\s\\S]*?)</${name}>`, 'i').exec(block);
   return m ? decodeEntities(m[1]).trim() : '';
 };
 
-// Strip an HTML page to readable text: drop script/style, turn block ends into newlines, remove
-// the rest of the tags, decode entities, collapse whitespace. Pragmatic, dependency-free — the
-// readability the proxy does not do server-side (the proxy is feed-oriented, returns raw body).
-// Selectors for page CHROME — removed before reading (the article is none of these). Borrowed
-// from the EO_Reader DOM reader and extended for the modern web's furniture: cookie/consent
-// banners, ad slots, social/share widgets, "related"/"recommended" rails, comment threads, and
-// newsletter sign-ups. The article is none of these, and dropping them before reading keeps the
-// surfer on the prose — it arrests on Bayesian surprise, and a rare widget line outshouts the body.
-const CHROME_SELECTOR = [
-  'script', 'style', 'noscript', 'template', 'nav', 'header', 'footer', 'aside', 'form',
-  'button', 'svg', 'select', 'figure', 'iframe', 'dialog', 'video', 'audio', 'canvas',
-  '[role=navigation]', '[role=banner]', '[role=contentinfo]', '[role=search]',
-  '[role=complementary]', '[role=dialog]', '[aria-hidden=true]', '[hidden]',
-  '#mw-navigation', '#mw-panel', '#mw-head', '#footer', '.mw-editsection', '.navbox',
-  '.vector-header', '.vector-page-toolbar', '.toc', '#toc', '.sidebar', '.reflist',
-  '[class*=cookie]', '[id*=cookie]', '[class*=consent]', '[id*=consent]',
-  '[class*=newsletter]', '[class*=share]', '[class*=social]', '[class*=related]',
-  '[class*=recommend]', '[class*=promo]', '[class*=advert]', '[class*=sidebar]',
-  '[class*=comment]', '#comments', '[class*=breadcrumb]', '[class*=paywall]', '[class*=subscribe]',
-].join(',');
-// Where the article actually lives — content containers, scored by text length in pickMain.
-const MAIN_SELECTOR = 'article, main, [role=main], #mw-content-text, .mw-parser-output, ' +
-  '.post-content, .article-body, .entry-content, [itemprop=articleBody]';
-
-// Tag-regex reader — the no-DOM fallback (Node, tests) AND the serializer the browser path hands
-// its cleaned subtree to. Strip the chrome elements whole, turn BLOCK BOUNDARIES into newlines so
-// the document's structure survives, then drop the remaining inline tags. Headings, list items,
-// and table rows each land on their own line — the structure the parser's heading and sentence
-// boundaries depend on (perceiver/parse/sentences.js welds a heading onto the next sentence, and
-// mints a phantom relation across it, when the two share a line).
-const STRIP_WHOLE = 'script|style|noscript|template|nav|header|footer|aside|form|button|svg|select|figure|iframe|dialog|video|audio|canvas';
-const BLOCK_CLOSE = 'p|div|li|h[1-6]|tr|section|article|blockquote|ul|ol|dl|dd|dt|table|caption|figcaption|pre|main|details|summary|address';
-const regexToText = (html) => decodeEntities(String(html || '')
-  .replace(new RegExp(`<(${STRIP_WHOLE})\\b[\\s\\S]*?</\\1>`, 'gi'), ' ')
-  .replace(new RegExp(`</(?:${BLOCK_CLOSE})\\s*>`, 'gi'), '\n')
-  .replace(/<li\b[^>]*>/gi, '\n')          // a list item starts a new line even mid-flow
-  .replace(/<h[1-6]\b[^>]*>/gi, '\n')      // a heading starts on its own line, never welded to it
-  .replace(/<br\s*\/?>/gi, '\n')
-  .replace(/<[^>]+>/g, ' '))
-  .replace(/[ \t]+/g, ' ')
-  .replace(/ +([.,;:!?])/g, '$1')          // inline tags removed → no space before punctuation
-  .replace(/\n{3,}/g, '\n\n')
-  .replace(/[ \t]*\n[ \t]*/g, '\n')
-  .trim();
-
-// Pick the element that actually holds the article: among the content containers, the one with the
-// most text wins. First-match-wins used to grab a tiny teaser <article> card and miss the body.
-// Falls back to <body> when no candidate carries enough prose to look like an article.
-const pickMain = (doc) => {
-  const body = doc.body || doc.documentElement;
-  const nonWs = (el) => ((el && el.textContent || '').match(/\S/g) || []).length;
-  let best = null, bestLen = 0;
-  for (const el of doc.querySelectorAll(MAIN_SELECTOR)) {
-    const len = nonWs(el);
-    if (len > bestLen) { best = el; bestLen = len; }
-  }
-  if (!best) return body;
-  // Trust the container when it holds a real article's worth of text, or a meaningful share of the
-  // page's. Only when the best match is a negligible sliver (a <main> wrapping just a search box,
-  // say, with the real prose in undecorated divs) do we read the whole body instead.
-  return (bestLen >= 200 || bestLen >= nonWs(body) * 0.25) ? best : body;
-};
-
-// DOM reader (browser only): parse the page, drop the chrome, pick the content container, then read
-// it WITH ITS BLOCK STRUCTURE PRESERVED. The old reader took main.textContent, which emits no
-// newlines at block boundaries — every paragraph, heading, and list item welded into one run, so
-// the parser could not tell a section heading from the sentence beneath it and the surf rode a
-// mega-unit. We instead hand the cleaned subtree's HTML to the same structure-aware serializer the
-// Node path uses, so the browser (the real app) reads at least as well as the headless fallback.
-const domToText = (html) => {
-  const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
-  doc.querySelectorAll(CHROME_SELECTOR).forEach((n) => n.remove());
-  const main = pickMain(doc);
-  return regexToText((main && main.innerHTML) || (main && main.textContent) || '');
-};
-
-// HTML → readable prose. Use the DOM reader in the browser (the real app), the regex reader
-// in Node (tests, headless). A DOM failure falls back to regex rather than throwing.
-export const htmlToText = (html) => {
-  if (typeof DOMParser !== 'undefined') {
-    try { const t = domToText(html); if (t) return t; } catch { /* fall back to regex */ }
-  }
-  return regexToText(html);
-};
+// htmlToText (HTML → readable prose, DOM reader in the browser / regex reader in Node) now lives
+// in html-text.js, imported above — kept re-exported here so every existing caller (the barrel,
+// the tests) is unaffected.
+export { htmlToText };
 
 // Wikipedia, clean: fetch the plain-text article EXTRACT through the API rather than scraping the
 // rendered page (whose nav/sidebar/footer chrome otherwise dominates — the EOT graph came back as
@@ -294,7 +208,17 @@ export const createWebClient = ({
     return { url, text: await res.text(), ok: res.ok !== false, status: res.status ?? 200 };
   };
   const fetchUrl = (url, opts = {}) => fetchRaw(proxied(url), opts);   // a page, through the feed proxy
-  const ctx = { proxyBase, proxied, fetchRaw, fetchUrl, searchUrl };
+  // fetchBytes — the same proxy hop as fetchUrl, but read as bytes, not `res.text()`. A binary
+  // format (a PDF, a zip) put through a UTF-8 text decode loses the bytes it can't represent —
+  // � is a one-way trip, not a format the file can be re-parsed from. Anything that needs its
+  // OWN parser reading real bytes (import-file.js's pdf.js path) must fetch this way, not fetchUrl's.
+  const fetchBytes = async (url, opts = {}) => {
+    if (!fetchImpl) throw new Error('webfetch: no fetch implementation available');
+    const res = await fetchImpl(url, opts);
+    return { url, bytes: new Uint8Array(await res.arrayBuffer()), ok: res.ok !== false, status: res.status ?? 200 };
+  };
+  const fetchUrlBytes = (url, opts = {}) => fetchBytes(proxied(url), opts);
+  const ctx = { proxyBase, proxied, fetchRaw, fetchUrl, fetchUrlBytes, searchUrl };
   const search = async (query, { kind = 'auto', k = 8, signal = null } = {}) => {
     const resolved = kind === 'auto' ? routeKind(query) : kind;
     // Bind the abort signal into the ctx a KIND reads, so its ctx.fetchUrl calls carry it
@@ -315,7 +239,41 @@ export const createWebClient = ({
     if (!hits.length && resolved !== 'wikipedia' && !signal?.aborted) hits = await run('wikipedia');
     return hits;
   };
-  return { proxy, proxyBase, proxied, fetchRaw, fetchUrl, search };
+  return { proxy, proxyBase, proxied, fetchRaw, fetchUrl, fetchUrlBytes, search };
+};
+
+
+const absolutizeUrl = (url, base) => {
+  try { return new URL(String(url || '').trim(), base || undefined).href; } catch { return ''; }
+};
+
+// Pick the first content-like image the page declares, preferring explicit social/lead metadata
+// and then the first non-icon <img> in document order. This runs on the raw HTML before htmlToText
+// discards media, so source cards can show the page's first salient image instead of a generic tag.
+export const firstSalientImage = (html, baseUrl = '') => {
+  const h = String(html || '');
+  const metaRe = /<meta\b[^>]*(?:property|name)=["'](?:og:image(?::url)?|twitter:image(?::src)?)["'][^>]*>/ig;
+  for (const m of h.matchAll(metaRe)) {
+    const url = /\bcontent=["']([^"']+)["']/i.exec(m[0])?.[1];
+    const abs = absolutizeUrl(url, baseUrl);
+    if (abs) return abs;
+  }
+  const imgRe = /<img\b[^>]*>/ig;
+  for (const m of h.matchAll(imgRe)) {
+    const tag = m[0];
+    const src = /\b(?:data-src|data-original|data-lazy-src|src)=["']([^"']+)["']/i.exec(tag)?.[1]
+      || /\bsrcset=["']([^"',\s]+)[^"']*["']/i.exec(tag)?.[1];
+    const abs = absolutizeUrl(src, baseUrl);
+    if (!abs) continue;
+    const low = (tag + ' ' + abs).toLowerCase();
+    if (/\b(?:avatar|icon|logo|sprite|tracking|pixel|spacer|loader|placeholder)\b/.test(low)) continue;
+    if (/\.(?:ico|svg)(?:[?#]|$)/i.test(abs)) continue;
+    const w = Number(/\bwidth=["']?(\d+)/i.exec(tag)?.[1] || 0);
+    const ht = Number(/\bheight=["']?(\d+)/i.exec(tag)?.[1] || 0);
+    if ((w && w < 80) || (ht && ht < 80)) continue;
+    return abs;
+  }
+  return '';
 };
 
 const nowIso = () => { try { return new Date().toISOString(); } catch { return null; } };
@@ -345,9 +303,50 @@ export const fetchAndAdmit = async (url, { client, store = null, rawStore = null
   const c = client || createWebClient();
   const { text } = await c.fetchUrl(url);
   const reduced = htmlToText(text);
-  const payload = { url, text: reduced, fetched_at, engine: 'feed-proxy' };
+  const payload = { url, text: reduced, salient_image: firstSalientImage(text, url), fetched_at, engine: 'feed-proxy' };
   const admitted = store ? store.admit(payload) : admitWebSource(payload);
   return keepRaw(rawStore, admitted, reduced);
+};
+
+// Word-overlap relevance — is this hit actually ABOUT what was asked, or just sharing an
+// incidental keyword? A search provider (Wikipedia's included) routinely returns tangential
+// results — a shared place name, a shared common word — and admitting every one turns "search
+// the web" into "admit noise as evidence": the observed failure was a query about a 1919 Boston
+// disaster returning eight Wikipedia pages (a Honolulu spill, "Boston" itself, New Orleans
+// history, a subway line, Italian-American history) that all reduce to one real match, yet all
+// got treated as corroborating sources feeding entity/finding extraction. Lexical, not semantic —
+// no embeddings required offline — but it catches the cheap, common case: a result that shares
+// almost none of the query's own distinctive words is not what was searched for.
+const STOPWORDS = new Set([
+  'the', 'a', 'an', 'of', 'in', 'on', 'at', 'to', 'for', 'and', 'or', 'is', 'are', 'was', 'were',
+  'what', 'which', 'who', 'whom', 'how', 'why', 'when', 'where', 'did', 'does', 'do', 'be', 'been',
+  'being', 'this', 'that', 'these', 'those', 'with', 'from', 'by', 'as', 'it', 'its', 'their', 'than',
+]);
+const contentWords = (s) => (String(s || '').toLowerCase().match(/[\p{L}\p{N}]+/gu) || [])
+  .filter((w) => w.length > 2 && !STOPWORDS.has(w));
+
+// relevanceScore(query, item) → the fraction of the QUERY's own distinctive words that actually
+// appear in the hit's title+snippet. 1.0 means every content word of the query showed up; 0 means
+// none did. A query with no distinctive words (all stopwords) scores everything 1 — nothing to
+// gate on, so nothing is refused on that account.
+export const relevanceScore = (query, item) => {
+  const qWords = [...new Set(contentWords(query))];
+  if (!qWords.length) return 1;
+  const hay = new Set(contentWords(`${item?.title || ''} ${item?.text || ''}`));
+  return qWords.filter((w) => hay.has(w)).length / qWords.length;
+};
+
+// Below this fraction, a hit shares too little of what was actually asked to stand as a source —
+// a shared place name is not the same question. A query with only ONE distinctive word carries no
+// way to distinguish "off-topic" from "on-topic phrased differently" (a search engine's own
+// relevance ranking is the only signal there is), so it is never gated; a 2-word query only asks
+// that at least ONE of them show up, since a fraction of 2 is too coarse to threshold sensibly.
+const MIN_RELEVANCE = 0.34;
+export const isRelevant = (query, item) => {
+  const distinctive = new Set(contentWords(query)).size;
+  if (distinctive <= 1) return true;
+  if (distinctive === 2) return relevanceScore(query, item) > 0;
+  return relevanceScore(query, item) >= MIN_RELEVANCE;
 };
 
 // searchAndAdmit(query, { kind, fetchPages }) → search a source (or auto-route), then admit the
@@ -366,12 +365,17 @@ export const searchAndAdmit = async (query, { client, store = null, rawStore = n
   // fallback page fetch all honour the turn's Stop / stall abort — the FULL_TEXT hooks read
   // through client.fetchUrl, so binding it here threads the signal without touching each kind.
   const fc = signal
-    ? { ...c, fetchUrl: (u, o = {}) => c.fetchUrl(u, { signal, ...o }), fetchRaw: (u, o = {}) => c.fetchRaw(u, { signal, ...o }) }
+    ? { ...c, fetchUrl: (u, o = {}) => c.fetchUrl(u, { signal, ...o }), fetchRaw: (u, o = {}) => c.fetchRaw(u, { signal, ...o }),
+        fetchUrlBytes: (u, o = {}) => c.fetchUrlBytes(u, { signal, ...o }) }
     : c;
   const items = await c.search(query, { kind, k, signal });
   const out = [];
   for (const it of items) {
     if (signal?.aborted) break;
+    // Gate BEFORE spending a full-page fetch on it: a hit that shares almost none of the query's
+    // own distinctive words is skipped rather than admitted as a "source" the answer then leans
+    // on. Admitting fewer (or zero) real hits beats admitting several off-topic ones.
+    if (!isRelevant(query, it)) continue;
     let text = it.text || it.title || '';
     if (fetchPages && it.url) {
       try {
@@ -379,12 +383,16 @@ export const searchAndAdmit = async (query, { client, store = null, rawStore = n
         // Wikimedia family, the ENTIRE BOOK for Gutenberg, the rendered claims for Wikidata.
         // Anything else → fetch the page and reduce its HTML, with the chrome stripped.
         const full = FULL_TEXT[it.source] || FULL_TEXT[it.kind];
-        text = (full
-          ? await full(fc, it)
-          : htmlToText((await fc.fetchUrl(it.url)).text)) || text;
+        if (full) text = (await full(fc, it)) || text;
+        else {
+          const fetched = await fc.fetchUrl(it.url);
+          it.salient_image = firstSalientImage(fetched.text, it.url);
+          text = htmlToText(fetched.text) || text;
+        }
       } catch { /* keep the snippet */ }
     }
     const payload = { url: it.url || c.proxied(query), title: it.title, text,
+                      salient_image: it.salient_image || it.thumbUrl || it.thumb || '',
                       excerpt: it.text, retrieval_query: query, engine: `web:${it.source || it.kind || kind}`, fetched_at };
     const admitted = store ? store.admit(payload) : admitWebSource(payload);
     await keepRaw(rawStore, admitted, text);   // retain the full page bytes (OPFS) when threaded

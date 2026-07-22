@@ -82,7 +82,15 @@ export const buildSignificanceEdge = ({
 export const inferSignificance = (doc, { structure = null, maxPerKind = 12 } = {}) => {
   const idxs = (doc?.units || doc?.sentences || []).map((_, i) => i);
   const s = structure || (idxs.length ? structureSurface(doc, idxs) : { relations: [], defs: [] });
-  const relations = (s.relations || []).filter((r) => r.src?.id && r.tgt?.id);
+  // Connections are drawn BETWEEN WITNESSED FIGURES only: not into np/common-noun referents, reified
+  // props, ALL-CAPS heading welds, a via that is itself a figure name (subject mis-parse), or off a
+  // weak coref guess. structureSurface carries figure/kind/coupling; gate on them (unflagged = kept).
+  const isHeading = (l) => { const s = String(l || '').trim(); return s.length > 2 && /\p{Lu}/u.test(s) && s === s.toUpperCase() && s !== s.toLowerCase(); };
+  const isFigure = (e, k) => e?.figure !== false && k !== 'np' && k !== 'prop' && !isHeading(e?.label);
+  const names = new Set();
+  for (const r of (s.relations || [])) for (const [e, k] of [[r.src, r.srcKind], [r.tgt, r.tgtKind]]) if (isFigure(e, k)) names.add(String(e.label || '').toLowerCase());
+  const relations = (s.relations || []).filter((r) => r.src?.id && r.tgt?.id && isFigure(r.src, r.srcKind) && isFigure(r.tgt, r.tgtKind)
+    && !names.has(String(r.via || '').toLowerCase()) && !(r.coupling != null && r.coupling < 0.35));
   const labelOf = new Map();
   for (const r of relations) { labelOf.set(r.src.id, r.src.label ?? r.src.id); labelOf.set(r.tgt.id, r.tgt.label ?? r.tgt.id); }
   const L = (id) => labelOf.get(id) ?? id;

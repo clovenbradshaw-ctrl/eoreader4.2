@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readGrain } from '../src/perceiver/parse/grain.js';
 import { parseText } from '../src/perceiver/parse/pipeline.js';
 import { coherence } from '../src/core/cube.js';
+import { createReaderApp } from '../src/rooms/reader/app.js';
 
 // THE GRAIN READER. The cube's Site face says a thing in the Existence domain is one of three
 // terrains by its grain: an ENTITY (Figure — a particular), a KIND (Pattern — true-of-many), or a
@@ -109,4 +110,29 @@ test('an uncased document abstains entirely in v1 (no counters, no guesses, no c
   assert.ok(doc.admission.admitted.size >= 2, 'the uncased figures are still read');
   assert.equal(doc.log.events.filter((e) => e.key === 'grain').length, 0,
     'but none is graded — the uncased company profile is the follow-on, not a guess');
+});
+
+// ── grain reaches the app's entity rows (rooms/reader/app/entities.js) ──────────────────────
+// The DEF grain lands on the graph node's props; entitiesInDoc must read it onto the row a cast /
+// figures panel filters on, or the whole reader upstream of this point is dead weight.
+const freshApp = async () => {
+  const app = createReaderApp({ audit: { turns: [] } });
+  if (!app.state.ready) await new Promise((res) => { const un = app.subscribe((k) => { if (k === 'ready') { un(); res(); } }); });
+  return app;
+};
+const settle = () => new Promise((res) => setTimeout(res, 0));
+
+test('app.entities() surfaces grain: an agent grades figure, a place lived-in grades setting', async () => {
+  const app = await freshApp();
+  app.ingestText(
+    'Pierre arrived early. Pierre spoke about the plan. Pierre left quietly. ' +
+    'They met in London. He worked in London. She lived in London. Natasha waited outside once.',
+    'A Reading',
+  );
+  await settle();
+  const ents = app.entities({ merge: true, level: 'names' });
+  const pierre = ents.find((e) => e.label === 'Pierre');
+  const london = ents.find((e) => e.label === 'London');
+  assert.equal(pierre?.grain, 'figure');
+  assert.equal(london?.grain, 'setting');
 });

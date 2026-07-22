@@ -169,22 +169,22 @@ test('reference mapper — a concentrated field CORROBORATES, a split field abst
   assert.equal(all[1].witness.margin, 0.001);
 });
 
-test('void mapper — a DEF of absence is UNSUPPORTED at the field grain, carrying which absence', () => {
+test('void mapper — a DEF of absence is SILENT at the field grain, carrying which absence', () => {
   const log = createJudgmentLog();
   recordVoidDef(log, { kind: 'elsewhere', receipt: 'scanned 40 units', rode: 3 });
   const d = log.all()[0];
-  assert.equal(d.verdict, VERDICTS.UNSUPPORTED);
+  assert.equal(d.verdict, VERDICTS.SILENT, 'a corpus-wide scan that finds nothing is no material at all, not "material exists, does not support"');
   assert.equal(d.grain, GRAINS.FIELD);
   assert.equal(d.witness.kind, 'elsewhere');
   assert.equal(d.witness.receipt, 'scanned 40 units');
 });
 
 test('located void (#4) — the absence names WHICH cut stalled, distinctly', () => {
-  // a true gap — the presence cut is void → not-in-corpus, UNSUPPORTED
+  // a true gap — the presence cut is void → not-in-corpus, SILENT
   const gap = createJudgmentLog();
   recordVoidDef(gap, { kind: 'elsewhere', receipt: 'scanned 40 units', rode: 3 });
   const g = gap.all()[0];
-  assert.equal(g.verdict, VERDICTS.UNSUPPORTED);
+  assert.equal(g.verdict, VERDICTS.SILENT);
   assert.equal(g.witness.located, 'not-in-corpus');
   assert.equal(g.witness.stalledCut, 'presence');
 

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>EO Reader — Coil Surfaces demo</title>
+<link rel="icon" href="favicon.svg" />
+<meta name="theme-color" content="#0c0e12" />
+<style>
+  :root{ --bg:#0c0e12; --ink:#e7ecf3; --dim:#8b93a2; --accent:#7bd0ff; --bad:#ff8b8b; --good:#8bffb0;
+    --mono:'SFMono-Regular',ui-monospace,Menlo,Consolas,monospace; --sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; }
+  @media (prefers-color-scheme:light){ :root{ --bg:#f4f6fa; --ink:#141821; --dim:#5a6474; --accent:#2a7fd0 } }
+  :root[data-theme="dark"]{ --bg:#0c0e12; --ink:#e7ecf3; --dim:#8b93a2 }
+  :root[data-theme="light"]{ --bg:#f4f6fa; --ink:#141821; --dim:#5a6474 }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px}
+  #mount{max-width:900px;margin:0 auto;padding:24px 20px 60px}
+  h1{font-size:16px;margin:0 0 4px}
+  p.lede{color:var(--dim);margin:0 0 20px;max-width:70ch}
+  textarea{width:100%;min-height:140px;background:transparent;color:var(--ink);border:1px solid var(--dim);
+    border-radius:6px;padding:10px;font-family:var(--mono);font-size:12px;resize:vertical}
+  button{font-family:var(--sans);font-size:13px;padding:8px 14px;border-radius:6px;border:1px solid var(--accent);
+    background:transparent;color:var(--accent);cursor:pointer}
+  button:hover{background:var(--accent);color:var(--bg)}
+  .row{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;margin-top:20px}
+  .panel{flex:1;min-width:280px}
+  .panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--dim);margin:0 0 8px}
+  input[type=range]{width:100%}
+  .fold-readout{font-family:var(--mono);font-size:12px;margin-top:10px;line-height:1.6}
+  .fold-readout .accepted{color:var(--good)}
+  .fold-readout .rejected{color:var(--bad)}
+  .waveform-strict{width:100%;height:120px;border:1px solid var(--dim);border-radius:6px}
+  .baseline-area{fill:var(--dim);opacity:.35;stroke:none}
+  .strain-line{fill:none;stroke:var(--accent);stroke-width:1.5}
+  .turn-tick{stroke:var(--ink);stroke-width:1;opacity:.5}
+  .turn-tick-emphasized{stroke:var(--bad);stroke-width:2;opacity:.9}
+  .echo-arc{fill:none;stroke:var(--accent);opacity:.4}
+  .confidence-zone{fill:var(--dim);opacity:.15}
+  .peak-callout{fill:var(--bad)}
+  .band-labeled{fill:#ffffff08}
+  .operator-clock{width:100%;height:220px}
+  .clock-ring{fill:none;stroke:var(--dim);opacity:.4}
+  .clock-spoke{stroke:var(--dim);stroke-width:1.5;opacity:.4}
+  .clock-spoke-lit{stroke:var(--accent);stroke-width:2.5;opacity:1}
+  .clock-spoke-rec{stroke:var(--bad);stroke-width:3;opacity:1}
+  .clock-rec-break{stroke:var(--bad);stroke-width:3}
+  .clock-glyph{fill:var(--dim);font-family:var(--mono);font-size:13px}
+  .clock-glyph-lit{fill:var(--ink)}
+  .operator-clock-rejected .clock-ring{stroke:var(--bad)}
+  .fallback{padding:40px 0;color:var(--dim);max-width:70ch}
+  .fallback code{font-family:var(--mono);color:var(--accent)}
+</style>
+</head>
+<body>
+<div id="mount">
+  <h1>Coil Surfaces — assembly 1-3 harness</h1>
+  <p class="lede">Throwaway harness for <code>docs/coil-surfaces.md</code>'s build order items 1&ndash;3: FoldTrace,
+    the Poincar&eacute; scrubber, and the operator-clock + waveform-as-coil-shadow. Paste a document, build it, then
+    drag the scrubber &mdash; both panels read the same shared cursor.</p>
+  <textarea id="src">Chapter One. The house sat quiet at the edge of the wood, and nothing about it seemed
+to expect a visitor. Sarah had walked this road a hundred times before, always alone,
+always in a hurry. Today she stopped at the gate. The house sat quiet at the edge of
+the wood, patient as a held breath.
+
+Chapter Two. Three years later, the harbor was full of ships that had never sailed.
+Marcus counted them from the pier every morning, the way another man might count
+sheep to fall asleep. The war had ended, but the ships stayed. Marcus counted them
+from the pier every morning, and every morning the number was the same.</textarea>
+  <div><button id="build">Build the coil</button> <span id="status" style="color:var(--dim)"></span></div>
+
+  <div class="row" id="panels" hidden>
+    <div class="panel">
+      <h2>Scrubber &mdash; pos</h2>
+      <input id="scrub" type="range" min="0" max="0" value="0" step="1" />
+      <div class="panel"><h2>Waveform (coil, edge-on)</h2><div id="waveform"></div></div>
+    </div>
+    <div class="panel">
+      <h2>Operator clock (coil, end-on)</h2>
+      <div id="clock"></div>
+      <div class="fold-readout" id="readout"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { ingestText } from './src/organs/in/index.js';
+import { buildTextReading } from './src/perceiver/index.js';
+import { buildWaveform } from './src/weave/waveform/index.js';
+import { buildFoldTrace } from './src/core/index.js';
+import { createScrubber } from './src/rooms/scrubber/index.js';
+import { renderToContainer as renderWaveform } from './src/surfaces/waveform/index.js';
+import { renderToContainer as renderClock } from './src/surfaces/operator-clock/index.js';
+
+const $ = (id) => document.getElementById(id);
+const statusEl = $('status'), panels = $('panels'), scrubEl = $('scrub'), readoutEl = $('readout');
+const waveformEl = $('waveform'), clockEl = $('clock');
+
+let trace = [], scrubber = null, model = null;
+
+const paint = () => {
+  renderWaveform(model, waveformEl, { mode: 'study' });
+  renderClock(trace, clockEl, { pos: scrubber.pos });
+  const fold = trace[scrubber.foldIndex] || null;
+  readoutEl.innerHTML = fold
+    ? `pos ${fold.pos_start} &middot; order_index ${fold.order_index}<br/>` +
+      `ops_fired: ${fold.ops_fired || '(none)'}<br/>` +
+      `address: ${fold.address}<br/>` +
+      `<span class="${fold.accepted ? 'accepted' : 'rejected'}">` +
+      (fold.accepted ? 'accepted' : `rejected — ${fold.reject_reason}`) + `</span><br/>` +
+      `cooked_height: ${fold.cooked_height} &middot; rec_fired: ${fold.rec_fired}`
+    : '(no fold)';
+};
+
+$('build').addEventListener('click', async () => {
+  statusEl.textContent = 'parsing…';
+  panels.hidden = true;
+  try {
+    const text = $('src').value;
+    const doc = await ingestText(text);
+    const reading = await buildTextReading(doc);
+    model = buildWaveform(reading);
+    trace = buildFoldTrace(model, { readingId: 'coil-demo' });
+    scrubber = createScrubber({ readingId: 'coil-demo', foldTrace: trace });
+
+    scrubEl.min = String(trace[0]?.pos_start ?? 0);
+    scrubEl.max = String(trace.length ? trace[trace.length - 1].pos_end - 1 : 0);
+    scrubEl.value = String(scrubber.pos);
+    scrubEl.oninput = () => { scrubber.setPos(Number(scrubEl.value)); paint(); };
+
+    statusEl.textContent = `${trace.length} folds — ${trace.filter(f => f.accepted).length} accepted, ` +
+      `${trace.filter(f => !f.accepted).length} rejected`;
+    panels.hidden = false;
+    paint();
+  } catch (e) {
+    statusEl.textContent = 'failed: ' + String(e && e.message || e);
+    console.error(e);
+  }
+});
+</script>
+</body>
+</html>

@@ -42,6 +42,38 @@ test('admitWebSource yields a normal prose doc with web identity as additive met
   assert.equal(recordIdForDoc(doc.docId), record.id, 'the bridge round-trips');
 });
 
+// ── A whole book (or any large page) must never lock the tab on one synchronous parse ────────
+// registry.js's docFor comment documents the failure mode directly: an eager, synchronous parse
+// "froze the tab right after every large import". admitWebSource used to have no escape from it —
+// a Gutenberg "Read" hit (recordHit, ingest.js) fetches the ENTIRE book and admits it in one go,
+// so the freeze landed on every whole-book read. parseText's own onProgress/chunkSize (pipeline.js)
+// already yields to the event loop as it parses; admitWebSource must thread it through rather than
+// re-implement it.
+
+test('admitWebSource, given onProgress, runs the chunked yielding parse instead of one synchronous sweep', async () => {
+  // Enough sentences to cross the default 250-sentence chunk boundary at least twice — a
+  // deterministic proxy for "the parse actually yielded mid-document", not a timing race against
+  // the 32ms frame budget on whatever machine runs the test.
+  const text = Array.from({ length: 600 }, (_, i) => `Sentence number ${i} is about Grete.`).join(' ');
+  const calls = [];
+  const result = admitWebSource({ ...PAGE, text }, { onProgress: (p) => calls.push(p) });
+  assert.ok(typeof result.then === 'function', 'onProgress switches admitWebSource to its async, yielding form');
+  const { doc, record } = await result;
+  assert.ok((doc.units || doc.sentences).length >= 600, 'the whole text still parsed, nothing dropped');
+  assert.equal(doc.sourceKind, 'web-source');
+  assert.equal(doc.web.content_hash, record.content_hash);
+  assert.equal(record.schema, 'web-source/1');
+  assert.ok(calls.length >= 3, `expected progress ticks mid-parse, got ${calls.length}`);
+  assert.equal(calls[0].done, 0, 'reports before the first sentence');
+  assert.equal(calls.at(-1).done, calls.at(-1).total, 'reports done === total once finished');
+});
+
+test('admitWebSource without onProgress stays the plain synchronous call (byte-identical default)', () => {
+  const result = admitWebSource(PAGE);
+  assert.ok(!(result instanceof Promise), 'no onProgress → no Promise, exactly as before');
+  assert.equal(result.doc.sourceKind, 'web-source');
+});
+
 // ── Boilerplate: page chrome is stripped so the surf rides the article, not the furniture ────
 
 // A rendered Wikipedia page: nav menus, table-of-contents entries, and footer furniture wrapped

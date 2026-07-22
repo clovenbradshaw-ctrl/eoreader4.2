@@ -17,6 +17,7 @@
 // the catalog parsing, format picking, and boilerplate stripping are all offline-testable.
 
 import { admitWebSource } from './websource.js';
+import { epubTextFromEntries } from './epub.js';
 
 // The Gutendex catalog endpoint (https://gutendex.com — the Project Gutenberg catalog served
 // as JSON). A search hits /books?search=<q>; results carry id, title, authors, subjects,
@@ -28,6 +29,17 @@ export const gutendexSearchUrl = (q) => `${GUTENDEX_BASE}/books?search=${encodeU
 // the fallback when a catalog entry lists no usable text/plain format.
 export const gutenbergBookUrl = (id) => `https://www.gutenberg.org/ebooks/${id}`;
 export const gutenbergTextUrl = (id) => `https://www.gutenberg.org/cache/epub/${id}/pg${id}.txt`;
+
+// The EPUB3 ("with images") rendition — the PRIMARY read: every book PG hosts gets one built,
+// unlike the plain .txt (recent additions sometimes carry only HTML/EPUB), and it is the
+// full-fidelity edition (illustrations, proper chapter structure) rather than a bare text dump.
+// The catalog only ever advertises the REDIRECT form (`/ebooks/{id}.epub3.images`) — the same
+// "malformed Location through a proxy" risk `pickTextFormat` above refuses for .txt — and PG's
+// cache directory also carries a VERSIONED direct file (`pg{id}-images-3.epub`) whose numeric
+// suffix isn't predictable from the id alone. But every book's cache directory additionally
+// carries this UNVERSIONED direct name alongside the versioned one, so it — not the redirect, not
+// the guessable-only-per-book versioned file — is the one stable URL worth hardcoding.
+export const gutenbergEpubUrl = (id) => `https://www.gutenberg.org/cache/epub/${id}/pg${id}-images.epub`;
 
 // pickTextFormat(formats) → the URL of the book's PLAIN-TEXT rendition, or null. Prefer an
 // explicit utf-8 text/plain, then any text/plain that is not a zip archive (the proxy returns
@@ -125,24 +137,69 @@ export const looksLikeBook = (text) => {
   return true;
 };
 
+// unzipEpub(bytes) → { name: Uint8Array } for every archive entry. Lazily loads `fflate` from
+// the CDN — the same "inject the library, bundle nothing" seam import-file.js uses for pdf.js /
+// SheetJS / Readability, so nothing loads until an EPUB actually needs unzipping. Cached after
+// the first load; a caller (a test) can bypass it entirely by passing its own `unzip`.
+let _unzipSync = null;
+const loadUnzipSync = async () => {
+  if (_unzipSync) return _unzipSync;
+  const { unzipSync } = await import('https://cdn.jsdelivr.net/npm/fflate@0.8.2/+esm');
+  _unzipSync = unzipSync;
+  return _unzipSync;
+};
+
+// readGutenbergEpub(id, { client, unzip }) → boilerplate-stripped book text, or '' on any
+// failure. Fetches the EPUB3 rendition as RAW BYTES (`client.fetchUrlBytes` — the same seam
+// PDFs use; a zip put through a UTF-8 `.text()` decode loses the bytes it can't represent and
+// can never be unzipped again), unzips it, reads every spine chapter in order (epub.js), and
+// runs the concatenated result through the SAME boilerplate strip the .txt path uses — PG's
+// EPUBs carry the identical START/END markers, inside a `pg-boilerplate` header/footer chapter.
+const readGutenbergEpub = async (id, { client, unzip = null } = {}) => {
+  if (!client?.fetchUrlBytes) return '';
+  const { bytes, ok } = await client.fetchUrlBytes(gutenbergEpubUrl(id));
+  if (ok === false || !bytes || !bytes.length) return '';
+  const doUnzip = unzip || await loadUnzipSync();
+  const files = doUnzip(bytes);
+  const { text } = epubTextFromEntries(files);
+  return stripGutenbergBoilerplate(text);
+};
+
+// readGutenbergBook(id, { client, unzip }) → the WHOLE BOOK, boilerplate stripped — EPUB FIRST
+// (the illustrated, full-fidelity edition PG builds for every book it hosts, unlike the plain
+// .txt some recent additions never got), falling back to the canonical cache .txt when the EPUB
+// can't be read: no bytes-fetch/zip support in this runtime, a network hiccup, or an archive that
+// doesn't parse as a book. A book missing one rendition still reads from the other.
+export const readGutenbergBook = async (id, { client, unzip = null } = {}) => {
+  try {
+    const epubText = await readGutenbergEpub(id, { client, unzip });
+    if (looksLikeBook(epubText)) return epubText;
+  } catch { /* fall through to .txt */ }
+  try {
+    return stripGutenbergBoilerplate((await client.fetchUrl(gutenbergTextUrl(id))).text);
+  } catch { return ''; }
+};
+
 // The FULL-TEXT hook (webfetch.js FULL_TEXT shape): under fetchPages, a gutenberg item's page
-// fetch is the ENTIRE BOOK — pulled from its plain-text URL through the proxy, boilerplate
-// stripped, front matter kept. This is "read entire books as needed": the research walk asked
-// for pages, and for this source a page IS a book. The canonical cache `.txt` is the reliable
-// source, so if the catalog's own text URL resolves to something that is NOT a book (PG's
-// malformed .txt redirect), we re-read the canonical cache URL rather than admit a landing page.
+// fetch is the ENTIRE BOOK — the EPUB first, the canonical .txt as its fallback, and (only if
+// BOTH fail to read as a book) whatever text/plain format the catalog itself advertised, which
+// may be PG's malformed .txt redirect — so a landing page is never the last resort admitted.
+// This is "read entire books as needed": the research walk asked for pages, and for this source
+// a page IS a book.
 export const GUTENBERG_FULLTEXT = {
   gutenberg: async (client, item) => {
     const id = item?.gutenbergId ?? gutenbergIdOf(item?.url) ?? gutenbergIdOf(item?.textUrl);
-    const canonical = id != null ? gutenbergTextUrl(id) : null;
+    if (id == null) return '';
+    const whole = await readGutenbergBook(id, { client });
+    if (looksLikeBook(whole)) return whole;
+    const canonical = gutenbergTextUrl(id);
     const first = item?.textUrl || canonical;
-    if (!first) return '';
     const read = async (u) => stripGutenbergBoilerplate((await client.fetchUrl(u)).text);
     let text = await read(first);
-    if (canonical && first !== canonical && !looksLikeBook(text)) {
+    if (first !== canonical && !looksLikeBook(text)) {
       try { text = await read(canonical); } catch { /* keep what the first URL gave */ }
     }
-    return text;
+    return text || whole;
   },
 };
 
@@ -162,17 +219,22 @@ export const gutenbergIdOf = (ref) => {
 // source. Because this read is chosen, not ambient, it carries a higher hang guard than a
 // search hop: a long novel (War and Peace runs ~3.2M chars) is read entire rather than cut at
 // the page-safety backstop.
-export const fetchGutenbergBook = async (ref, { client, store = null, rawStore = null, fetched_at = nowIso(), hangGuard = 6_000_000 } = {}) => {
+//
+// `onProgress` (optional) rides straight into admitWebSource's own escape hatch — without it a
+// whole novel parses in one synchronous sweep and locks the tab for the whole read; with it the
+// parse yields as it goes. Threaded only to the direct admission: `store` (an in-memory dedup
+// layer no production caller currently supplies) keeps its own synchronous admit() contract.
+export const fetchGutenbergBook = async (ref, { client, store = null, rawStore = null, fetched_at = nowIso(), hangGuard = 6_000_000, unzip = null, onProgress = null } = {}) => {
   const id = gutenbergIdOf(ref);
   if (!id || !client) return null;
-  const text = stripGutenbergBoilerplate((await client.fetchUrl(gutenbergTextUrl(id))).text);
+  const text = await readGutenbergBook(id, { client, unzip });
   if (!text) return null;
   const title = (/^Title\s*:\s*(.+)$/im.exec(text) || [])[1]?.trim() || `Project Gutenberg #${id}`;
   const payload = {
     url: gutenbergBookUrl(id), title, text,
     retrieval_query: String(ref), engine: 'web:gutenberg', fetched_at,
   };
-  const admitted = store ? store.admit(payload, { hangGuard }) : admitWebSource(payload, { hangGuard });
+  const admitted = store ? store.admit(payload, { hangGuard }) : await admitWebSource(payload, { hangGuard, onProgress });
   if (rawStore && admitted?.record?.content_hash) {
     try {
       await rawStore.put(admitted.record.content_hash, text,

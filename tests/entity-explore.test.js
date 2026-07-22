@@ -51,6 +51,38 @@ test('structural grain uses the author\'s own chapter headings as labels', () =>
   assert.equal(spine[1].label, 'CHAPTER II');
 });
 
+test('window section names are EMERGENT — the distinctive term of each stretch, not a positional placeholder', () => {
+  // Two stretches, each with its own concentrated topic; the subject ("figure") recurs everywhere and
+  // so must never become a section name. Each window is 2 mentions (per = ceil(6/3)? K = min(5, ceil(6/2)) = 3).
+  const mentions = [
+    { idx: 0, text: 'The figure attended the meeting.' },
+    { idx: 1, text: 'The meeting decided the figure\'s command.' },
+    { idx: 2, text: 'The figure walked on the lunar surface.' },
+    { idx: 3, text: 'The lunar surface was powdery under the figure.' },
+    { idx: 4, text: 'The figure received honors for service.' },
+    { idx: 5, text: 'The figure\'s service earned lasting honors.' },
+  ];
+  const spine = chapterBullets({ sentences: Array(6).fill('s'), bounds: [], mode: 'window', mentions, label: 'the figure' });
+  const labels = spine.map((c) => c.label);
+  const POSITIONAL = ['Opening', 'Early on', 'Midway', 'Later', 'Toward the end'];
+  // Every stretch here has a concentrated topic, so NONE keeps a positional placeholder.
+  assert.ok(labels.every((l) => !POSITIONAL.includes(l)), `all emergent: ${labels.join(', ')}`);
+  // The names are drawn from each stretch's own concentrated topic.
+  assert.ok(/meeting/i.test(labels[0]), `first stretch is the meeting: ${labels[0]}`);
+  assert.ok(/lunar|surface/i.test(labels[1]), `second stretch is the lunar surface: ${labels[1]}`);
+  assert.ok(/service|honors/i.test(labels[2]), `third stretch is the honors/service: ${labels[2]}`);
+  // The recurring subject is frequent everywhere and never names a section.
+  assert.ok(!labels.some((l) => /figure/i.test(l)), 'the referent never heads its own spine');
+});
+
+test('a topically-mixed stretch keeps its positional placeholder (placeholder ≠ junk)', () => {
+  // No content term is concentrated in any window (every sentence is distinct), so nothing is EARNED
+  // and the honest positional names stand.
+  const mentions = Array.from({ length: 6 }, (_, i) => ({ idx: i, text: `The figure did something wholly different number ${i}.` }));
+  const spine = chapterBullets({ sentences: Array(6).fill('s'), bounds: [], mode: 'window', mentions, label: 'figure' });
+  spine.forEach((c) => assert.ok(['Opening', 'Early on', 'Midway', 'Later', 'Toward the end'].includes(c.label), `positional: ${c.label}`));
+});
+
 test('the app exposes a deterministic chapter spine for a recorded entity', async () => {
   const app = await freshApp();
   app.ingestText(BOOK, 'Metamorphosis');

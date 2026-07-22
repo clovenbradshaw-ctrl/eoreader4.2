@@ -3,9 +3,9 @@
 // across the three helix tiers — existence (the source and the figures INSed
 // from it), structure (the bonds between them), significance (the claims
 // those bonds trace to) — connected by operator edges, each edge wearing its
-// glyph ON the line. Four switchable layouts (flow · tiers · radial · time,
-// radial default) with animated pivoting, tier filtering, a names toggle,
-// pan/zoom/fit, and click-to-inspect.
+// glyph ON the line. A single radial DAG layout with ⟲ rotate, tier filtering,
+// a names toggle, pan/zoom/fit, and click-to-inspect. (The flow · tiers · time
+// layouts and their switcher were retired — radial is the only surface now.)
 //
 // THE FOLD CURSOR (reason/cursor.js `upto`). A graph is readGraph(log, cursor);
 // what you see is the fold at cursor = IDENTITY — upto:Infinity, the reading as
@@ -72,6 +72,8 @@ const CSS = `
 .eo-tg .tg-seg .tg-btn{border:none;border-radius:0;}
 .eo-tg .tg-node{cursor:pointer;}
 .eo-tg .tg-node circle{transition:r .15s;}
+.eo-tg .tg-node:focus{outline:none;}
+.eo-tg .tg-node:focus-visible{outline:2px solid #5B4BE6;outline-offset:3px;border-radius:50%;}
 .eo-tg .tg-plabel{paint-order:stroke;stroke:var(--card,#fff);stroke-linejoin:round;fill:var(--ink,#15181e);pointer-events:none;}
 .eo-tg .tg-eglyph{paint-order:stroke;stroke:var(--card,#fff);stroke-linejoin:round;pointer-events:none;font-family:var(--mono,ui-monospace,Menlo,monospace);}
 .eo-tg .tg-fold{font-size:11px;padding:4px 8px;}
@@ -139,12 +141,7 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   wrap.innerHTML =
     '<div style="border:1px solid var(--line,#e5e7eb);border-radius:12px;overflow:hidden;background:var(--card,#fff);">' +
     '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line,#e5e7eb);background:var(--app,#f7f8fb);">' +
-      '<div class="tg-seg">' +
-        '<button class="tg-btn" data-layout="flow">⇢ flow</button>' +
-        '<button class="tg-btn" data-layout="tiers">≡ tiers</button>' +
-        '<button class="tg-btn on" data-layout="radial">◎ radial</button>' +
-        '<button class="tg-btn" data-layout="time">⏱ time</button>' +
-      '</div>' +
+      '<span class="tg-seg" style="font-size:12px;color:var(--ink2,#555);padding:5px 11px;">◎ radial</span>' +
       '<button class="tg-btn" data-pivot>⟲ <span data-pivot-lbl>rotate</span></button>' +
       '<button class="tg-btn on" data-names title="Toggle persistent node names — hover always shows the full name">names</button>' +
       '<div style="display:flex;gap:5px;margin-left:auto;">' +
@@ -380,14 +377,44 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
 
   // ── marks: each edge is a group of path + bare glyph with a paper halo ───
   const nodeEls = {}, edgeEls = [];
+  // A node that carries a ref IS a point of view to pivot/open to — activating it does that
+  // immediately, not a second step gated behind selecting it first. Shared by click and the
+  // keyboard so both land on the exact same behaviour (report: nodes were mouse-only <g>
+  // elements with no role/tabindex/keyboard handling — Tab could never reach one at all).
+  const activate = (n) => {
+    if (onOpen && n.ref) { try { onOpen(n); } catch {} return; }
+    select(n.id);
+  };
   nodes.forEach((n) => {
-    const g = sv('g', { class: 'tg-node' }); g.style.transform = 'translate(' + n.x + 'px,' + n.y + 'px)';
+    const g = sv('g', {
+      class: 'tg-node', tabindex: '0', role: 'button', 'aria-label': String(n.label || 'node'),
+    });
+    g.style.transform = 'translate(' + n.x + 'px,' + n.y + 'px)';
     const pin = sv('circle', { r: (isRoot(n) ? 9 : 7) + 4, class: 'tg-pin' }); pin.style.display = 'none';
-    const c = sv('circle', { r: isRoot(n) ? 9 : 7, fill: TIER[n.tier].fill, stroke: TIER[n.tier].stroke, 'stroke-width': 1.2 });
+    // antimatter: a referent that's real in the structure but never earned a name (EMANON/
+    // PROTOGON, individuation.js) — hollow and dashed, never the tier's solid fill, so it
+    // reads as present-but-nameless at a glance, not as just another figure.
+    const c = n.antimatter
+      ? sv('circle', { r: 6, fill: 'none', stroke: '#5A5A64', 'stroke-width': 1.3, 'stroke-dasharray': '2 2' })
+      : sv('circle', { r: isRoot(n) ? 9 : 7, fill: TIER[n.tier].fill, stroke: TIER[n.tier].stroke, 'stroke-width': 1.2 });
     g.appendChild(pin); g.appendChild(c);
     // a drag that lands on a node also fires the circle's click — swallow that one so a pull-to-pin
     // never doubles as a select (which would flip the host's details panel).
-    g.addEventListener('click', (ev) => { ev.stopPropagation(); if (justDragged) { justDragged = false; return; } select(n.id); });
+    g.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (justDragged) { justDragged = false; return; }
+      activate(n);
+    });
+    // Enter/Space activate a focused node exactly like a click; Space is also the page's
+    // scroll key, so it must be prevented here or focusing a node would silently scroll the
+    // graph's parent instead of doing anything to the node.
+    g.addEventListener('keydown', (ev) => {
+      if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Spacebar') return;
+      ev.preventDefault(); ev.stopPropagation();
+      activate(n);
+    });
+    g.addEventListener('focus', () => { if (!state.sel) { state.hover = n.id; refine(); } });
+    g.addEventListener('blur', () => { if (!state.sel && state.hover === n.id) { state.hover = null; refine(); } });
     g.addEventListener('mouseenter', () => { if (!state.sel) { state.hover = n.id; refine(); } });
     g.addEventListener('mouseleave', () => { if (!state.sel) { state.hover = null; refine(); } });
     gN.appendChild(g); nodeEls[n.id] = { g, c, pin };
@@ -486,7 +513,11 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
       t.style.strokeWidth = sw + 'px';
       t.setAttribute('x', (centred ? n.x : n.x + (left ? -11 : 11)).toFixed(1));
       t.setAttribute('y', (centred ? n.y - 13 : n.y + 3.5).toFixed(1));
-      t.textContent = n.label; gL.appendChild(t);
+      // antimatter carries a description, never a name — parenthesised and muted so it never
+      // reads as just another figure once it clears the collision test above.
+      t.textContent = n.antimatter ? '(' + n.label + ')' : n.label;
+      if (n.antimatter) t.style.opacity = '0.65';
+      gL.appendChild(t);
       const bb = t.getBBox(), box = { x: bb.x - 1, y: bb.y - 1, w: bb.width + 2, h: bb.height + 2 };
       const priv = centred || privileged.has(n.id);   // the anchor and the local focus must read
       const hitLabel = placed.some((pp) => rectHit(box, pp));
@@ -524,17 +555,12 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
     countsEl.style.display = 'none';   // the inspector needs the full footer row
     detail.innerHTML = '<span style="width:16px;height:16px;flex:0 0 auto;border-radius:5px;background:' + TIER[n.tier].fill + ';display:inline-block;"></span>' +
       '<span style="color:var(--ink,#15181e);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34%;">' + esc(n.label) + '</span>' +
-      '<span style="color:var(--ink3,#999);">' + TIER[n.tier].name + (n.terrain ? ' · ' + esc(n.terrain) : '') + '</span>' +
+      '<span style="color:var(--ink3,#999);">' + TIER[n.tier].name + (n.terrain ? ' · ' + esc(n.terrain) : '') + (n.antimatter ? ' · antimatter (' + esc(n.antimatter) + ')' : '') + '</span>' +
       '<span style="color:var(--ink2,#555);white-space:nowrap;">in <span style="font-size:14px;font-family:var(--mono,monospace);">' + esc(glyphs(ins)) + '</span></span>' +
       '<span style="color:var(--ink2,#555);white-space:nowrap;">out <span style="font-size:14px;font-family:var(--mono,monospace);">' + esc(glyphs(outs)) + '</span></span>';
-    // "open →" navigates via the node's ref, so it belongs to exactly the nodes that carry one —
-    // the entities (a source/claim has none). Gating on ref, not a kind string, keeps the button
-    // honest: it appears iff onOpen has somewhere to go. (The old 'ent'/'doc' test matched neither
-    // the 'entity' the builder emits nor a real ref, so the button never showed.)
-    if (onOpen && n.ref) {
-      const b = el('button', { class: 'tg-btn', text: 'open →' }); b.style.marginLeft = 'auto'; b.style.flex = '0 0 auto';
-      b.addEventListener('click', () => onOpen(n)); detail.appendChild(b);
-    }
+    // A ref-carrying node never reaches select() at all (its click short-circuits straight to
+    // onOpen, above) — so select() only ever inspects a claim/source in place, with nowhere to
+    // navigate, and needs no "open →" button.
     if (onSelect) { try { onSelect(n); } catch { /* the host's mirror must never break the select */ } }
   }
   function deselect() {
@@ -596,15 +622,8 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
     foldRow.style.display = isTime ? 'flex' : 'none';   // the fold controls only bite on the time axis
     pivotBtn.style.display = isTime ? 'none' : 'inline-flex';  // no pivot on a left→right time axis
   };
-  wrap.querySelectorAll('[data-layout]').forEach((b) => b.addEventListener('click', () => {
-    wrap.querySelectorAll('[data-layout]').forEach((x) => x.classList.remove('on')); b.classList.add('on');
-    state.layout = b.dataset.layout;
-    wrap.querySelector('[data-pivot-lbl]').textContent = state.layout === 'radial' ? 'rotate' : 'pivot';
-    syncLayoutChrome();
-    clearPins();   // a pin fixed to a ring position is meaningless once the layout changes
-    if (state.sel) deselect();
-    relayout(); setTimeout(fit, 470);
-  }));
+  // The surface is radial-only now — no layout switcher — so the chrome settles once at mount.
+  syncLayoutChrome();
   wrap.querySelectorAll('[data-grain]').forEach((c) => c.addEventListener('click', () => {
     state.grain = c.dataset.grain; syncFoldChips();
     if (state.layout !== 'time') return;   // a fold pick outside the time axis just arms the grain

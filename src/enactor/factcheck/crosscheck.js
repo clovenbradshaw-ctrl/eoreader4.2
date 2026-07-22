@@ -26,7 +26,15 @@
 
 import { documentFieldAt } from './correspond.js';
 import { quantitiesConflict } from '../../core/index.js';
-import { readQuantities, measureLabel, isLegibleProse, replacementRatio } from './quantities.js';
+import { readMeasures, measureLabel, isLegibleProse, replacementRatio } from './quantities.js';
+
+// A year is an ORDINAL magnitude, not a proportional one: "2030" and "2032" are two
+// years apart, a real schedule clash, yet only 0.1% apart proportionally — the 5%
+// relative band the budget/capacity measures use would swallow it. So the schedule
+// measure compares on an absolute floor (any full-year gap is a disagreement) while
+// every other measure keeps the caller's proportional tolerance.
+export const measureTol = (measure, { relTol = 0.05, absTol = 0 } = {}) =>
+  measure === 'schedule' ? { relTol: 0, absTol: 0.5 } : { relTol, absTol };
 
 // Reading a magnitude out of prose (readQuantities/measureLabel) and judging whether a
 // source is prose at all (isLegibleProse) live in ./quantities.js. This file binds each
@@ -64,17 +72,25 @@ export const extractQuantities = (doc, meta = {}) => {
     // Even inside a legible document, skip a lone mis-decoded line: its replacement
     // chars are unambiguous decode failure, and its stray digits are not a datum.
     if (replacementRatio(sents[i]) > 0.02) continue;
-    const qs = readQuantities(sents[i]);
+    const qs = readMeasures(sents[i]);
     if (!qs.length) continue;
     const field = documentFieldAt(doc, i);
     const top = field && field[0];
     const subjLabel = (top && doc.admission.labelOf?.(top.id)) || domLabel || null;
-    for (const q of qs) out.push({
-      subj: top?.id ?? null, subjLabel,
-      measure: q.measure, value: q.value, unit: q.unit, raw: q.raw,
-      sentIdx: i, text: sents[i],
-      source, sourceLabel: meta.label ?? meta.title ?? null, date: meta.date ?? null,
-    });
+    for (const q of qs) {
+      // The value a change construction SUPERSEDES ("$120M" in "revised from $120M to
+      // $145M") is not this source's position — it is the number it moved off of. Drop
+      // it so the source is compared on what it now asserts, carrying the transition on
+      // the operative value so the comparison can show the move.
+      if (q.superseded) continue;
+      out.push({
+        subj: top?.id ?? null, subjLabel,
+        measure: q.measure, value: q.value, unit: q.unit, raw: q.raw,
+        bound: q.bound || 'exact', transition: q.transition || null,
+        sentIdx: i, text: sents[i],
+        source, sourceLabel: meta.label ?? meta.title ?? null, date: meta.date ?? null,
+      });
+    }
   }
   return out;
 };
@@ -94,7 +110,7 @@ const GENERIC = new Set(['the', 'a', 'an', 'this', 'that', 'it', 'its', 'their',
 const nameTokens = (label) => new Set(
   String(label || '').toLowerCase().replace(/['’]/g, '').split(/[^a-z0-9]+/)
     .filter((t) => t.length > 2 && !GENERIC.has(t)));
-const subjectsCompatible = (a, b) => {
+export const subjectsCompatible = (a, b) => {
   if (!a || !b) return true;                       // unresolved → defer to the measure scope
   const A = nameTokens(a), B = nameTokens(b);
   if (!A.size || !B.size) return true;             // only generics on a side → defer
@@ -104,7 +120,7 @@ const subjectsCompatible = (a, b) => {
 
 // The subject to name in a conflict — the most frequent non-generic label among its
 // witnesses, else the first non-null label.
-const subjectOf = (recs) => {
+export const subjectOf = (recs) => {
   const tally = new Map();
   for (const r of recs) if (r.subjLabel) tally.set(r.subjLabel, (tally.get(r.subjLabel) || 0) + 1);
   let best = null, bestN = -1;
@@ -141,6 +157,7 @@ export const crossSourceConflicts = (sources = [], opts = {}) => {
 
   const conflicts = [];
   for (const [measure, recs] of byMeasure) {
+    const tol = measureTol(measure, { relTol, absTol });
     // Any cross-source, subject-compatible pair that disagrees beyond tolerance?
     let hit = false;
     for (let i = 0; i < recs.length && !hit; i++) {
@@ -148,13 +165,18 @@ export const crossSourceConflicts = (sources = [], opts = {}) => {
         const a = recs[i], b = recs[j];
         if (a.source === b.source) continue;                       // one source is not a disagreement
         if (!subjectsCompatible(a.subjLabel, b.subjLabel)) continue;
-        if (quantitiesConflict(a.value, b.value, { relTol, absTol }).conflict) hit = true;
+        if (quantitiesConflict(a.value, b.value, tol).conflict) hit = true;
       }
     }
     if (!hit) continue;
-    // Collect one witness per source (first mention), so the finding shows the full spread.
+    // Collect the operative witness per source, so the finding shows the full spread.
+    // A record that ASSERTS a change (carries a transition — the "to $145M" side) is the
+    // source's real position and wins over a bare same-measure mention elsewhere in it.
     const bySource = new Map();
-    for (const r of recs) if (!bySource.has(r.source)) bySource.set(r.source, r);
+    for (const r of recs) {
+      const cur = bySource.get(r.source);
+      if (!cur || (!cur.transition && r.transition)) bySource.set(r.source, r);
+    }
     const witnesses = [...bySource.values()];
     // Keep only the witnesses whose subject is compatible with the conflict's subject.
     const subject = subjectOf(witnesses);

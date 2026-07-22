@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "generatedBy": "tests/goldens/generate-manifest.mjs",
+  "note": "A curated corpus of real, diverse documents used as reading goldens: public-domain literary works (English) and non-English / non-whitespace language samples (Basque, Japanese). Each row pins the golden's bytes (sha256) and the reader's reading of it (reading.*). Every golden here is public domain — see each row's license field.",
+  "goldens": [
+    {
+      "id": "literary-heart-of-darkness",
+      "category": "literary",
+      "path": "texts/heart-of-darkness.txt",
+      "title": "Heart of Darkness",
+      "author": "Joseph Conrad",
+      "language": "en",
+      "year": 1899,
+      "sha256": "95e3b7ba3ae1b4e03b8cba3dceed74d878f0c880a2fca8b45de24bc8def548e1",
+      "bytes": 214086,
+      "reading": {
+        "sentences": 2277,
+        "clauses": 3458,
+        "mentions": 0,
+        "unnamedReferents": 0
+      },
+      "source": "Project Gutenberg #219 (https://www.gutenberg.org/ebooks/219), text/plain UTF-8 rendition; the PG license header/footer stripped with src/organs/ingest/gutenberg.js stripGutenbergBoilerplate — the same normalization the reader applies when it ingests a PG book, so the golden is byte-for-byte what the reader would read from this ebook.",
+      "license": "public domain (first published 1899); PG boilerplate removed",
+      "notes": "novella; dense first-person narration with a frame narrator."
+    },
+    {
+      "id": "literary-frankenstein",
+      "category": "literary",
+      "path": "../fixtures/frankenstein.txt",
+      "title": "Frankenstein; or, The Modern Prometheus",
+      "author": "Mary Shelley",
+      "language": "en",
+      "year": 1818,
+      "sha256": "af10bac042d03e093ba6e6ef56f4b98f45a0c278d633c8f348da12590caf94a5",
+      "bytes": 428903,
+      "reading": {
+        "sentences": 3379,
+        "clauses": 6974,
+        "mentions": 0,
+        "unnamedReferents": 1
+      },
+      "source": "Project Gutenberg (1818 text), already vendored at tests/fixtures/frankenstein.txt for tests/individuation.test.js and tests/frankenstein-cast-golden.test.js — referenced here rather than duplicated.",
+      "license": "public domain",
+      "notes": "the canonical un-named-referent case (\"the creature\"); heavy coreference. A separate output golden already exists (tests/fixtures/frankenstein-cast-golden.json)."
+    },
+    {
+      "id": "multilang-basque-garoa",
+      "category": "multilang",
+      "path": "texts/basque-garoa.txt",
+      "title": "Garoa",
+      "author": "Domingo Agirre (Txomin Agirre)",
+      "language": "eu",
+      "year": 1912,
+      "sha256": "ed49b100841eedcbddf3f1ce768bcc4d78a4cdc046c59b68a86577b09f9b3cbf",
+      "bytes": 357703,
+      "reading": {
+        "sentences": 4965,
+        "clauses": 5597,
+        "mentions": 0,
+        "unnamedReferents": 0
+      },
+      "source": "Basque Wikisource (https://eu.wikisource.org/wiki/Garoa) — the complete novel, all 21 sections (preface \"Irakurleari\" + chapters I–XX) assembled in reading order from the per-chapter proofread pages of the 1912 edition; ProofreadPage navigation furniture, page-number running heads, and the trailing publisher advertisement removed. Extraction script recorded in the PR that added this corpus.",
+      "license": "public domain — Domingo Agirre died in 1920 (life + 70 years elapsed)",
+      "notes": "complete Basque novel (~48k words). Basque is a Latin-script language isolate with rich agglutination — a segmentation/tokenization stress test. Faithful to source: the 1912 edition misnumbers two chapters (both \"Agerpenak\" and \"Ijiji ¡aiene!\" are printed \"XV\", skipping XVI) and the golden preserves that."
+    },
+    {
+      "id": "multilang-japanese-rashomon",
+      "category": "multilang",
+      "path": "texts/japanese-rashomon.txt",
+      "title": "羅生門 (Rashōmon)",
+      "author": "芥川龍之介 (Ryūnosuke Akutagawa)",
+      "language": "ja",
+      "year": 1915,
+      "sha256": "8dd7d42511bd202d7dc0bbcf9d736f3a38b8d080bdb8231d5f1806f44c890480",
+      "bytes": 18644,
+      "reading": {
+        "sentences": 167,
+        "clauses": 170,
+        "mentions": 0,
+        "unnamedReferents": 0
+      },
+      "source": "Project Gutenberg #1982 (https://www.gutenberg.org/ebooks/1982), text/plain UTF-8 rendition; the PG license header/footer stripped with src/organs/ingest/gutenberg.js stripGutenbergBoilerplate — the same normalization the reader applies when it ingests a PG book, so the golden is byte-for-byte what the reader would read from this ebook.",
+      "license": "public domain — Akutagawa died in 1927; PG boilerplate removed",
+      "notes": "complete Japanese short story. No inter-word spaces; mixed kana/kanji, full-width punctuation, and digitizer furigana in parentheses — a non-whitespace-segmentation stress test. Faithful to the PG ebook: it opens with the digitizer's short English note (encoding + modernized orthography) before the Japanese body, exactly as the reader would ingest it."
+    }
+  ]
+}

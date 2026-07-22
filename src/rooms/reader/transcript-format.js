@@ -363,6 +363,41 @@ export const detectTranscriptChapters = (words = [], {
   return chapters;
 };
 
+// ── 4b · the contents ladder — the WHOLE shape first, its parts underneath ────────
+// transcriptContents(words, opts) → { level, rows } — the TOP of a clip's holonic structure, so a
+// landing surface opens on the highest level of the reading, not the raw spans beneath. A transcript's
+// highest structural level is its topic CHAPTERS (detectTranscriptChapters — where the subject turns);
+// only a clip too short or too single-subject to show chapters (the honest empty) descends one rung and
+// leads with its breath-group SEGMENTS instead. Either way every row carries the word range + clock a
+// surface descends into (Listen at that instant, where the segments and words live), so the ladder is
+// chapters → segments → words, entered from the top. Pure: it composes the chapter and segment readings
+// already defined above and adds no new measure.
+//   level : 'chapter' when chapters were found, else 'segment' (the fallback rung)
+//   rows  : [{ level, index, startIdx, endIdx, startTime, endTime, wordCount, title, keywords, mmss }]
+export const transcriptContents = (words = [], opts = {}) => {
+  const ws = Array.isArray(words) ? words : [];
+  const chapters = detectTranscriptChapters(ws, opts);
+  if (chapters.length) {
+    return {
+      level: 'chapter',
+      rows: chapters.map((c) => ({
+        level: 'chapter', index: c.index, startIdx: c.startIdx, endIdx: c.endIdx,
+        startTime: c.startTime, endTime: c.endTime, wordCount: c.wordCount,
+        title: c.title, keywords: c.keywords, mmss: isNum(c.startTime) ? clockMMSS(c.startTime) : '',
+      })),
+    };
+  }
+  const segs = segmentsOf(ws);
+  return {
+    level: 'segment',
+    rows: segs.map((s) => ({
+      level: 'segment', index: s.index, startIdx: s.startIdx, endIdx: s.endIdx,
+      startTime: s.start ?? null, endTime: s.end ?? null, wordCount: s.endIdx - s.startIdx + 1,
+      title: titleFor(ws, s, null), keywords: [], mmss: isNum(s.start) ? clockMMSS(s.start) : '',
+    })),
+  };
+};
+
 // ── 5 · referents over the word stream — which word names which figure ────────────
 // referentRuns(words, lex) → Map<wordIndex, { entId, docId, label, head }> — the figures the transcript
 // names, aligned to the exact words that spell them. `lex` is the referent reading's lexicon

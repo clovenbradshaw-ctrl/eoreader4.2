@@ -25,16 +25,17 @@ import { parseRelations, scanDescriptors } from './relations.js';
 import { argumentSpanSeg }      from './proposition.js';
 import { createCorefField }     from './coref.js';
 import { createDeixisFrame }    from './deixis.js';
+import { induceNarrativeDepth } from './narrative-depth.js';
 import { discoverNamings }      from './naming.js';
 import { distinctReferentCount } from './name-variants.js';
 import { induceInflections } from './inflection.js';
 import { discoverUncasedReferents } from './uncased.js';
-import { admitDarkReferents } from './dark-referent.js';
+import { createCentreScanner } from './unnamed-referent.js';
 import { readUncasedGrain } from './grain.js';
 import { induceAdpositions } from './adpositions.js';
 import { buildReferents }       from '../referents/index.js';
 import { tok }                  from './tokenize.js';
-import { createConventions, induceAttributionVerbs, BOUNDARY } from '../../core/conventions/index.js';
+import { createConventions, induceAttributions, induceCalendar, BOUNDARY } from '../../core/conventions/index.js';
 
 // A pronoun-resolved descriptor owner ("his sister") is taken only when the prior
 // field's top candidate outweighs the runner-up by this ratio — an unambiguous
@@ -107,10 +108,11 @@ export const createParser = ({
   // byte-identical; on, the parse additionally learns which units are one KIND from company.
   induceSlots        = false,
   // Fold morphological variants (declensions) of a name onto one referent — Наташу→Наташа,
-  // Ἕκτορα→Ἕκτωρ — using the case-suffix set induced from the document (inflection.js), anchored
-  // on the nominatives (forms that behave as subjects) so two names sharing a stem (Франц/Франция)
-  // never merge. OFF by default → English (barely inflected) folds nothing and the read is
-  // byte-identical; on, an inflected language's cast stops fracturing across cases.
+  // Aranak→Arana. Morphology PROPOSES (a shared stem, inflection.js), COMPLEMENTARY DISTRIBUTION
+  // disposes (a case-mate never co-occurs with its base in a clause; a distinct name sharing a stem
+  // does — Франц/Франция, French/Frenchman — and is vetoed), and the asterisk carries each survivor
+  // as a `*` it promotes on that evidence, still splittable by conflict. No nominative anchor, so an
+  // ergative/agglutinative cast folds too. OFF by default → English folds nothing, byte-identical.
   foldInflections    = false,
   // Discover the figures of an UNCASED document (Japanese, Chinese, Arabic, Hebrew) by gravity
   // (parse/uncased.js), where a name carries no capital for the scanner to anchor on. Unlike the
@@ -128,13 +130,13 @@ export const createParser = ({
   // edges) and it abstains — no event — wherever the signal is not clean, the no-commit
   // discipline; the full suite reads identically with it on. Off restores the ungraded log.
   grainRead          = true,
-  // The DARK-REFERENT read (dark-referent.js) — admit a figure that has NO proper name, only a
-  // definite description the text keeps returning to ("the creature"), detected by the gravity
-  // warping around it (recurrence × subject-agency × star-scale mass). OFF by default → byte-
-  // identical (the gate is distributional, not a hard binary like the uncased read's, so it could
-  // nudge a golden); the reader turns it ON (organs/in/text.js). `nameReferent` is the optional
-  // injected hook (ideally the talker) that may rename/fold bodies before they are admitted.
-  darkReferents      = false,
+  // A referent has no name of its own — a name is just its brightest manifestation (unnamed-
+  // referent.js). This resolves a figure that wears none, only a description the text keeps returning
+  // to ("the creature"), off the descriptions and pronouns that point at it (recurrence × subject-
+  // agency). OFF by default HERE → a minimal, byte-identical parse (distributional, could nudge a
+  // golden); the reader turns it ON (organs/in/text.js) as ordinary reading. `nameReferent` is the
+  // optional injected hook (ideally the talker) that may rename/fold bodies before they are admitted.
+  unnamedReferents      = false,
   nameReferent       = null,
   // REFERENT-FIRST IDENTITY (perceiver/referents/). OFF by default → byte-identical (the whole
   // layer is skipped, no surface/denotation events are appended). Set to 'mention' to build the
@@ -152,12 +154,10 @@ export const createParser = ({
     transcriptActive: false,
   };
 
-  // `onProgress` and `chunkSize` are the FEEDBACK channel (large-document ingestion).
-  // With no sink the parse runs as one synchronous sweep, byte-identical to before —
-  // every golden parse and every test takes this path. When a caller wants progress
-  // (the UI ingesting a big file), it passes `onProgress`; the per-sentence pass then
-  // runs in chunks of `chunkSize`, yielding to the event loop between them so the page
-  // stays responsive, and parse returns a Promise. The work and its order are identical.
+  // `onProgress` and `chunkSize` are the FEEDBACK channel (large-document ingestion). With
+  // no sink the parse runs as one synchronous sweep, byte-identical to before — every golden
+  // parse and every test takes this path. With a sink the per-sentence pass yields to the
+  // event loop as it goes (below), and parse returns a Promise instead.
   const parse = (text, { docId, onProgress, chunkSize = 250 } = {}) => {
     const log         = createLog({ docId, contractOf });
     // Conventions first — the home for the language-specific stuff. The splitter
@@ -206,6 +206,24 @@ export const createParser = ({
     })();
     const uncasedForms = [...uncasedByForm.keys()].sort((a, b) => b.length - a.length);
 
+    // Referents pointed at without a name — Frankenstein's creature (only "the creature"/"the
+    // monster"/"the wretch"). Discovered up front (like the uncased read) and admitted INLINE in the
+    // main loop as first-class coref candidates, so the activation field and the gendered pronoun
+    // binding resolve them exactly as a scanned name — the creature captures its own "it/he" chain
+    // instead of leaking it to the last-named figure. OFF unless `unnamedReferents` is set → the
+    // census never runs and the parse is byte-identical.
+    const centreScanner = unnamedReferents ? createCentreScanner(sentences, { conventions, nameReferent })
+                                           : { active: false, headToBody: new Map(), bodies: [], scan: () => [] };
+    // Alias every epithet head → its body id up front, so the relation parser resolves a definite-
+    // description subject ("the wretch <verb>") to the one body from the first sentence it reads
+    // (leadingSubject looks the bare head up in admission). The id is deterministic (idFor(label)),
+    // so aliasing before the body is first sighted is sound; its mass accrues as it is admitted below.
+    // The canonical label ("the creature") is aliased FIRST so labelOf returns it, not a bare head.
+    for (const body of (centreScanner.bodies || [])) {
+      admission.aliasTo?.(body.label, body.id);
+      for (const [head, b] of centreScanner.headToBody) if (b.id === body.id) admission.aliasTo?.(head, body.id);
+    }
+
     // Transcript detection — the handler is injected, not imported.
     if (transcriptHandler && transcriptHandler.detect && transcriptHandler.detect(text)) {
       state.transcriptActive = true;
@@ -219,13 +237,11 @@ export const createParser = ({
       }
     }
 
-    // Pass 0 — learn the document's conventions before reading it. Induced
-    // attribution verbs become REC entries in the ledger and are written into
-    // the log, so how *this* text marks speech biases every later sentence.
-    // (The conventions ledger was created above, before segmentation.)
-    for (const { token, count } of induceAttributionVerbs(sentences)) {
-      conventions.learnAttribution(token, count);
-    }
+    // Pass 0 — learn the document's conventions before reading it, off their SLOTS: how this
+    // text marks SPEECH (attribution verbs against quotation) AND how it RELAYS claims (the
+    // report verbs and source nouns of the attribution nest, "the study found that …"). All
+    // become REC entries in the ledger, written into the log, biasing every later sentence.
+    induceAttributions(conventions, sentences); induceCalendar(conventions, sentences);   // + this document's own dated months (induce.js)
 
     // Structural frame: the head and tail OUTSIDE the body the banners bracket (the
     // licence header, the title block, the boilerplate footer). Read from the
@@ -272,7 +288,12 @@ export const createParser = ({
     // this sentence* and the strongest candidate's weight becomes the bond's
     // coupling. Nothing is committed — the weight carries the uncertainty.
     const corefField = createCorefField({ ...corefOpts, ...(rolesConflict ? { rolesConflict } : {}) });
-    const deixis = createDeixisFrame({ field: (idx) => corefField.field(idx) });
+    // The structural run a first-person mention sits in (parse/narrative-depth.js) — a
+    // labelled numbered-heading series (Letter N / Chapter N) and “ ” nesting, read from the
+    // document's own shape. A document with neither stays at depth 0 throughout, so this is
+    // byte-identical wherever no such structure exists.
+    const depthAt = induceNarrativeDepth(sentences);
+    const deixis = createDeixisFrame({ field: (idx) => corefField.field(idx), depthAt });
     // Derived descriptor edges (owner->bearer:role), logged after the candidates, marked `derived` (defeasible).
     const derivedEdges = [];
 
@@ -409,6 +430,21 @@ export const createParser = ({
           const id = admission.admit(form, sentIdx);
           log.append({ op: 'INS', id, label: form, sentIdx }, EMIT);
           corefField.note(id, sentIdx);
+          lastIns = { id, sentIdx };
+        }
+      }
+
+      // Admit any UNNAMED referent body sighted here (the creature) BEFORE the relation parser reads
+      // this sentence, so "the creature stretched" bonds in reading order and the following "it"/"he"
+      // — resolved by the relation parser through the field below — binds to the freshly-noted body,
+      // not to the last-named figure. Noted at PROPOSITION grain (`at`) so the field decays by clause.
+      // One INS per body per sentence (its mass is its description sightings, like a name's).
+      if (centreScanner.active) {
+        const seenBody = new Set();
+        for (const c of centreScanner.scan(sent, sentIdx)) {
+          const id = admission.admit(c.label, sentIdx);
+          if (!seenBody.has(id)) { seenBody.add(id); log.append({ op: 'INS', id, label: c.label, sentIdx }, EMIT); }
+          corefField.note(id, c.at);
           lastIns = { id, sentIdx };
         }
       }
@@ -568,24 +604,42 @@ export const createParser = ({
     }
 
     // ── Declension fold (opt-in) — a name's cases are one referent ──────────────
-    // Induce the case-suffix set from the admitted single-token names (inflection.js) and fold
-    // each oblique onto its nominative, anchored on the forms that behave as subjects so two names
-    // that merely share a stem (Франц / Франция) stay apart. Each fold is a SYN merge the
-    // projection unions, exactly like a surname or naming-scene merge. English induces ~no case
-    // set, so this is a no-op there; an inflected language stops fracturing across cases.
+    // Morphology PROPOSES, DISTRIBUTION disposes, the asterisk HOLDS IT OPEN. Identity is relational,
+    // not orthographic (core/asterisk.js): so a shared stem only nominates a candidate (inflection.js,
+    // no nominative anchor — it makes no nominative–accusative assumption an ergative or agglutinative
+    // cast would break). The verdict is COMPLEMENTARY DISTRIBUTION: you never name one person twice in
+    // a clause, so a true case-mate co-occurs with its base ~never ("Aranak"/"Arana" 0.04, "Rostóv"/
+    // "Rostóva" 0.00), while a DISTINCT name sharing a stem co-occurs and is vetoed ("French"/
+    // "Frenchman" 0.11, "Prussia"/"Prussian" 0.15). Each survivor is emitted as a same_as? the
+    // projection's asterisk carries as `*` — held open, promoted on this evidence, still splittable by
+    // a functional conflict. English induces ~no case set → no candidates → a no-op.
     if (foldInflections) {
-      const forms = new Map();
+      const COMP_VETO = 0.08;   // co-occurrence rate above which a shared-stem pair is two referents
+      const forms = new Map(), sight = admission.sightSent;
       for (const [label, id] of admission.admitted)
         if (!label.includes(' ')) forms.set(label, (admission.mentions.get(id) || []).length || 1);
-      const { fold } = induceInflections(forms, { nominatives: admission.nominativeForms() });
-      for (const [form, canonical] of fold) {
-        if (form === canonical) continue;
-        const from = admission.idOf(form), to = admission.idOf(canonical);
-        if (!from || !to || from === to) continue;
-        const syn = log.append({ op: 'SYN', kind: 'merge', from, to,
-                                 label: canonical, sentIdx: 0, match: 'inflection', warrant: 'declension' });
-        log.append({ op: 'EVA', site: 'merge', ref: syn.seq, verdict: VERDICTS.CORROBORATED,
-                     reason: 'declension-fold', form, sentIdx: 0 });
+      const { fold } = induceInflections(forms);   // the proposer — plain same-stem union, no anchor
+      // Group each cluster and name it by its BASE — the LEAST-MARKED form (an oblique only ADDS an
+      // ending, so the base is the shortest; frequency breaks a fusional tie where a nominative is no
+      // shorter than its cases). This is the bare stem in an agglutinative language ("Arana", not the
+      // frequency-topped oblique "Aranaren") and the nominative in a fusional one ("Rostóv").
+      const groups = new Map();
+      for (const [form, canon] of fold) { let g = groups.get(canon); if (!g) groups.set(canon, g = new Set()); g.add(form); g.add(canon); }
+      for (const members of groups.values()) {
+        const base = [...members].sort((a, b) => a.length - b.length || (forms.get(b) || 0) - (forms.get(a) || 0) || (a < b ? -1 : 1))[0];
+        const to = admission.idOf(base);
+        if (!to) continue;
+        const B = new Set(sight.get(base) || []);
+        for (const form of members) {
+          if (form === base) continue;
+          const from = admission.idOf(form);
+          if (!from || from === to) continue;
+          const A = new Set(sight.get(form) || []);
+          const co = [...A].filter((x) => B.has(x)).length;
+          if (co / Math.max(1, Math.min(A.size, B.size)) >= COMP_VETO) continue;   // they co-occur → distinct
+          log.append({ op: 'SYN', kind: 'same_as?', from, to,
+                       label: base, sentIdx: 0, match: 'inflection', warrant: 'declension' });
+        }
       }
     }
 
@@ -670,29 +724,36 @@ export const createParser = ({
         viaCount.set(rel.via, (viaCount.get(rel.via) || 0) + 1);
         if (rel.tgtKind === 'np') nounCount.set(rel.tgt, (nounCount.get(rel.tgt) || 0) + 1);
       }
-    for (const [via, n] of viaCount) if (via && n >= 2) conventions.learn('relation', via, n);
+    // The recurrence coupling: a one-off relation verb (or NP referent) is held weak, a
+    // repeated one nearly full-strength, on ONE curve — n/(n+1) — not a picked "recurrent
+    // enough" cutoff with a picked discount below it. n=1 gives 0.5 (a single sighting
+    // compounds no more surely than a coin flip); it climbs toward 1 as sightings recur,
+    // smoothly, so there is no threshold to invent and no sharp jump at it either (the old
+    // rule went straight from ×0.5 to ×1 the instant a second sighting landed). The learn
+    // pass below (isRelation's INHERITED-prior exemption) runs AFTER this loop, not
+    // before: learning "walked" into the ledger the moment THIS document's own second
+    // sighting arrives would let a same-document recurrence exempt itself through the
+    // corpus-prior door, silently reintroducing the old hard cliff at n=2 that the curve
+    // exists to remove. isRelation here can only ever mean a PRIOR document taught it.
+    const confidenceOf = (n) => n / (n + 1);
 
     for (const { rel, sentIdx } of candidates) {
       const { args, coord, ...edge } = rel;   // `coord` is read by the gate below, then dropped (never logged)
-      // The recurrence coupling: a one-off relation verb is held weak (×0.5),
-      // compounding with any pronoun coupling already on the edge. A bond on a
-      // recurrent verb keeps full coupling. The argument-span SEG is still written
-      // before the bond and cited by it, so a CON walks back to the text (§3).
       if (edge.op === 'CON' || edge.op === 'SIG') {
         // A coordinated-subject convergence edge is held FIRM on a single sighting: a
         // reveal's verb ("listed") is single by nature, and the edge's warrant is the
         // construction, not the verb's recurrence — so it is not held weak and dropped
         // from the firm graph the bridge channel reads.
-        // A corpus-attested relation verb (inherited prior) counts as recurrent even on a
-        // single sighting: the corpus already saw it bond hundreds of times, so a new short
+        // A corpus-attested relation verb (inherited prior) is held FIRM even on a single
+        // sighting: the corpus already saw it bond hundreds of times, so a new short
         // document need not re-earn it. With no corpus prior, isRelation is empty here and
         // this OR changes nothing — reading stays byte-identical.
-        const recurrent = (viaCount.get(edge.via) || 1) >= 2 || coord === true || conventions.isRelation(edge.via);
-        let factor = recurrent ? 1 : 0.5;
-        // An NP referent rides the SAME recurrence gate as the verb and the figure: a
-        // common noun seen once across the document is held weak, never dropped — the
-        // uncertainty rides as reduced coupling, the physics the pronoun field uses.
-        if (edge.tgtKind === 'np' && (nounCount.get(edge.tgt) || 1) < 2) factor *= 0.5;
+        const exempt = coord === true || conventions.isRelation(edge.via);
+        let factor = exempt ? 1 : confidenceOf(viaCount.get(edge.via) || 1);
+        // An NP referent rides the SAME sighting-confidence curve as the verb, compounding
+        // with it — a common noun this document has barely seen is held weak regardless of
+        // how well-attested its verb is, the physics the pronoun field already uses.
+        if (edge.tgtKind === 'np') factor *= confidenceOf(nounCount.get(edge.tgt) || 1);
         const base = edge.w == null ? 1 : edge.w;          // existing (pronoun) coupling
         const w = Math.round(base * factor * 1000) / 1000;
         if (w < 1) edge.w = w; else delete edge.w;         // sub-unit coupling rides along
@@ -710,6 +771,10 @@ export const createParser = ({
         log.append({ ...edge, sentIdx });
       }
     }
+    // Learned AFTER this document's own coupling is computed (see the comment above the
+    // curve): so the ledger's 'relation' kind means "a PRIOR document taught this," never
+    // "this document just saw it twice a moment ago."
+    for (const [via, n] of viaCount) if (via && n >= 2) conventions.learn('relation', via, n);
 
     // The derived descriptor edges, after the witnessed candidates. They carry
     // `derived: true` so the projection and the edge-grounding veto treat them as
@@ -795,80 +860,49 @@ export const createParser = ({
       }
     }
 
-    // ── The DARK-REFERENT read — admit the figure that has no name ──────────────
-    // LAST in finalize (purely additive — every event above is byte-identical) and after the whole
-    // named cast is assembled (so a body's mass is measured against real, merged names). The whole
-    // pass lives in the dark-referent holon; it returns the last INS so the arrow of time advances.
-    if (darkReferents) {
-      // The np-object lemma ids the main read already minted from a bare description in object
-      // position — handed to the dark read so a folded head can union its orphaned node onto the body.
-      const npEndpoints = new Set();
+    // Referents pointed at without a name are admitted INLINE in the main pass now (the centre
+    // scanner in processSentence): their subject bonds land in reading order and their pronouns bind
+    // through the field as they are read — no retroactive second cursor, no star-scale finalize pass.
+    // The dependency order is honoured: the centre is instantiated (INS) before it is bonded (CON).
+    // A defeasible figure-grain DEF marks each seated body a figure — its cue records HOW it was
+    // found (by description, unnamed), not that it is a different kind of thing. And where the main
+    // read minted an np-object LEMMA from a bare description in object position ("Frankenstein
+    // pursued the wretch" → tgt lemma "wretch"), union that orphaned node onto the body, so the bond
+    // the read DID make lands on the referent too — the object resolves to the creature, not a lemma.
+    if (centreScanner.active) {
+      const npEnd = new Set();
       for (const { rel } of candidates)
-        if ((rel.op === 'CON' || rel.op === 'SIG') && rel.tgtKind === 'np') npEndpoints.add(rel.tgt);
-
-      const dr = admitDarkReferents({ sentences, admission, conventions, corefField, log, emit: EMIT, nameReferent, npEndpoints });
-      if (dr.lastIns) lastIns = dr.lastIns;
-
-      // ── The retroactive structure re-read — the second cursor ─────────────────────
-      // The main read scanned each sentence in READING ORDER, where a nameless figure's
-      // description was not yet a referent, so "the creature stretched…" bonded NOTHING — the
-      // subject slot fell to silence. admitDarkReferents has since admitted the body and
-      // registered its description heads. Now re-read ONLY the sentences that mention it, with
-      // pronoun coref OFF (the descriptions resolve on their own; the pronouns were read in the
-      // main pass), and append every SUBJECT-side bond the referent now anchors. This is a
-      // DIFFERENT cursor than the course of the text: the record realizes, after the fact, what
-      // the reading was doing — the same append-only move the surname unmerge makes, adding real
-      // relational structure under the referent rather than a cosmetic identity merge over it.
-      if (dr.darkRefs && dr.darkRefs.length) {
-        const darkIds = new Set(dr.darkRefs.map((d) => d.id));
-        const edgeKey = (r) => r.op === 'DEF' ? `DEF|${r.id}|${r.value}` : `${r.op}|${r.src}|${r.tgt}|${r.via || ''}`;
-        const seen = new Set(candidates.map(({ rel }) => edgeKey(rel)));
-        // A coref with an empty field and no deixis: a description-surface or a name resolves, a
-        // pronoun does not — so the re-read adds no guessed pronoun subjects (the main pass owns
-        // those), only the structure the newly-admitted description makes reachable.
-        const staticCoref = { field: () => [], resolve: () => null, lastIns: () => null };
-        const relRead = { isSpeech, isCopula: conventions.isCopula, isModifier: conventions.isModifier,
-                          isConjunction: conventions.isConjunction, referents: true, coordSubjects, totalRead };
-        const mentionSents = [...new Set(dr.darkRefs.flatMap((d) => d.mentions))].sort((a, b) => a - b);
-        for (const si of mentionSents) {
-          const sent = sentences[si];
-          if (sent == null) continue;
-          for (const rel of parseRelations(sent, admission, staticCoref, { ...relRead, sentIdx: si })) {
-            const anchors = rel.op === 'DEF' ? darkIds.has(rel.id) : darkIds.has(rel.src);
-            if (!anchors) continue;                       // only the referent's OWN agency
-            const k = edgeKey(rel);
-            if (seen.has(k)) continue; seen.add(k);       // never double-count a bond the main read made
-            const { args, coord, ...edge } = rel;
-            if (edge.op === 'CON' || edge.op === 'SIG') {
-              // The SAME recurrence physics the candidate loop uses: a one-off verb rides weak.
-              const recurrent = (viaCount.get(edge.via) || 1) >= 2 || conventions.isRelation(edge.via);
-              let factor = recurrent ? 1 : 0.5;
-              if (edge.tgtKind === 'np' && (nounCount.get(edge.tgt) || 1) < 2) factor *= 0.5;
-              const base = edge.w == null ? 1 : edge.w;
-              const w = Math.round(base * factor * 1000) / 1000;
-              if (w < 1) edge.w = w; else delete edge.w;
-              const relType = conventions.relationType(edge.via);
-              if (relType) edge.relType = relType;
-            }
-            // `retro` marks the second cursor — a bond realized after the reading order, not on it.
-            if (args) {
-              const seg = log.append(argumentSpanSeg(args, si));
-              log.append({ ...edge, sentIdx: si, argspan: seg.seq, retro: true }, EMIT);
-            } else {
-              log.append({ ...edge, sentIdx: si, retro: true }, EMIT);
-            }
-          }
+        if ((rel.op === 'CON' || rel.op === 'SIG') && rel.tgtKind === 'np') npEnd.add(rel.tgt);
+      for (const body of centreScanner.bodies) {
+        log.append({ op: 'DEF', id: body.id, key: 'grain', value: 'figure', grain: 'Figure',
+                     cue: 'unnamed-referent', defeasible: true, sentIdx: 0 }, EMIT);
+        // A talker-declared synonym ("the wretch" IS the creature, via nameReferent) is an auditable
+        // SYN merge onto the body — the coref-as-proposal record.
+        for (const alias of (body.mergedFrom || [])) {
+          const from = alias.id || (alias.label && alias.label.toLowerCase().replace(/\s+/g, '-').replace(/[^\p{L}\p{N}-]/gu, ''));
+          if (!from || from === body.id) continue;
+          const syn = log.append({ op: 'SYN', kind: 'merge', from, to: body.id, label: body.label,
+                                   sentIdx: 0, match: 'unnamed-alias', warrant: 'coreference' }, EMIT);
+          log.append({ op: 'EVA', site: 'merge', ref: syn.seq, verdict: VERDICTS.CORROBORATED,
+                       reason: 'unnamed-referent-coreference', sentIdx: 0 }, EMIT);
+        }
+        for (const [head, b] of centreScanner.headToBody) {
+          if (b.id !== body.id || head === body.id || !npEnd.has(head)) continue;
+          const syn = log.append({ op: 'SYN', kind: 'merge', from: head, to: body.id, label: body.label,
+                                   sentIdx: 0, match: 'unnamed-surface', warrant: 'description' }, EMIT);
+          log.append({ op: 'EVA', site: 'merge', ref: syn.seq, verdict: VERDICTS.CORROBORATED,
+                       reason: 'unnamed-referent-description', head, sentIdx: 0 }, EMIT);
         }
       }
     }
 
     const tokensBySentence = sentences.map(s => new Set(tok(s)));
 
-    // REFERENT-FIRST IDENTITY — built LAST, once the whole read (and its dark referents / merges)
+    // REFERENT-FIRST IDENTITY — built LAST, once the whole read (and its unnamed referents / merges)
     // is on the log, so the mention→referent quotient seeds from the finished label quotient. OFF
     // → skipped entirely, so the doc and log are byte-identical (acceptance 10).
     const referentApi = referentIdentity === 'mention'
-      ? buildReferents({ log, sentences, admission, corefField, docId })
+      ? buildReferents({ log, sentences, admission, corefField, deixis, docId })
       : null;
 
     return {
@@ -886,14 +920,22 @@ export const createParser = ({
       units: sentences,
       modality: 'text',
       corefField,    // the referent field, incl. held standing descriptors (inspection)
+      deixis,        // the first-person teller channel (inspection; post-hoc referentApiFor reads it)
+      // The nameless bodies this read seated (creature/monster/wretch → one), already conventions-
+      // filtered and past the whole-document star-scale floor — the clean, floor-passed centres,
+      // NOT the raw census. Exposed so a re-parse at a SMALLER scope (nest.js segments a book into
+      // chapters, and no single chapter carries enough of the epithet mass to re-clear the floor)
+      // can inject them as `nameReferent`, keeping the figure the whole read already earned. Empty
+      // ([]) whenever `unnamedReferents` is off, so the field is additive and never changes a
+      // byte-identical parse.
+      unnamedReferentBodies: centreScanner.bodies || [],
       state, // exposed for inspection; not for outside mutation
     };
     };  // end finalize
 
-    // Driver selection. Default: one synchronous sweep, byte-identical to the forEach
-    // this replaced (the path every test and golden parse takes). With a feedback sink:
-    // a chunked sweep that yields to the event loop and reports progress, returning a
-    // Promise. Either way `finalize()` runs once, after the last sentence is folded in.
+    // Driver selection. Default: one synchronous sweep, byte-identical to the forEach this
+    // replaced (every test and golden parse takes this path). With a feedback sink: a
+    // yielding sweep that reports progress, returning a Promise. `finalize()` runs once either way.
     if (!onProgress) {
       sentences.forEach(processSentence);
       return finalize();
@@ -902,13 +944,16 @@ export const createParser = ({
     const chunk = Math.max(1, chunkSize | 0);
     onProgress({ phase: 'parse', done: 0, total });
     return (async () => {
+      // A fixed count is a bad cost proxy — a dense passage runs past budget before the
+      // count-based yield fires — so also time-box it. Never after the last sentence.
+      const FRAME_BUDGET_MS = 32;
+      let chunkStart = performance.now();
       for (let i = 0; i < total; i++) {
         processSentence(sentences[i], i);
-        // Report and breathe between chunks — but not after the last sentence, since
-        // finalize() follows immediately and the terminal 100% is emitted below it.
-        if ((i + 1) % chunk === 0 && i + 1 < total) {
+        if (i + 1 < total && ((i + 1) % chunk === 0 || performance.now() - chunkStart >= FRAME_BUDGET_MS)) {
           onProgress({ phase: 'parse', done: i + 1, total });
           await new Promise(r => setTimeout(r, 0));
+          chunkStart = performance.now();
         }
       }
       onProgress({ phase: 'parse', done: total, total });

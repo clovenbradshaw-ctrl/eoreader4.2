@@ -3,10 +3,10 @@
 // VERBATIM from the closure; cross-section reach rides ctx (call-time), the core
 // spine (state · emit · trail beats · client) is destructured once at install.
 // the wiki referent (the entity panel's encyclopedia lookup)
-import { projectGraph, operatorsOf, glyphOf } from '../../../core/index.js';
-import { figureSurface } from '../../../perceiver/index.js';
+import { projectGraph, operatorsOf, glyphOf, mannerOf } from '../../../core/index.js';
+import { figureSurface, typeReferents } from '../../../perceiver/index.js';
 import { wikiReferent } from '../wiki-referent.js';
-import { networkGraphData } from '../../../wiki/index.js';
+import { networkGraphData, articleFromProfile } from '../../../wiki/index.js';
 
 export const installWiki = (appCtx) => {
   const { client } = appCtx;
@@ -31,6 +31,18 @@ export const installWiki = (appCtx) => {
     }).catch(() => null).then((def) => { wikiCache.set(key, def); return def; });
     wikiCache.set(key, pending);
     return pending;
+  };
+
+  // heroArticleFor(docId, entId) — the SAME entity profile, read through src/wiki/'s
+  // terrain-typed article projection instead of the Wikipedia-referent lookup above.
+  // Pure and synchronous (entityProfile already is; the adapter is pure) — no cache
+  // needed, matching project.js's own "never cached, a fresh projection every call"
+  // discipline. Returns null for an unresolved entity, never a fabricated shell.
+  // docs/entity-panel-terrain-hero.md is the spec this wires.
+  const heroArticleFor = (docId, entId) => {
+    const p = appCtx.entityProfile(docId, entId);
+    if (!p || !p.label) return null;
+    return articleFromProfile(p, { terrain: 'Entity' });
   };
 
   // When a source entered the record, in epoch-ms — the graphs' time axis reads this off
@@ -79,6 +91,108 @@ export const installWiki = (appCtx) => {
       const id = `c:${i}`;
       nodes.push({ id, tier: 2, label: d.value, kind: 'claim', terrain: 'Lens', t: srcT });
       edges.push({ a: focus, b: id, tier: 2, gl: '⊢', code: 'DEF' });
+    });
+    return { nodes, edges };
+  };
+
+  // ── the SOLAR meaning ring, enriched — the two "astronomy" reads on top of tieredData ────────
+  // The solar surface (rooms/reader/solar-system.js) descends its meaning level from these bodies.
+  // tieredData draws them honestly but flat; the meaning ring wants two things a bare position
+  // can't say — never shown by the tiered/entity web, so this is a solar-only view over the same
+  // data (tieredData stays byte-identical for the web, which only wants positions):
+  //
+  //   MANNER (the spectrum) — never show a claim's position without saying what KIND of act it
+  //   was. Read off the operator's Mode (core/operators.js): a standing property DEF-distinguishes
+  //   (⊢), a bond CON/SIG-links (⋈○), a generation INS-introduces (●). A DEF property is uniformly
+  //   "distinguishes", so the ring would read one-note — but the figure's own bonds ARE claims that
+  //   hold about it (operatorsOf types each: parent→INS "introduces", sibling/leads→CON "links",
+  //   becomes→SEG "distinguishes"), so folding them in as meaning-ring bodies is what makes the
+  //   spectrum genuinely vary. Bounded so a hub figure's ring stays legible.
+  //
+  //   STANDING (the settledness drift) — how firmly does the record HOLD this claim? The honest,
+  //   log-backed read available today: `firming` when a property is multiply witnessed and asserted
+  //   flat (count ≥ 2, realis, positive) — corroboration accumulating; `unsettled` when it is negated
+  //   or hedged (a denial, or an epistemic/deontic/irrealis mood — "may be", "must be" — stands over
+  //   it); `fresh` when it is a single, plain assertion. The surface reads this as motion — a firmer
+  //   claim falls to a tighter, higher-gravity orbit; an unsettled one is marked — so confidence shows
+  //   as position, never a number. This is SETTLEDNESS (corroboration + hedging), NOT "coming apart"
+  //   in the full sense: detecting a LATER source contradicting an earlier free-text predicate does
+  //   not exist yet (a real project), so `unsettled` means the record itself hedges/denies the claim,
+  //   not that two sources disagree. Scoped to this one figure's reading (the solar view's own scope),
+  //   so corroboration is this source's repeated witnesses, not a topic-wide tally.
+  const standingOf = (d) => {
+    const neg = d.polarity === '−' || d.polarity === '-';
+    const hedged = d.modality && d.modality !== 'realis';
+    if (neg || hedged) return 'unsettled';
+    return (d.count || 1) >= 2 ? 'firming' : 'fresh';
+  };
+  const solarMeaningData = (docId, entId, { maxBonds = 10, maxMoonPlanets = 8, maxMoons = 3 } = {}) => {
+    const base = tieredData(docId, entId);
+    if (!base.nodes || !base.nodes.length) return base;
+    const p = appCtx.entityProfile(docId, entId);
+    if (!p) return base;
+    // The meaning system is NESTED, not a flat ring: the focus is the sun; its standing claims and
+    // bonded figures are PLANETS orbiting it (parent = the focus); each bonded figure's OWN standing
+    // claims and further associates are MOONS orbiting that figure (parent = the figure's body). The
+    // renderer (solar-system.js) reads node.parent to build the sun · planets · moons descent.
+    const focusId = `e:${entId}`;
+    // 1) the focus's own DEF claims (planets): tag them with manner + standing and parent them to the sun.
+    const nodes = base.nodes.map((n) => {
+      if (n.kind !== 'claim' || !/^c:\d+$/.test(String(n.id))) return n;
+      const d = p.defs[+String(n.id).slice(2)];
+      if (!d) return { ...n, op: 'DEF', manner: mannerOf('DEF'), parent: focusId };
+      return { ...n, op: 'DEF', manner: mannerOf('DEF'), standing: standingOf(d),
+               count: d.count || 1, polarity: d.polarity || '+', modality: d.modality || 'realis', parent: focusId };
+    });
+    const edges = base.edges.slice();
+    const srcT = base.nodes.find((n) => n.id === focusId)?.t || 0;
+    // 2) fold the figure's OWN bonds into the ring as manner-varied planets (links/introduces), so the
+    //    spectrum reads as more than a wall of "distinguishes". Each is typed by the act it records
+    //    (operatorsOf), labelled by the figure at the other end, and — like a bond — carries a ref so a
+    //    click still pivots the whole view onto that figure. Then hang that figure's own meaning as MOONS.
+    const bondClaim = (op, via, label, otherId, id, parent) => {
+      nodes.push({ id, parent, tier: 2, kind: 'claim', terrain: 'Lens', bond: true,
+        label: (via ? via + ' ' : '') + label, op, manner: mannerOf(op),
+        standing: 'fresh', ref: { docId, entId: otherId }, t: srcT });
+      edges.push({ a: parent, b: id, tier: 2, gl: glyphOf(op), code: op });
+    };
+    (p.relations || []).slice(0, maxBonds).forEach((r, i) => {
+      const isSrc = r.srcId === entId, isTgt = r.tgtId === entId;
+      if (!isSrc && !isTgt) return;                       // keep the top ring egocentric to the sun
+      const otherId = isSrc ? r.tgtId : r.srcId, otherLabel = isSrc ? r.tgtLabel : r.srcLabel;
+      if (otherId === entId) return;                      // never a self-loop claim
+      const op = operatorsOf(r.via, r.op || 'CON')[0] || 'CON';
+      const planetId = `rc:${i}`;
+      nodes.push({ id: planetId, parent: focusId, tier: 2, kind: 'claim', terrain: 'Lens', bond: true,
+        label: (String(r.via || '').trim() ? String(r.via).trim() + ' ' : '') + otherLabel, op, manner: mannerOf(op),
+        standing: (r.polarity === '−' || r.polarity === '-') ? 'unsettled' : 'fresh',
+        ref: { docId, entId: otherId }, t: srcT });
+      edges.push({ a: focusId, b: planetId, tier: 2, gl: glyphOf(op), code: op });
+      // MOONS — descend one hop into the bonded figure: its own standing properties first, then its
+      // further associates (2-hop figures other than the sun), so a planet genuinely holds a little
+      // system instead of being a bare dot. Bounded per planet, and to the most salient planets.
+      if (i >= maxMoonPlanets) return;
+      const px = appCtx.entityProfile(docId, otherId);
+      if (!px) return;
+      let m = 0;
+      for (const d of (px.defs || [])) {
+        if (m >= maxMoons) break;
+        nodes.push({ id: `rm:${i}:${m}`, parent: planetId, tier: 2, kind: 'claim', terrain: 'Lens',
+          label: d.value, op: 'DEF', manner: mannerOf('DEF'), standing: standingOf(d),
+          count: d.count || 1, polarity: d.polarity || '+', modality: d.modality || 'realis', t: srcT });
+        edges.push({ a: planetId, b: `rm:${i}:${m}`, tier: 2, gl: '⊢', code: 'DEF' });
+        m++;
+      }
+      for (const rr of (px.relations || [])) {
+        if (m >= maxMoons) break;
+        const oSrc = rr.srcId === otherId, oTgt = rr.tgtId === otherId;
+        if (!oSrc && !oTgt) continue;
+        const thirdId = oSrc ? rr.tgtId : rr.srcId, thirdLabel = oSrc ? rr.tgtLabel : rr.srcLabel;
+        if (thirdId === otherId || thirdId === entId) continue;   // not itself, not straight back to the sun
+        const op2 = operatorsOf(rr.via, rr.op || 'CON')[0] || 'CON';
+        bondClaim(op2, String(rr.via || '').trim(), thirdLabel, thirdId, `rm:${i}:${m}`, planetId);
+        m++;
+      }
     });
     return { nodes, edges };
   };
@@ -132,6 +246,19 @@ export const installWiki = (appCtx) => {
         const sid = `src:${sn}`; const s = srcById.get(sn);
         push(sid, 0, s ? (s.title || s.reg || 'source') : 'source', 'source', null, srcTimeMs(s));
         edges.push({ a: sid, b: m.id, tier: 0, gl: '●', code: 'INS' });
+      }
+    }
+    // The cast's unnamed presences (individuation.js) — a referent that recurs and acts, or
+    // is heavily coupled, yet never earned a name: EMANON ("the creature"), PROTOGON ("Kurtz
+    // before he arrives"). In truth every referent starts this way; these are simply the ones
+    // the record never gave a door onto a name. Shown as antimatter — present in the structure,
+    // carrying no name to hang a normal figure on, so never a pivot/open target (ref stays null).
+    for (const src of srcs) {
+      const doc = appCtx.docFor(src); if (!doc?.log) continue;
+      for (const c of typeReferents(doc)) {
+        if (c.ins || !c.onCast || seen.has(c.id)) continue;
+        seen.add(c.id);
+        nodes.push({ id: c.id, tier: 1, label: c.label, kind: 'entity', antimatter: c.type, terrain: 'Entity', ref: null, t: 0 });
       }
     }
     const agg = new Map();
@@ -211,5 +338,5 @@ export const installWiki = (appCtx) => {
 
   // srcTimeMs re-exported: the crosswalk surface (app/trajectory.js) needs the SAME "earliest
   // recording" time reading topicTieredData's own node.t uses, rather than a second copy of it.
-  Object.assign(appCtx, { dagSources, entityWiki, tieredData, topicTieredData, networkTieredData, networkOf, wikiCache, srcTimeMs });
+  Object.assign(appCtx, { dagSources, entityWiki, heroArticleFor, tieredData, solarMeaningData, topicTieredData, networkTieredData, networkOf, wikiCache, srcTimeMs });
 };

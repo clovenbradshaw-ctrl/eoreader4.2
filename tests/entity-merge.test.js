@@ -109,3 +109,28 @@ test('the reader keeps Neil, Louis and Gerry Armstrong apart across sources', as
   // Neil and Louis never share an underlying node.
   assert.notEqual(neil.entId, louis.entId);
 });
+
+// ── grain (perceiver/parse/grain.js: figure / kind / setting) survives the cross-source fold ──
+// entitiesInDoc reads grain off each row's own referent (rooms/reader/app/entities.js); the merge
+// must carry it through to the row a cast/figures panel filters on, or the read is computed and
+// then silently dropped before it ever reaches the UI (the bug this merge used to have).
+
+test('mergeEntitiesByReferent carries grain through on the opened (fullLead) row', () => {
+  const rows = [
+    { key: 'd#geneva', entId: 'geneva', docId: 'd', sn: 'S1', label: 'Geneva', mentions: 12, links: 3, sourceCount: 1, kind: null, level: null, grain: 'setting' },
+    { key: 'd#elizabeth-lavenza', entId: 'elizabeth-lavenza', docId: 'd', sn: 'S1', label: 'Elizabeth Lavenza', mentions: 9, links: 4, sourceCount: 1, kind: null, level: null, grain: 'figure' },
+  ];
+  const merged = mergeEntitiesByReferent(rows);
+  const geneva = merged.find((m) => m.label === 'Geneva');
+  const elizabeth = merged.find((m) => m.label === 'Elizabeth Lavenza');
+  assert.equal(geneva.grain, 'setting');
+  assert.equal(elizabeth.grain, 'figure');
+});
+
+test('mergeEntitiesByReferent leaves grain undefined for a row that never got graded (held)', () => {
+  const rows = [
+    { key: 'd#krempe', entId: 'krempe', docId: 'd', sn: 'S1', label: 'Krempe', mentions: 2, links: 1, sourceCount: 1, kind: null, level: null, grain: null },
+  ];
+  const merged = mergeEntitiesByReferent(rows);
+  assert.equal(merged[0].grain, null, 'a HELD referent is not guessed into a grain by the merge');
+});

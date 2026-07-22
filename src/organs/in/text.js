@@ -8,6 +8,7 @@ import { buildClauses } from '../../perceiver/parse/index.js';
 import { projectGraph } from '../../core/index.js';
 import { areDisjoint }  from '../../core/index.js';
 import { attachReading } from '../ingest/index.js';
+import { createEmbeddingMemo } from '../../model/embed-store.js';
 
 // §4 — the coordinated-subject reading rides behind RULES_REV (the same flag the gated
 // talker reads, organs/out/speech/index.js). Read locally so the input organ stays
@@ -32,21 +33,22 @@ export const ingestText = async (file, opts = {}) => {
   // it the parse is the synchronous, byte-identical sweep. `await` is safe either way —
   // awaiting the plain doc the sync path returns just resolves to it.
   const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : undefined;
-  // The DARK-REFERENT read (perceiver/parse/dark-referent.js) is ON in the reader: a figure with
-  // no proper name — only a description the text keeps returning to ("the creature") — is detected
-  // by the gravity warping around it and admitted, so a nameless protagonist reaches the entity
-  // explorer instead of vanishing. Precision-gated (recurrence × agency × star-scale mass), so a
-  // document whose figures are all named is unchanged. `opts.nameReferent` (optional, ideally the
-  // talker) may rename a body or fold its synonyms before admission; without it the body is named
-  // by its own dominant description. Either can be turned off explicitly for a byte-identical parse.
-  const darkReferents = opts.darkReferents ?? true;
+  // A referent has no name of its own — a name is just its brightest manifestation. When a figure
+  // wears none — only a description the text keeps returning to ("the creature") — the reader still
+  // resolves it (perceiver/parse/unnamed-referent.js), off the descriptions and pronouns that point
+  // at it, so a nameless protagonist reaches the entity explorer instead of vanishing. ON in the
+  // reader because it is ordinary reading, not a special capability; precision-gated (recurrence ×
+  // agency) so a document whose figures are all named is unchanged. `opts.nameReferent` (optional,
+  // ideally the talker) may rename a body or fold its synonyms before admission; without it the body
+  // is named by its own dominant description. It can be turned off explicitly for a minimal parse.
+  const unnamedReferents = opts.unnamedReferents ?? true;
   // REFERENT-FIRST IDENTITY (perceiver/referents/) — opt-in, OFF by default so the reader's parse
   // is byte-identical until it deliberately adopts the mention→referent model. Pass
   // `referentIdentity:'mention'` to build the layer (the doc gains surfaceMentions / referents /
   // referentOf / surfacesOf / propose / assert / assertDistinct / retract / referentEdges).
   const referentIdentity = opts.referentIdentity ?? null;
   const doc   = await parseText(text, { docId: name, rolesConflict, corefOpts: opts.corefOpts,
-                                        coordSubjects, darkReferents, nameReferent: opts.nameReferent,
+                                        coordSubjects, unnamedReferents, nameReferent: opts.nameReferent,
                                         referentIdentity,
                                         onProgress, chunkSize: opts.chunkSize });
 
@@ -63,23 +65,23 @@ export const ingestText = async (file, opts = {}) => {
   // interchangeable, so a single cache keyed by nothing would hand a later MiniLM
   // caller the stale hash vectors the first caller computed — silently defeating the
   // retrieval upgrade. Key by organ id so each space is memoised independently.
-  const vecByOrgan = new Map();
-  doc.sentenceEmbeddings = async (embedder, onProgress) => {
-    const key = embedder?.id || 'default';
-    if (!vecByOrgan.has(key)) {
+  // The matrices are memoised per embedder organ AND held under a global resident-vector
+  // budget (model/embed-store.js): a long multi-source session can't grow the heap
+  // without bound, and a matrix the budget drops re-hydrates from the persistent embed
+  // cache (memory + IndexedDB), never a recompute.
+  const sentMemo = createEmbeddingMemo();
+  doc.sentenceEmbeddings = async (embedder, onProgress) =>
+    sentMemo.get(embedder?.id || 'default', doc.sentences.length, () => {
       const total = doc.sentences.length;
       // Wrap each embed so progress is reported AS vectors land — the embedder may be a
       // real model (MiniLM/ONNX) whose warmup over a large document is the slow phase.
       // The cache holds the fastest form (no wrapper) when no sink is watching.
-      const compute = typeof onProgress === 'function'
+      return typeof onProgress === 'function'
         ? (() => { let done = 0; onProgress({ phase: 'embed', done: 0, total });
             return Promise.all(doc.sentences.map(s => Promise.resolve(embedder.embed(s))
               .then(v => { onProgress({ phase: 'embed', done: ++done, total }); return v; }))); })()
         : Promise.all(doc.sentences.map(s => embedder.embed(s)));
-      vecByOrgan.set(key, compute);
-    }
-    return vecByOrgan.get(key);
-  };
+    });
 
   // THE CLAUSE LAYER (perceiver/parse/clause-layer.js) — the embedding grain SURF was
   // designed for. `doc.clauses` is the flat clause sequence with sentence-index
@@ -91,21 +93,22 @@ export const ingestText = async (file, opts = {}) => {
   // document of simple SVO sentences yields one clause per sentence, so those paths
   // read exactly what they read before — the layer only adds resolution to compounds.
   doc.clauses = buildClauses(doc.sentences);
-  const clauseVecByOrgan = new Map();
-  doc.clauseEmbeddings = async (embedder, onProgress) => {
-    const key = embedder?.id || 'default';
-    if (!clauseVecByOrgan.has(key)) {
+  const clauseMemo = createEmbeddingMemo();
+  doc.clauseEmbeddings = async (embedder, onProgress) =>
+    clauseMemo.get(embedder?.id || 'default', doc.clauses.length, () => {
       const texts = doc.clauses.map(c => c.text);
       const total = texts.length;
-      const compute = typeof onProgress === 'function'
+      return typeof onProgress === 'function'
         ? (() => { let done = 0; onProgress({ phase: 'embed', done: 0, total });
             return Promise.all(texts.map(t => Promise.resolve(embedder.embed(t))
               .then(v => { onProgress({ phase: 'embed', done: ++done, total }); return v; }))); })()
         : Promise.all(texts.map(t => embedder.embed(t)));
-      clauseVecByOrgan.set(key, compute);
-    }
-    return clauseVecByOrgan.get(key);
-  };
+    });
+
+  // Drop this document's resident embedding matrices (both grains, every organ). The
+  // session controller calls it when a source leaves the active topic; the matrices
+  // re-hydrate lazily from the persistent embed cache if the source is reopened.
+  doc.releaseEmbeddings = () => { sentMemo.release(); clauseMemo.release(); };
 
   // The predictive read the moment of ingest OWNS: a lazy, memoised `doc.reading()` that
   // renders this document into layered EoT — the structure it extracted beside its

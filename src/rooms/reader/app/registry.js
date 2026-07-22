@@ -4,6 +4,7 @@
 // spine (state · emit · trail beats · client) is destructured once at install.
 // the S-registry
 import { parseText } from '../../../perceiver/parse/index.js';
+import { nestComposite } from '../../../perceiver/nest.js';
 import { projectGraph } from '../../../core/index.js';
 import { webContentHash } from '../../../organs/ingest/index.js';
 import { readIngest } from '../../../organs/ingest/index.js';
@@ -21,8 +22,9 @@ export const installRegistry = (appCtx) => {
     const k = String(kind || '').toLowerCase();
     return k === 'pdf' ? 'PDF' : k === 'web' || k === 'html' ? 'Webpage' : k === 'audio' ? 'Audio'
       : k === 'video' ? 'Video' : k === 'image' ? 'Image' : k === 'table' ? 'Dataset'
-        : k === 'json' ? 'JSON' : k === 'music' ? 'Music/score' : k === 'text' ? 'Plain text/notes'
-          : k === 'file' ? 'File' : k || 'Document';
+        : k === 'json' ? 'JSON' : k === 'music' ? 'Music/score' : k === 'subtitle' ? 'Captions'
+          : k === 'markdown' ? 'Markdown' : k === 'code' ? 'Code'
+            : k === 'text' ? 'Plain text/notes' : k === 'file' ? 'File' : k || 'Document';
   };
   const inferSourceMetadata = ({ title, url = null, kind = 'web', record = null, doc = null } = {}, src = null) => {
     const md = { ...(doc?.metadata || {}), ...(record?.metadata || {}) };
@@ -44,10 +46,15 @@ export const installRegistry = (appCtx) => {
     src.metadataLog = Array.isArray(src.metadataLog) ? src.metadataLog : [];
     if (!src.metadataLog.length) src.metadataLog.push({ at: nowIso(), action: 'extracted', fields: Object.keys(inferred).filter((k) => k !== 'extraction'), note: 'Best-effort metadata extracted on ingest; every field remains editable.' });
   };
-  const docFor = (src) => {
+  const docFor = (src) => {   // the reading every consumer shares; nestComposite recovers its own nesting
     if (!src) return null;
     if (!src._doc) {
-      src._doc = parseText(src.text, { docId: src.docId });
+      // `unnamedReferents: true` — ordinary reading, not a special capability (organs/in/text.js
+      // documents the intent). A figure the text only ever points at by description — Frankenstein's
+      // creature ("the creature"/"the monster"/"the wretch") — is resolved off its recurring
+      // descriptions and pronouns instead of vanishing, so it reaches the Source Index. Precision-
+      // gated, so a document whose figures are all named parses unchanged.
+      src._doc = nestComposite(parseText(src.text, { docId: src.docId, unnamedReferents: true }), { minGap: 20, unnamedReferents: true });
       try {
         const g = projectGraph(src._doc.log);
         src.entCount = g.entities?.size || 0;
@@ -57,23 +64,45 @@ export const installRegistry = (appCtx) => {
     return src._doc;
   };
 
-  const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null, parentSn = null, defer = false }) => {
+  const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null, parentSn = null, defer = false, topicId = null } = {}) => {
     const body = String(text || '').trim();
     if (!body) throw new Error('nothing to record — the page had no readable text');
+    // A caller that already parsed (web/text ingest) hands docFor's doc PRE-BUILT, bypassing
+    // its lazy nesting — so nest it here too, on the same prose-shaped, non-composite docs
+    // docFor would. Scoped to web/text (a scraped page, a pasted book or journal — where a
+    // single file being many nested documents is the real case) and never allowed to cost the
+    // ingest: a boundary-detection fault degrades to the doc exactly as handed in.
+    if (doc && (kind === 'web' || kind === 'text') && !doc.isComposite && (doc.units || doc.sentences)) {
+      try { doc = nestComposite(doc, { minGap: 20, unnamedReferents: true }); } catch { /* nesting is a courtesy, never a precondition */ }
+    }
     const hash = record?.content_hash || webContentHash(body);
     const dup = state.sources.find((s) => s.sha === hash);
     // Re-visiting a page already recorded is a no-op on the registry, but if it now arrives UNDER a
     // parent (a link we followed inside that parent's site) and had none before, adopt it — so a
     // page first seen on its own, then reached by clicking through its site, nests where expected.
     if (dup) {
-      if (parentSn && !dup.parentSn && dup.sn !== parentSn) { dup.parentSn = parentSn; appCtx.persist(); emit('sources'); }
+      const targetTopic = topicId ? appCtx.topicById(topicId) : appCtx.topic();
+      if (targetTopic && !targetTopic.sourceSns.includes(dup.sn)) {
+        targetTopic.sourceSns.push(dup.sn);
+        appCtx.topicAutoName(targetTopic, { silent: true });
+        appCtx.persist(); emit('topics'); emit('sources');
+      }
+      if (parentSn && !dup.parentSn && dup.sn !== parentSn) {
+        dup.parentSn = parentSn;
+        const par = sourceBySn(parentSn); if (par && par.collapsed) par.collapsed = false;   // unfold, so the adopted page shows at once
+        appCtx.persist(); emit('sources');
+      }
       logIt('skip', `Already recorded — ${dup.title}`, dup.sn); return dup;
     }
     const id = `S${++appCtx.sn}`;
     const src = {
       sn: id, reg: `S-${String(appCtx.sn).padStart(4, '0')}`,
       docId: doc?.docId || `doc-${shaShort(hash)}`,
-      title: title || url || 'Untitled', url, domain: url ? domainOf(url) : (kind === 'file' || kind === 'audio' || kind === 'video' ? 'local file' : 'pasted text'),
+      // A file upload passes `rights: 'local file'` regardless of its modality (`kind` is the
+      // reading's modality — text/pdf/table/… — not "how it arrived", so checking `kind` here used
+      // to mislabel every uploaded PDF/text/table/etc. as "pasted text"). Real pasted/typed text
+      // (ingestText) never sets `rights`, so it still reads as `local` and keeps its own label.
+      title: title || url || 'Untitled', url, domain: url ? domainOf(url) : (rights === 'local file' ? 'local file' : 'pasted text'),
       kind, retrieved: nowIso(), recordedAt: nowMs(), sha: hash, bytes: bytesOf(body),
       rights: rights || (url ? 'web — verify before reuse' : 'local'),
       // parentSn: a page reached by following a link inside another source's site is recorded as a
@@ -85,15 +114,20 @@ export const installRegistry = (appCtx) => {
       // so it inherits its parent's folder and is never shown as its own file in the explorer.
       folderId: parentSn ? (sourceBySn(parentSn)?.folderId || null) : null,
       text: body, entCount: null, _doc: doc || null,
+      thumbnail: record?.salient_image || doc?.web?.salient_image || doc?.metadata?.salient_image || null,
     };
     mergeSourceMetadata(src, inferSourceMetadata({ title, url, kind, record, doc }, src));
     if (doc) { try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { src.entCount = 0; } }
     state.sources.push(src);
-    const t = appCtx.topic();
+    const t = topicId ? appCtx.topicById(topicId) : appCtx.topic();
     if (t && !t.sourceSns.includes(id)) t.sourceSns.push(id);
     if (t) appCtx.topicAutoName(t, { silent: true });   // a first source names a placeholder topic (persist/emit follow below)
     if (parentSn) {
       const par = sourceBySn(parentSn);
+      // Unfold the site the moment a followed page lands beneath it — a sub-object recorded into a
+      // COLLAPSED parent renders nowhere (the sidebar only descends an open parent), which read as
+      // "navigating the site records nothing". A page you just navigated to must never be hidden.
+      if (par && par.collapsed) par.collapsed = false;
       logIt('nav', `Followed link on ${par ? par.domain : 'a source'} → ${src.title}`, src.reg);
     }
     logIt('record', `Recorded ${src.domain} — ${src.title}`, src.reg);
@@ -133,6 +167,7 @@ export const installRegistry = (appCtx) => {
       // loaded talker refines the join in the background. Fire-and-forget — never blocks the record.
       appCtx.sourceSummary(src.sn).catch(() => { /* a summary must never cost the record */ });
       appCtx.autoEntitySummaries(src);   // …and a topline for each of its dominant figures (telegram-only)
+      appCtx.judgeWebIntake?.(src);      // …and the web organ's four gates, for a web-kind source (intake.js)
     }, 0);
     return src;
   };
@@ -150,17 +185,23 @@ export const installRegistry = (appCtx) => {
     src._eot = null;
     appCtx.deepReaders.delete(src.docId);
     try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { src.entCount = 0; }
-    try {
-      const props = doc.log ? emitEot(doc.log).lines.length : 0;
-      logIt('eot', `Encoded ${src.reg} into EoT — ${props} propositions`, src.reg);
-      const chapters = Array.isArray(doc?.chapters) ? doc.chapters.length : 0;
-      const entities = Number.isFinite(src.entCount) ? src.entCount : 0;
-      let findings = 0; try { findings = appCtx.findings?.().stats?.claims || 0; } catch { findings = 0; }
-      logIt('record', `Recorded and analyzed without an LLM — ${src.bytes.toLocaleString()} bytes verified · ${chapters} chapters · ${entities} entity candidates · ${findings} findings · ${props.toLocaleString()} EoT operations`, src.reg);
-    } catch (e) { logIt('skip', `EoT read failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
     appCtx.persist(); emit('sources');
+    // The EoT proposition tally is an O(events) walk of the whole log — a log line, not on the
+    // critical path (the reading already folded in above). It rides the background queue rather
+    // than blocking the fold-in with a second full read of a book the instant projectGraph made one.
+    appCtx.bgSerial(() => {
+      try {
+        const props = doc.log ? emitEot(doc.log).lines.length : 0;
+        logIt('eot', `Encoded ${src.reg} into EoT — ${props} propositions`, src.reg);
+        const chapters = Array.isArray(doc?.chapters) ? doc.chapters.length : 0;
+        const entities = Number.isFinite(src.entCount) ? src.entCount : 0;
+        let findings = 0; try { findings = appCtx.findings?.().stats?.claims || 0; } catch { findings = 0; }
+        logIt('record', `Recorded and analyzed without an LLM — ${src.bytes.toLocaleString()} bytes verified · ${chapters} chapters · ${entities} entity candidates · ${findings} findings · ${props.toLocaleString()} EoT operations`, src.reg);
+      } catch (e) { logIt('skip', `EoT read failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
+    }, { key: `eotlog:${src.docId}` });
     appCtx.sourceSummary(src.sn).catch(() => { /* a summary must never cost the record */ });
     appCtx.autoEntitySummaries(src);   // …and a topline for each of its dominant figures (telegram-only)
+    appCtx.judgeWebIntake?.(src);      // …and the web organ's four gates, for a web-kind source (intake.js)
   };
 
   // The source's reading as one EoT document (structure + thinking). Memoised on the
@@ -178,10 +219,36 @@ export const installRegistry = (appCtx) => {
       // than whichever sentence happened to sit on a coarse stride.
       const nUnits = ((doc && (doc.units || doc.sentences)) || []).length;
       const k = Math.max(12, Math.min(220, Math.round(nUnits / 20)));
-      const budget = nUnits > 900 ? Math.min(1800, Math.max(900, Math.round(nUnits / 2))) : undefined;
+      // The spine is O(budget · events): readingAt rebuilds its prior from the WHOLE log at every
+      // sampled cursor, so a big budget on a book is a LOT of calculation — the very cost that made a
+      // large upload stall. significanceSpine was designed for FLAT cost (a bounded sample on a
+      // stride, honest about its grain); the old `nUnits / 2` (up to 1800) threw that away and made a
+      // whole book read thousands of times over. Keep the budget BOUNDED — denser than the library
+      // default for a medium document, capped for a huge one — so the peaks stay a fair skeleton while
+      // the read stops scaling its cost with the document's length. (~2× less work on a novel.)
+      const budget = nUnits > 900 ? Math.min(800, Math.max(600, Math.round(nUnits / 12))) : undefined;
       src._eot = readIngest(doc, k === 12 && budget == null ? undefined : { k, ...(budget ? { budget } : {}) });
     }
     return src._eot;
+  };
+
+  // eotReady(snId) — the NON-BLOCKING accessor a render reaches for. eotFor's first call runs
+  // the Bayesian-surprise turning-point spine (readIngest → significanceSpine), which re-reads
+  // the whole log once per sampled cursor — O(budget · events), tens of seconds on a book. Called
+  // straight from the source-viewer render (index.html), that computed the whole spine SYNCHRONOUSLY
+  // in the very first frame after a big source landed, freezing the tab (the "glitch out" on War and
+  // Peace). This returns the memoised reading if it is ready, else schedules the heavy read on the
+  // background queue — ONE source's spine at a time, off the frame — and returns null for now,
+  // emitting when it lands so the surface re-renders with the reading folded in. Every eot consumer
+  // already treats null as "not ready yet" (the count reads 0, the surprise overlay is empty), so
+  // the viewer opens at once and its reading fills in a beat later instead of blocking on it.
+  const eotReady = (snId) => {
+    const src = sourceBySn(snId);
+    if (!src) return null;
+    if (src._eot) return src._eot;
+    appCtx.bgSerial(() => { try { eotFor(snId); emit('sources'); } catch { /* the record still stands */ } },
+                    { key: `eot:${src.docId}` });
+    return null;
   };
 
   // The ANSWER's own reading as one EoT document. The source viewer's facing page reads a recorded
@@ -237,7 +304,7 @@ export const installRegistry = (appCtx) => {
 
   const removeSource = (id) => {
     const gone = sourceBySn(id);
-    if (gone) appCtx.deepReaders.delete(gone.docId);   // or the deep reader keeps the removed doc resident
+    if (gone) { appCtx.deepReaders.delete(gone.docId); try { gone._doc?.releaseEmbeddings?.(); gone._nlDoc?.releaseEmbeddings?.(); } catch { /* */ } }  // free matrices held in the global budget
     state.sources = state.sources.filter((s) => s.sn !== id);
     // A removed source's sub-objects rise to the top level rather than vanish with their parent.
     for (const s of state.sources) if (s.parentSn === id) s.parentSn = null;
@@ -245,25 +312,25 @@ export const installRegistry = (appCtx) => {
     appCtx.persist(); emit('sources');
   };
 
-  // Release the derived readings the active topic no longer needs. A parse (_doc), its EoT
+  // Release the derived readings stale topics no longer need. A parse (_doc), its EoT
   // reading (_eot — and readIngest's memo, a WeakMap keyed by the doc, dies with it), and the
   // deep reader pinning the doc all re-derive lazily from src.text; holding EVERY topic's
-  // parses at once (each several times its text's size) is session-long growth the tab —
-  // already carrying model weights — cannot afford.
-  const releaseParsesOutsideTopic = () => {
-    const t = appCtx.topic();
-    const keep = new Set(t ? t.sourceSns : []);
+  // parses at once (each several times its text's size) is session-long growth the tab cannot
+  // afford — kept warm for the last TOPIC_MRU_SIZE topics VISITED, so A→B→A skips a re-parse.
+  const TOPIC_MRU_SIZE = 3, _topicMru = [], releaseParsesOutsideTopic = () => {
+    const t = appCtx.topic(); if (t) { const i = _topicMru.indexOf(t.id); if (i !== -1) _topicMru.splice(i, 1); _topicMru.unshift(t.id); _topicMru.length = Math.min(_topicMru.length, TOPIC_MRU_SIZE); }
+    const keep = new Set(); for (const tid of _topicMru) { const tp = state.topics.find((x) => x.id === tid); if (tp) for (const sn of tp.sourceSns) keep.add(sn); }
     for (const s of state.sources) {
       if (keep.has(s.sn)) continue;
-      appCtx.deepReaders.delete(s.docId);
+      appCtx.deepReaders.delete(s.docId); try { s._doc?.releaseEmbeddings?.(); s._nlDoc?.releaseEmbeddings?.(); } catch { /* */ }  // free matrices; re-hydrate from the embed cache on reopen
       s._doc = null; s._eot = null; s._nlDoc = null;
     }
   };
 
-  const topicSources = () => {
-    const t = appCtx.topic();
-    return t ? t.sourceSns.map(sourceBySn).filter(Boolean) : [];
-  };
+  // Full membership regardless of evidence-scope toggle; topicSources below is the ACTIVE scope.
+  const topicSourcesAll = () => { const t = appCtx.topic(); return t ? t.sourceSns.map(sourceBySn).filter(Boolean) : []; };
+  const topicSources = () => { const t = appCtx.topic(); if (!t) return [];
+    return t.sourceSns.map(sourceBySn).filter((s) => s && !(t.scopeDisabled || []).includes(s.sn)); };
   const topicDocs = () => topicSources().map(docFor).filter(Boolean);
   // The MEANING-layer docs for the topic — a clip's/video's figures live in its transcript, read
   // as prose on top (referentDocFor), not in the raw word/segment spans of the base organ doc. This
@@ -283,5 +350,5 @@ export const installRegistry = (appCtx) => {
   const sourceHistoryJsonl = (snId, opts = {}) => sourceExport(snId, { ...opts, format: 'jsonl' });
   const sourceCursorJson = (snId, cursor = {}, opts = {}) => sourceExport(snId, { ...opts, cursor, format: 'cursor-json' });
 
-  Object.assign(appCtx, { addSource, answerEot, docFor, eotFor, finishReading, releaseParsesOutsideTopic, removeSource, sourceBySn, sourceRename, sourceUpdateMetadata, sourceExport, sourceHistoryJsonl, sourceCursorJson, topicDocs, topicReferentDocs, topicSources });
+  Object.assign(appCtx, { addSource, answerEot, docFor, eotFor, eotReady, finishReading, releaseParsesOutsideTopic, removeSource, sourceBySn, sourceRename, sourceUpdateMetadata, sourceExport, sourceHistoryJsonl, sourceCursorJson, topicDocs, topicReferentDocs, topicSources, topicSourcesAll });
 };

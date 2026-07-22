@@ -4,7 +4,7 @@
 // the nine-operator vocabulary, the append-only log" — is this module.
 
 export { MODES, DOMAINS, GRAINS, OPERATORS, isOperator, glyphOf,
-         operatorsByMode, operatorsByDomain } from './operators.js';
+         operatorsByMode, operatorsByDomain, operatorForMode, MODE_MANNER, mannerOf } from './operators.js';
 export { createLog, isLog } from './log.js';
 export { eoAddressOfEvent, eoNotation } from './address.js';
 export { projectGraph, projectionStats, DEFAULT_PROJECTION_RULES } from './project.js';
@@ -20,6 +20,11 @@ export { projectGraph, projectionStats, DEFAULT_PROJECTION_RULES } from './proje
 // identity — like the void it reuses — is the system's primitive, not a faculty's.
 export { latentAsterisks, evaluateSameAs, discriminatorIndex, identityFrontier, normLabel } from './asterisk.js';
 export { VERDICTS } from './verdicts.js';
+// The EVA resolution face — the generator core/verdicts.js's vocabulary is a lossy projection
+// of (spec:verdict-space-taxonomy): Bearing × Determinacy → verdict, and the map back down to
+// what today's code actually ships.
+export { BEARING, DETERMINACY, RESOLUTION_FACE, DEF_EXPORT_CELL, verdictOf, cellOfVerdict,
+         LEGAL_VERDICTS, SHIPPED_FOLD } from './resolution-face.js';
 // The judgment DEF — every same-vs-other verdict, logged as a revisable judgment, not a flag.
 export { GRAINS as DEF_GRAINS, makeDef, createJudgmentLog, isVerdict, isGrain } from './def.js';
 // The Cut — the atomic same/other judgment a DEF's witness decomposes into (the typed cut).
@@ -78,6 +83,11 @@ export { deriveNull, boundedNull, createNoiseFloor, extremeValueZ, MIN_SAMPLES,
 // column is omnimodal for free, and shaped to feed deriveNull (the Born rule) above.
 export { buildDensity, eigenLenses, vonNeumann, relEntropy, commutator,
          projectorFrom, symmetricEig, applyStance, SIG, REC, EVA, NUL, CON } from './spectral.js';
+// The one segmentation operator, named (docs/segment-by-significance.md): the public
+// face of SEG (the 1-D curve case) and buildDensity→eigenLenses→DEF (the graph/
+// community case), plus the switch arm neither covered alone — is a dominant-group
+// CHANGE a real boundary, null-gated the same way a score-curve peak is.
+export { segmentCurve, segmentGroups, segmentSwitches } from './segment.js';
 export { surpriseAt, forwardDist, forwardScore, feltSurprise, noveltyAmplitude, noveltyFromLensEntropy, NOVELTY_RESERVE } from './surprise.js';
 // The connectivity surprise — the structural sibling of surpriseAt. The mass channel
 // moves on what arrived; this one moves on how a bond COLLAPSES the prior separation
@@ -97,13 +107,17 @@ export {
 // The learning layer (reshape §5): one defeasible ledger, priors + learned, same
 // slot. It lives in the core because the built-in reading knowledge is inherited
 // sediment, the same substance the DEF·EVA·REC loop deposits while reading.
-export { createConventions } from './conventions/index.js';
+export { createConventions, induceAttributionFrames } from './conventions/index.js';
 // The geometry, made first-class (add-on 2). The cognition triad (perceiver · surfer ·
 // enactor, the surfer in the middle), the three faces (Act · Site · Stance) and the
 // operator(Site, Stance) notation, and holonic Site addressing (which place an
 // operation lands on, by path and hashId, grain preserved).
 export { COGNITION, COGNITION_ORDER, facultyOfOperator, facultyOf } from './cognition.js';
 export { FACES, facesOf, notate, notateHolon, cellAt, cellsOf, siteStanceAt } from './faces.js';
+// The shared Stance-face reading instrument (docs/universalizing-stance-face.md): the
+// one module every caller that needs to know "how something should resolve" asks,
+// instead of a hand-rolled copy of the null-vs-epsilon branch.
+export { readStanceFace, clearedComponents, cellForGrain, makeStanceCapability } from './stance-face.js';
 export { holonId, parseHolon, holonLevels, depthOf, parentOf, leafOf, joinHolon, containsHolon } from './holon.js';
 
 // (seam healing) re-exported so the module stays behind the entrance
@@ -112,3 +126,12 @@ export { supersedeEntries, costOfSuperseding, standing, statusOf, unsettledRefs 
 // the witness axis of coref/identity resolution (docs/coreference-timeline.md consumes TIER to
 // render a SynonymEdge's tier — resolved/engine/mixed/model)
 export { TIER, needsWitness, SPECTRUM, spectrumOf, classifyResolutions } from './resolution-spectrum.js';
+// FoldTrace (docs/fold-trace-spec.md, docs/coil-surfaces.md §1) — the cube-labeled
+// projection of a WaveformModel, and the nearest-fold lookup every scrubber-driven
+// surface (poincare.js, operator-clock) reads instead of re-deriving its own.
+export { buildFoldTrace, nearestFoldIndex } from './fold-trace.js';
+// The shared cache shape every projectX(log, ...) fold in the tree needs — one slot
+// per log keyed by (length, sig) for a frame-parametrized fold, or one slot per
+// cursor kept forever for a cursor-bounded fold (memo-log.js).
+export { memoizeOnLog, memoizeOnLogAt, canonicalJSON } from './memo-log.js';
+export { STOPWORDS } from './stopwords.js';

@@ -200,7 +200,7 @@ export const recordReferenceDef = (log, referential) => {
 
 // The void verdict → a DEF of absence at the field grain, with a LOCATED reason (#4). Absence has
 // an address: the DEF names WHICH cut stalled, not a single "diffuse" verdict.
-//   · presence cut UNSUPPORTED   → not in corpus (a true gap — UNSUPPORTED).
+//   · presence cut SILENT        → not in corpus (a true gap — no material at all, SILENT).
 //   · argument cut INDETERMINATE → reference void (the referent won't resolve/concentrate —
 //                                  the Elvis "which Elvis" case; INDETERMINATE, located).
 //   · predicate cut INDETERMINATE with arguments resolved → unstated relation (the "best is
@@ -208,11 +208,15 @@ export const recordReferenceDef = (log, referential) => {
 // The witness names the stalled cut and carries the measure's own receipt; the user-facing decline
 // is generated from that located reason. `located` may be passed explicitly (the decline path that
 // already knows why it stalled) or inferred from the void measure's `kind`.
+//
+// The presence cases were UNSUPPORTED until spec:verdict-space-taxonomy §4: "no material at
+// all" (Ground) is a different claim than "material exists, does not support" (Figure) — the
+// same split correspond.js's `no-edge` reason now makes.
 const VOID_LOCATION = Object.freeze({
   // a scan of the corpus turned up nothing on the entity — the presence cut is void
-  'elsewhere':   { cut: CUT_KINDS.PRESENCE,  grounds: GROUNDS.NULSIG, verdict: VERDICTS.UNSUPPORTED,   located: 'not-in-corpus' },
-  'never-set':   { cut: CUT_KINDS.PRESENCE,  grounds: GROUNDS.NULSIG, verdict: VERDICTS.UNSUPPORTED,   located: 'not-in-corpus' },
-  'not-in-corpus': { cut: CUT_KINDS.PRESENCE, grounds: GROUNDS.NULSIG, verdict: VERDICTS.UNSUPPORTED,  located: 'not-in-corpus' },
+  'elsewhere':   { cut: CUT_KINDS.PRESENCE,  grounds: GROUNDS.NULSIG, verdict: VERDICTS.SILENT,   located: 'not-in-corpus' },
+  'never-set':   { cut: CUT_KINDS.PRESENCE,  grounds: GROUNDS.NULSIG, verdict: VERDICTS.SILENT,   located: 'not-in-corpus' },
+  'not-in-corpus': { cut: CUT_KINDS.PRESENCE, grounds: GROUNDS.NULSIG, verdict: VERDICTS.SILENT,  located: 'not-in-corpus' },
   // the reference would not resolve/concentrate — the argument cut is suspended
   'reference':   { cut: CUT_KINDS.ARGUMENT,  grounds: GROUNDS.INS,     verdict: VERDICTS.INDETERMINATE, located: 'reference-void' },
   'referent-diffuse': { cut: CUT_KINDS.ARGUMENT, grounds: GROUNDS.INS, verdict: VERDICTS.INDETERMINATE, located: 'reference-void' },
@@ -225,8 +229,8 @@ const VOID_LOCATION = Object.freeze({
   'unstated-relation': { cut: CUT_KINDS.PREDICATE, grounds: GROUNDS.RESIDUAL, verdict: VERDICTS.INDETERMINATE, located: 'unstated-relation' },
 });
 // The default location when a void measure's kind is unrecognised: a true gap (a presence void).
-// UNSUPPORTED, so today's not-in-corpus behaviour is byte-identical for the kinds it already emits.
-const DEFAULT_LOCATION = Object.freeze({ cut: CUT_KINDS.PRESENCE, grounds: GROUNDS.NULSIG, verdict: VERDICTS.UNSUPPORTED, located: 'not-in-corpus' });
+// SILENT, so today's not-in-corpus behaviour is byte-identical for the kinds it already emits.
+const DEFAULT_LOCATION = Object.freeze({ cut: CUT_KINDS.PRESENCE, grounds: GROUNDS.NULSIG, verdict: VERDICTS.SILENT, located: 'not-in-corpus' });
 
 export const recordVoidDef = (log, voidMeasure, { located = null } = {}) => {
   if (!log || !voidMeasure) return;
@@ -234,10 +238,11 @@ export const recordVoidDef = (log, voidMeasure, { located = null } = {}) => {
   const loc = located ? (VOID_LOCATION[located] || VOID_LOCATION[kind] || DEFAULT_LOCATION)
                       : (VOID_LOCATION[kind] || DEFAULT_LOCATION);
   // The stalled cut — the located address of the absence. A presence void grounds at NULSIG
-  // (a mark that does not exist is decidable); a reference/predicate void is a suspension.
+  // (a mark that does not exist is decidable, SILENT when truly nothing is there); a
+  // reference/predicate void is a suspension (INDETERMINATE).
   const cut = makeCut({
     kind: loc.cut, of: `field:${kind}`, grounds: loc.grounds,
-    verdict: loc.verdict === VERDICTS.UNSUPPORTED ? VERDICTS.UNSUPPORTED : VERDICTS.INDETERMINATE,
+    verdict: (loc.verdict === VERDICTS.UNSUPPORTED || loc.verdict === VERDICTS.SILENT) ? loc.verdict : VERDICTS.INDETERMINATE,
     witness: { kind, located: loc.located, receipt: voidMeasure.receipt || null, rode: voidMeasure.rode ?? null },
   });
   log.judge({

@@ -52,6 +52,15 @@ export const SEED_SPEECH = Object.freeze([
   'confessed', 'announced', 'wrote', 'writes',
 ]);
 
+// The REPORT and SOURCE-NOUN registers are LEARN-ONLY — NO seed. A report verb (a claim handed
+// on under a complement clause: "argues that …", "shows that …") and a source noun (the common-
+// noun bearer a report construction promotes: "the STUDY found that …") are not enumerated in
+// any language; they are INDUCED off the text by their slot — the verbs that occupy the
+// ⟨subject⟩ ___ ⟨complementizer⟩ position, and the nouns that recurrently subject such a frame
+// (induceAttributionFrames). The only floor under `isReport` is the attribution register
+// (SEED_SPEECH, itself sedimentable); `isSourceNoun` has no floor at all — it emerges or it
+// stays silent. Fewest seeds, one induction, defeasible like every register.
+
 // A period after one of these (or a single capital initial, handled at the
 // splitter) abbreviates; it is not a boundary.
 export const SEED_ABBREVIATIONS = Object.freeze([
@@ -447,6 +456,15 @@ export const createConventions = ({ seeds = true, inherit = null, induce = null,
     learnAbbreviation: (token, weight = 1) => learn('abbreviation', token, weight),
     isAttributionVerb: (v) => has('attribution-verb', v),
     isAbbreviation: (v) => has('abbreviation', v),
+    // The attribution-nest registers — a claim handed on under a that-clause. A REPORT verb is
+    // any attribution verb OR a learned report verb (the wider register); a SOURCE noun is a
+    // common noun the corpus has seen SUBJECT a report frame. Both seeded and induced
+    // (induceAttributionFrames), defeasible like every register — the emergent basis the
+    // attribution-nest reads through instead of a hard-coded list.
+    learnReport: (token, weight = 1) => learn('report-verb', token, weight),
+    learnSourceNoun: (token, weight = 1) => learn('source-noun', token, weight),
+    isReport: (v) => has('attribution-verb', v) || has('report-verb', v),
+    isSourceNoun: (v) => has('source-noun', v),
     isCopula: (v) => has('copula', v),
     isModifier: (v) => has('modifier', v),
     // Registers entity admission reads to weigh a sighting's referential gravity.
@@ -466,6 +484,13 @@ export const createConventions = ({ seeds = true, inherit = null, induce = null,
     // A calendar token (weekday / month) — read by entity admission to deny referential
     // gravity ("reconvene Monday" is not a character), seed ∪ learned.
     isCalendar: (v) => has('calendar', v),
+    // learnCalendar feeds induceCalendar (conventions/induce.js) — a capitalised token this
+    // DOCUMENT'S own numerals show running mostly beside a day/year is a date, not a name.
+    // The seed omits the March–August family wholesale (they collide with real given names:
+    // April, June, August…); this teaches the ones a document's own citation habit vouches
+    // for, so "Jan Lodal" (the person) is untouched while bare "Jan." (the footnote month)
+    // stops feeding his mass.
+    learnCalendar: (token, weight = 1) => learn('calendar', token, weight),
     // A free-capital that names no person ("God", "Christmas") — read by the naming
     // discovery to refuse a coreference merge onto a non-person vocative, seed ∪ learned.
     isNonPerson: (v) => has('nonperson', v),

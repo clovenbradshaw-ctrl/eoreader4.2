@@ -22,6 +22,11 @@ export {
   composeGroupedNote, NOTE_GROUPS, plainRel, rankProperties,
 } from './surfaces.js';
 export { readingAt } from './reading.js';
+// The Lens — the named, addressable selection rule a reading is read under (§1). A Lens
+// conditions the three Ground-column prior channels (Void / Field / Atmosphere); every
+// reading records its lensId (L2). Carries the two horizon coordinates (gamma, horizon) and
+// the optional Atmosphere corpus seed as one object.
+export { makeLens, lensId, resolveLens, DEFAULT_LENS, DEFAULT_GAMMA, HORIZONS } from './lens.js';
 export { significanceSpine } from './spine.js';
 export { predictNext } from './predict.js';
 export { mutualNearestPairs, discoverEquivalences } from './equivalence.js';
@@ -34,6 +39,12 @@ export { referentialConfidence, REFERENT_MARGIN } from './referent.js';
 // A figure's perspective — when a referent is a person/agent, the reading as IT holds it:
 // its verbatim quotes, its speech acts, and the universe its own words instantiate.
 export { perspectiveOf, scanQuotes } from './perspective.js';
+// The attribution nest — who is speaking, and through whose mouth. A voice rarely reaches the
+// page bare: the narrator reports that a study found that the villagers said the river was
+// rising. Reads that Russian nest-doll of attribution — quote / reported-speech / "according
+// to" / citation frames, each recursed into its own content, cut where the stack would cycle
+// (novels → research → novels) — and derives the outward-in LENS CHAIN a claim is seen through.
+export { attributionNesting, nestFrames, attributionChains, innermostBearer, relaysOfPerspective } from './attribution-nesting.js';
 // The Rashomon fold — two figures' folds over the same events, and their DIFFERENCE (agree /
 // conflict / diverge / each own) as a first-class object. Pure lexical floor (diffPerspectives),
 // lifted by the learned same-assertion judgment when a meaning embedder is warm (learnedDiff);
@@ -57,6 +68,12 @@ export { readDates, buildChronology } from './chronology.js';
 // The holonic containment address a referent earns from its span — the nesting the
 // flat depth-1 id used to throw away (referent-nesting.js, docs/referent-journey.md).
 export { referentNesting, nestingSummary } from './referent-nesting.js';
+// nestComposite/nestBoundaries (nest.js) are deliberately NOT re-exported here: nest.js
+// reads surfer/index.js (for surfFold) and organs/in/index.js (for createCompositeDoc), and
+// both of those already depend on THIS entrance (surf.js -> readingAt, reading-dispatch.js ->
+// buildTextReading) — riding this barrel would close the cycle the instant it loads, the same
+// hazard the audio/waveform and embed-hash seams record. A caller reads the leaf directly
+// (a declared seam in core/seams.js).
 // The individuation gate — type every referent by how far it climbed the helix (SIG → INS →
 // CON): aggregate coupling per node, read each off the (mass, coupling, agency, INS'd?) plane
 // into holon / emanon / protogon / field / void, and log a name binding as a promotion REC.

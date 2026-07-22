@@ -11,7 +11,7 @@ export const installPersistence = (appCtx) => {
   const { emit, ledger, state } = appCtx;
   // ── persistence ────────────────────────────────────────────────────────────
   const serialize = () => ({
-    v: 1, sn: appCtx.sn, tn: appCtx.tn, ln: appCtx.ln, mn: appCtx.mn, wn: appCtx.wn, fon: appCtx.fon,
+    v: 1, sn: appCtx.sn, tn: appCtx.tn, ln: appCtx.ln, mn: appCtx.mn, wn: appCtx.wn, fon: appCtx.fon, scn: appCtx.scn,
     activeTopicId: state.activeTopicId,
     activeWorkspaceId: state.activeWorkspaceId,
     workspaces: state.workspaces,
@@ -57,6 +57,7 @@ export const installPersistence = (appCtx) => {
         ({ sn: appCtx.sn, tn: appCtx.tn, ln: appCtx.ln, mn: appCtx.mn } = snap);
         appCtx.wn = snap.wn || 0;
         appCtx.fon = snap.fon || 0;
+        appCtx.scn = snap.scn || 0;
         state.sources = (Array.isArray(snap.sources) ? snap.sources : []).map((s) => {
           const src = { ...s, _doc: null };
           // Re-seed the live ASR object from its durable twin so the transcription banner reads
@@ -122,6 +123,11 @@ export const installPersistence = (appCtx) => {
       // by hand, so pin it; a lingering "New topic" wasn't, so BACKFILL its auto-name from
       // the content it already holds (sources restored above, messages on the topic).
       if (t.named === undefined) t.named = !isDefaultTopicTitle(t.title);
+      // Evidence scope (topic-source-scope-toggles): older sessions predate the per-source
+      // toggle — every source starts active (scopeDisabled empty), no saved scopes.
+      if (!Array.isArray(t.scopeDisabled)) t.scopeDisabled = [];
+      else t.scopeDisabled = t.scopeDisabled.filter((sn) => t.sourceSns.includes(sn));   // drop dangling ids
+      if (!Array.isArray(t.savedScopes)) t.savedScopes = [];
       appCtx.topicAutoName(t, { silent: true });
     }
     if (!state.topics.length) appCtx.topicNew('New topic', { silent: true });
@@ -142,7 +148,12 @@ export const installPersistence = (appCtx) => {
       // background, at the moments recovery is likely to work, instead of on the next question's
       // critical path. Browser-only, like the prewarm; the 30s watch is a few property reads
       // when nothing is wrong.
-      document.addEventListener('visibilitychange', () => { if (!document.hidden) appCtx.healModel(); });
+      // A backgrounded tab is the same lost-GPU-device risk a bfcache restore is (keeper.js) —
+      // isLoaded() answers true for a zombie engine either way — so clicking back in gets the
+      // same probe-verified path as pageshow, not the trust-isLoaded() healModel() alone. Without
+      // this, the zombie is only caught when the next question stalls out the full watchdog
+      // window, which is what reads as "it doesn't load back quickly".
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) appCtx.verifyRestoredModel(); });
       window.addEventListener('online', () => appCtx.healModel());
       window.addEventListener('pageshow', (e) => { if (e && e.persisted) appCtx.verifyRestoredModel(); });
       setInterval(() => appCtx.healModel(), appCtx.HEAL_WATCH_MS);

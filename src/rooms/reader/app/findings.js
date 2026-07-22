@@ -5,10 +5,57 @@
 // findings + provenance (the graph tab, honest)
 import { discourseDag, assertedDag } from '../../../surfer/dag/index.js';
 import { inferSignificance } from '../../../surfer/fold/index.js';
-import { crossSourceConflicts } from '../../../enactor/factcheck/index.js';
+import { crossSourceConflicts, comparisonMatrix as buildComparisonMatrix } from '../../../enactor/factcheck/index.js';
 import { claimsFromDoc, claimPhrase, rankFragility, buildChronology } from '../../../perceiver/index.js';
 import { recordClaims } from '../claims.js';
 import { shaShort } from './util.js';
+
+// The document's OWN rhetoric outranks an incidental sentence: a report that titles a section
+// "General Findings" or "Recommendations" is telling the reader directly what its findings ARE —
+// that beats whatever the claim miner happened to mint most recently. Sentence indices under such
+// a heading (up to the next heading of the same or higher level) are the boost set; only doc
+// shapes that carry headings (assembleDocument's `kind:'heading'|'title'` spans — a webpage or a
+// PDF whose adapter marks them) can be boosted at all, everything else is untouched.
+const PRIORITY_HEADING_RE = /\b(?:general\s+findings|specific\s+findings|findings?|recommendations?|conclusions?)\b/i;
+const _boostCache = new WeakMap();
+const boostUnitsFor = (doc) => {
+  if (!doc || !Array.isArray(doc.spans) || !doc.spans.length) return null;
+  if (_boostCache.has(doc)) return _boostCache.get(doc);
+  const units = new Set();
+  let active = false, activeLevel = null;
+  doc.spans.forEach((s, i) => {
+    if (s.kind === 'heading' || s.kind === 'title') {
+      if (PRIORITY_HEADING_RE.test(s.text || '')) { active = true; activeLevel = s.level ?? null; return; }
+      active = active && !(activeLevel == null || s.level == null || s.level <= activeLevel);
+      return;
+    }
+    if (active) units.add(i);
+  });
+  _boostCache.set(doc, units);
+  return units;
+};
+
+// Stable-partition claims so any doc's own findings/recommendations sentences land at the TAIL —
+// where every existing `.slice(-N)` consumer here (the returned claims list, provenance's rail,
+// index.html's memo "grounded in" list) already looks first. Ordinary claims keep their original
+// relative order; nothing is dropped, only reordered.
+const prioritizeClaims = (claims, appCtx) => {
+  const docCache = new Map();
+  const docForClaim = (c) => {
+    if (c.docId == null) return null;
+    if (docCache.has(c.docId)) return docCache.get(c.docId);
+    const src = (appCtx.topicSources() || []).find((s) => s.docId === c.docId);
+    const doc = src ? appCtx.docFor(src) : null;
+    docCache.set(c.docId, doc);
+    return doc;
+  };
+  const boosted = [], rest = [];
+  for (const c of claims) {
+    const units = c.unit != null ? boostUnitsFor(docForClaim(c)) : null;
+    (units && units.has(c.unit) ? boosted : rest).push(c);
+  }
+  return [...rest, ...boosted];
+};
 
 export const installFindings = (appCtx) => {
   // The cross-source pass (P3) — do the topic's SOURCES disagree with EACH OTHER, not
@@ -34,6 +81,28 @@ export const installFindings = (appCtx) => {
     return val;
   };
 
+  // The cross-source comparison matrix (enactor/factcheck/comparison.js) — one row per
+  // measured thing the corpus states, one column per source, each cell the value that
+  // source states (and the value it revised from). Built on the SAME reading the conflict
+  // banner runs, so the grid behind the "1 conflict" count is always the whole spread, not
+  // just the clashes. Memoized on the same source signature as sourceConflicts.
+  let _cmMemo = { sig: null, val: null };
+  const comparisonMatrix = () => {
+    const srcs = appCtx.topicSources();
+    const sig = srcs.map((s) => `${s.sn}:${(appCtx.docFor(s)?.sentences || []).length}`).join('|');
+    if (_cmMemo.sig === sig) return _cmMemo.val;
+    let val = { rows: [], sources: [], counts: { rows: 0, measures: 0, conflicts: 0, sources: 0 } };
+    try {
+      const entries = srcs
+        .map((s) => ({ doc: appCtx.docFor(s), source: s.sn, label: s.title || s.reg || s.sn,
+          date: appCtx.srcTimeMs ? appCtx.srcTimeMs(s) : null }))
+        .filter((e) => e.doc && e.doc.admission);
+      val = buildComparisonMatrix(entries);
+    } catch { /* keep the empty matrix */ }
+    _cmMemo = { sig, val };
+    return val;
+  };
+
   // Entity summaries attributable to this topic's sources — the summary mint's resolver
   // (claims.js summaryClaims). A summary carries the docId of the lead instance it was composed
   // over (toplines.js stamps it); older records without one are skipped until a regeneration.
@@ -52,10 +121,33 @@ export const installFindings = (appCtx) => {
   // the reading's own topline (composed on record), the entity toplines, murmur's promoted
   // connections, and the turns — not just the last few chat answers. Display ids (C1, P1) stay
   // positional and per-render; the durable identity is each row's `key` (claims.js claimKey).
+  // Memoized on a cheap signature — the topic id, the same per-source doc signature
+  // sourceConflicts/comparisonMatrix use, the message count, and the last message's id/pending/
+  // cite-count (a turn completing or a new one starting is the only thing that should invalidate
+  // this). recordClaims() below re-derives claims from every message + source doc on each call,
+  // real work that index.html's Logic class alone calls 5+ times per render, including on every
+  // keystroke in an unrelated input, so it recomputed unconditionally on every render.
+  let _findingsMemo = { sig: null, val: null };
   const findings = () => {
     const t = appCtx.topic();
+    const srcs = appCtx.topicSources();
+    const msgs = t?.messages || [];
+    const last = msgs[msgs.length - 1];
+    const sig = [
+      t ? t.id : '',
+      srcs.map((s) => `${s.sn}:${(appCtx.docFor(s)?.sentences || []).length}`).join('|'),
+      msgs.length,
+      last ? `${last.id}:${!!last.pending}:${(last.cites || []).length}` : '',
+      Object.keys(appCtx.state.summaries.entities || {}).length,
+    ].join('~');
+    if (_findingsMemo.sig === sig) return _findingsMemo.val;
+    const val = _computeFindings(t, msgs);
+    _findingsMemo = { sig, val };
+    return val;
+  };
+  const _computeFindings = (t, msgs) => {
     const proj = recordClaims({
-      messages: t?.messages || [],
+      messages: msgs,
       sources: appCtx.topicSources(),
       docFor: (s) => appCtx.docFor(s),
       entitySummaries: topicEntitySummaries(),
@@ -70,7 +162,7 @@ export const installFindings = (appCtx) => {
     };
     // Cited passages keyed by their SOURCE-LOCAL unit (cite.unit; composite idx only as a legacy
     // fallback for messages recorded before units rode the cite), then every mint quote.
-    for (const m of t?.messages || []) {
+    for (const m of msgs) {
       if (m.role !== 'assistant') continue;
       for (const c of m.cites || []) addPassage(c.docId, Number.isInteger(c.unit) ? c.unit : c.idx, c.sn, c.reg, c.text);
     }
@@ -89,15 +181,18 @@ export const installFindings = (appCtx) => {
     // report a disagreement that exists whether or not anyone has asked a question yet.
     const xs = sourceConflicts();
     return {
-      claims: claims.slice(-24), passages: [...passages.values()].slice(-32),
+      claims: prioritizeClaims(claims, appCtx).slice(-24), passages: [...passages.values()].slice(-32),
       contradictions, sourceConflicts: xs,
       stats: { claims: claims.length, passages: passages.size, sources: appCtx.topicSources().length, recordPassages, contradictions, sourceConflicts: xs.length },
     };
   };
 
-  const provenance = () => {
+  // `precomputed` lets a caller that already ran findings() this render (index.html's _vals(),
+  // which needs the claims list AND the provenance DAG off the same reading) hand it straight
+  // in, instead of provenance() re-running the whole recordClaims pass a second time.
+  const provenance = (precomputed = null) => {
     const t = appCtx.topic();
-    const f = findings();
+    const f = precomputed || findings();
     const srcs = appCtx.topicSources();
     const usedSns = new Set(f.passages.map((p) => p.sn).filter(Boolean));
     const shown = srcs.filter((s) => usedSns.has(s.sn) || usedSns.size === 0).slice(0, 8);
@@ -121,6 +216,16 @@ export const installFindings = (appCtx) => {
     }
     nodes.sources.forEach((s, i) => edges.push({ kind: 'fixity', from: s.sn, to: nodes.files[i].id }));
     return { nodes, edges };
+  };
+
+  // A single source's claim count, read directly off its own doc — independent of the topic's
+  // evidence scope, so a source card can state what a source contributes even while its
+  // evidence-scope toggle is off (setSourceScopeEnabled only ever touches topicSources()).
+  const sourceClaimCount = (snId) => {
+    const src = appCtx.sourceBySn(snId);
+    const doc = src && appCtx.docFor(src);
+    if (!doc?.log) return 0;
+    try { return claimsFromDoc(doc).length; } catch { return 0; }
   };
 
   const dagFor = (snId, which = 'discourse') => {
@@ -191,5 +296,5 @@ export const installFindings = (appCtx) => {
     return { scope: 'topic', sources: srcs.map((s) => ({ sn: s.sn, title: s.title || null })), ...buildChronology(items) };
   };
 
-  Object.assign(appCtx, { dagFor, findings, provenance, topicEntitySummaries, fragilitySource, fragilityTopic, chronologySource, chronologyTopic });
+  Object.assign(appCtx, { dagFor, findings, provenance, comparisonMatrix, topicEntitySummaries, sourceClaimCount, fragilitySource, fragilityTopic, chronologySource, chronologyTopic });
 };

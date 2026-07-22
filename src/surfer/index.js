@@ -17,6 +17,10 @@
 // does (the field is VOID) is the surfer's own negative result.
 
 export { surfFold } from './surf.js';
+// richSurf — surfFold with the significance column + the multi-level chorus folded in, one
+// injectable function (a safe drop-in: single-source docs read byte-identically, composites
+// get their off-topic sources dropped). The full-power surf for the fold's injected-surf slot.
+export { richSurf } from './rich-surf.js';
 // The surf chorus (chorus.js) and multi-level surf (multilevel.js) — a chorus of rides merged
 // born-soft, and the source-then-content two-level read over a composite. Both default-off.
 export { chorusStops, FAMILY as CHORUS_FAMILY } from './chorus.js';
@@ -43,7 +47,7 @@ export { trajectory, speakTrajectory } from './trajectory.js';
 // there and the grain, never words. Closes the gap where the Structure row (Field/Link/
 // Network) was never created: a CON bond is a Link, a regularity of links a Network, ambient
 // connectivity a Field. Modality-blind — the same typing for text, video, audio, or sensors.
-export { siteTerrain, siteTerrainAt, bondTerrain, arcTerrain } from './terrain.js';
+export { siteTerrain, siteTerrainAt, bondTerrain, arcTerrain, GRAIN_WEIGHT } from './terrain.js';
 // The Significance column's Ground terrain (cube.md #5): the Atmosphere pass and the
 // shared significance-basis projection every pass reads off. Pure on vectors past the
 // projection — omnimodal for free. The corpus prior is INJECTED, never imported, so the
@@ -75,7 +79,12 @@ export { createLayeredGenerator } from './layered-generator.js';
 // The structural significance basis: ρ built from OPERATIONS (the cube's Act face read
 // off the log), not embeddings — meaning as what the operators do to the field, not as
 // distributional company. The embedder stays in VOX; the column reads structure.
-export { OPS, RELTYPES, operatorProfiles, structuralActivations, structuralHorizon, structuralCommutator, structuralGround } from './structure-basis.js';
+export { OPS, RELTYPES, operatorProfiles, structuralActivations, structuralHorizon, structuralCommutator, structuralParadigmDivergence, structuralParadigmScan, structuralGround, crossSourceFrameVerdicts } from './structure-basis.js';
+// Naming a Lens/Paradigm reading in the cube's own operator vocabulary (never invented
+// words): which dimensions load a direction heaviest, and the phrase that reads off them.
+// Basis-agnostic — the same namer serves the structural (operator-code) and embedding
+// (cube-cell-key) bases alike, off the leading operator code either way.
+export { topDims, labelPattern, nameLens, nameDivergence } from './lens-naming.js';
 // Label feedback (word → concept): grow specific link-types from the recurring links the
 // closed vocabulary leaves untyped, and MEASURE whether structure alone carves each one
 // (deriveNull over random same-size groups) — `structureGrows` is the empirical answer to
@@ -97,7 +106,6 @@ export { reanalyze, applyReanalysis } from './reanalyze.js';
 // the SELF is the closed loop drawn by the efference copy + the one monitor + core/self.
 // learn-links/corpus-relations measure what CAN be extracted as shared convention (the HOW,
 // only form); the sense is conjectured live by that existing self — not by anything here.
-export { persistentFigures, coherentFigures, motionReading, detectMotion } from './motion.js';
 export { fieldVerdict, fieldIsVoid, ANSWERABLE_ALPHA } from './answerable.js';
 export * from './sequence.js';
 // The accumulation layer — fold the sentence-grain total read into adaptive coarse units

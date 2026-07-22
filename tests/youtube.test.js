@@ -155,6 +155,39 @@ test('fetchYoutubeTranscript: null for a non-video ref, a missing client, or a v
   assert.equal(await fetchYoutubeTranscript('dQw4w9WgXcQ', { client: noCaptions }), null);
 });
 
+test('fetchYoutubeTranscript: retries once off a fresh session when a track exists but its cue fetch comes back empty', async () => {
+  const player = fakePlayer([{ baseUrl: 'https://example.com/tt', languageCode: 'en', kind: undefined }]);
+  let trackFetches = 0;
+  const client = {
+    fetchUrl: async (url) => {
+      if (/\/watch\?v=/.test(url)) return { url, text: playerResponseHtml(player), ok: true, status: 200 };
+      if (/fmt=json3/.test(url)) {
+        trackFetches++;
+        return { url, text: trackFetches === 1 ? '' : JSON.stringify(JSON3), ok: true, status: 200 };
+      }
+      return { url, text: '', ok: true, status: 200 };
+    },
+  };
+  const result = await fetchYoutubeTranscript('dQw4w9WgXcQ', { client });
+  assert.ok(result);
+  assert.equal(trackFetches, 2);
+  assert.equal(result.cues.length, 3);
+});
+
+test('fetchYoutubeTranscript: null (not infinite) once retries are exhausted and the cue fetch keeps coming back empty', async () => {
+  const player = fakePlayer([{ baseUrl: 'https://example.com/tt', languageCode: 'en', kind: undefined }]);
+  let trackFetches = 0;
+  const client = {
+    fetchUrl: async (url) => {
+      if (/\/watch\?v=/.test(url)) return { url, text: playerResponseHtml(player), ok: true, status: 200 };
+      if (/fmt=json3/.test(url)) { trackFetches++; return { url, text: '', ok: true, status: 200 }; }
+      return { url, text: '', ok: true, status: 200 };
+    },
+  };
+  assert.equal(await fetchYoutubeTranscript('dQw4w9WgXcQ', { client }), null);
+  assert.equal(trackFetches, 2);   // the default 1 retry — one initial attempt plus one retry, then give up
+});
+
 test('fetchYoutubeTranscript: falls back to the <title> tag and marks an auto-generated track', async () => {
   const player = { captions: { playerCaptionsTracklistRenderer: { captionTracks: [
     { baseUrl: 'https://example.com/tt', languageCode: 'en', kind: 'asr' },

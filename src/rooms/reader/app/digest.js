@@ -34,7 +34,7 @@ export const installDigest = (appCtx) => {
     const sentences = doc.sentences || doc.units || [];
     let grain;
     try { grain = detectGrain(doc, { grain: 'auto' }); } catch { grain = { mode: 'window', bounds: [] }; }
-    return chapterBullets({ sentences, bounds: grain.bounds, mode: grain.mode, mentions: profile.mentions });
+    return chapterBullets({ sentences, bounds: grain.bounds, mode: grain.mode, mentions: profile.mentions, label: profile.label });
   };
 
   // Read a stored digest back synchronously (the surface renders this; generation is separate).

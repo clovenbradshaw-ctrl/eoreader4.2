@@ -17,19 +17,11 @@
 // integrity test pins this).
 
 import { RKIND } from './events.js';
-import { OPERATORS, GRAINS } from '../../core/index.js';
-import { coherence, terrainOf } from '../../core/index.js';
-
-const memo = new WeakMap(); // log → Map(cursor → report)
+import { OPERATORS, GRAINS, coherence, terrainOf, memoizeOnLogAt } from '../../core/index.js';
 
 export const projectReport = (log, cursor = null) => {
   const at = cursor == null ? log.length : Math.max(0, Math.min(log.length, cursor));
-  let byCursor = memo.get(log);
-  if (byCursor?.has(at)) return byCursor.get(at);
-  const report = computeReport(log, at);
-  if (!byCursor) { byCursor = new Map(); memo.set(log, byCursor); }
-  byCursor.set(at, report);
-  return report;
+  return _projectReport(log, at);
 };
 
 const computeReport = (log, at) => {
@@ -345,6 +337,8 @@ const computeReport = (log, at) => {
     searches, searchAudit, storyChanges, documents, stopRule, recheck, loop,
   });
 };
+
+const _projectReport = memoizeOnLogAt(computeReport);
 
 // Freeze the projection so no consumer can mutate what a re-projection would
 // not reproduce. Shallow-freezes each level it can reach; cycles are impossible

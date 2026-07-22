@@ -10,7 +10,7 @@ import { buildWaveform } from '../src/weave/waveform/build.js';
 // hand-built doc stub, since the point of this perceiver (§4.1) is that it is
 // mostly a re-export of what the modelless read already computes. The document
 // below is Frankenstein-shaped on purpose: Victor names, "the creature" recurs
-// unnamed until dark-referent admission promotes it, and "father" is a
+// unnamed until unnamed-referent admission promotes it, and "father" is a
 // possessive descriptor mentioned once (an accountable-loss VOID, not a cast
 // member) — the same population individuation.test.js's own fixtures target.
 
@@ -99,7 +99,7 @@ test('buildTextReading: Victor and the creature both reach the referent list; fa
   assert.ok(byKey.has('victor'), 'the named protagonist is a referent');
   assert.equal(byKey.get('victor').ins, true);
   const creature = [...byKey.values()].find((r) => r.display_name === 'the creature');
-  assert.ok(creature, 'the recurring unnamed figure is a referent (via dark-referent admission)');
+  assert.ok(creature, 'the recurring unnamed figure is a referent (via unnamed-referent admission)');
   const father = [...byKey.values()].find((r) => r.display_name === 'father');
   assert.ok(father, 'the possessive descriptor reaches the referent list');
   assert.equal(father.ins, false, 'a bare descriptor never carries INS');

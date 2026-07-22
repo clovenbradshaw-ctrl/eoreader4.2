@@ -3,14 +3,11 @@
 // VERBATIM from the closure; cross-section reach rides ctx (call-time), the core
 // spine (state · emit · trail beats · client) is destructured once at install.
 // ingest: URL / search / file / paste
-import { htmlToText, searchAndAdmit } from '../../../organs/ingest/index.js';
-import { admitWebSource } from '../../../organs/ingest/index.js';
-import { fetchGithubRepo } from '../../../organs/ingest/index.js';
-import { fetchGutenbergBook, gutenbergIdOf } from '../../../organs/ingest/index.js';
-import { fetchYoutubeTranscript, youtubeIdOf } from '../../../organs/ingest/index.js';
-import { LIBRARIES, surfaceCard } from '../../../organs/ingest/index.js';
+import { htmlToText, firstSalientImage, searchAndAdmit, admitWebSource, fetchGithubRepo, fetchGutenbergBook, gutenbergIdOf, fetchYoutubeTranscript, youtubeIdOf, LIBRARIES, surfaceCard } from '../../../organs/ingest/index.js';
 import { FULL_TEXT } from './net.js';
-import { nowIso, domainOf } from './util.js';
+import { nowIso, domainOf, sameRegistrableDomain } from './util.js';
+import { fetchFeedSource, ingestFeed as runIngestFeed, isFeed } from './feed.js';
+import { parseText } from '../../../perceiver/parse/index.js';
 
 export const installIngest = (appCtx) => {
   const { client, emit, logIt, state } = appCtx;
@@ -44,40 +41,118 @@ export const installIngest = (appCtx) => {
     }
   };
 
-  const ingestUrl = (url) => {
+  // A binary format (a PDF, chiefly) fetched as TEXT (client.fetchUrl → res.text()) is already
+  // lossy: bytes the decoder can't represent as UTF-8 become �, and PDF structural syntax that
+  // DOES survive as ASCII (`1 0 obj<<`, `endobj`, `stream`, `/Type /Page`) reads as if it were
+  // prose — the exact bug that admitted a report's raw PDF internals as "sections" and
+  // "entities". Read as real BYTES instead (fetchUrlBytes) and hand them to the SAME router a
+  // file upload goes through (import-file.js's importAnyFile) — a real File object, so a `.pdf`
+  // URL takes the pdf.js + eyes + quorum path (with its own binary-fallback safety net) instead
+  // of silently landing as "Ready" prose built from mangled syntax.
+  const admitBytesAsFile = async (norm, signal, progress, { name, type, topicId = null } = {}) => {
+    if (typeof progress === 'function') progress({ kind: 'fetch', label: `Reading ${domainOf(norm)}…` });
+    const { bytes } = await client.fetchUrlBytes(norm, { signal });
+    const { importAnyFile } = await import('../import-file.js');
+    const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    const file = {
+      name: name || (norm.split('/').pop() || 'file').split('?')[0] || 'file',
+      type: type || '', size: bytes.length,
+      async arrayBuffer() { return buf; },
+    };
+    const got = await importAnyFile(file, {
+      signal, onProgress: (msg) => { if (typeof progress === 'function') progress({ kind: 'fetch', label: String(msg) }); },
+    });
+    const title = domainOf(norm);
+    // STRUCTURED modalities (table/json/binary/music/subtitle) carry their organ doc AS the
+    // reading — attach it directly, exactly as a local upload does (app/picture.js). Everything
+    // else (pdf/webpage/ocr/text) lands from its extracted text and re-parses in the background,
+    // so the source appears at once without a long parse blocking it.
+    const structured = ['table', 'json', 'binary', 'music', 'subtitle'].includes(got.meta?.modality) && got.meta?.doc;
+    const src = appCtx.addSource({
+      title: got.title || title, url: norm, text: got.text, kind: got.meta?.modality || 'file',
+      ...(structured ? { doc: got.meta.doc } : { defer: true }), topicId,
+    });
+    if (src && got.meta?.coverage) src.coverage = got.meta.coverage;
+    if (src && !structured) {
+      // unnamedReferents: true — the reader's ordinary reading (see registry.js#docFor).
+      try { appCtx.finishReading(src, await parseText(got.text, { docId: src.docId, unnamedReferents: true })); }
+      catch (e) { logIt('skip', `Reading failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
+    }
+    return src;
+  };
+
+  const ingestUrl = (url, opts = {}) => {
+    const targetTopicId = opts.topicId || state.activeTopicId;
     const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
-    return runCancellable({ kind: 'fetch', label: `Reading ${domainOf(norm)}…` }, async (signal) => {
+    const looksLikePdfUrl = /\.pdf(?:[?#]|$)/i.test(norm);
+    return runCancellable({ kind: 'fetch', label: `Reading ${domainOf(norm)}…` }, async (signal, progress) => {
       // Open a durable job FIRST — a reload while the proxy is still fetching picks the URL back up
       // (a re-fetch dedups by content hash, so a page that actually landed is a no-op on resume).
       const jid = appCtx.beginJob({ kind: 'url', url: norm });
       // A URL that names a WHOLE THING rather than a generic page — a Gutenberg book, a YouTube
-      // video's captions — is read by its own deliberate fetcher (strips the PG license furniture /
-      // pulls the two-hop watch-page→json3 caption fetch) and admitted straight away; each falls
-      // through to the generic page path below when the id can't be recovered or nothing came back.
+      // video's captions — is read by its own deliberate fetcher and admitted straight away.
+      // Gutenberg falls through to the generic page path below when the id can't be recovered (a
+      // Gutenberg URL is still a normal readable page either way); YouTube does NOT — the raw watch
+      // page is near-entirely JS-hydrated chrome, so a video whose captions can't be pulled reports
+      // the real reason instead of admitting a broken, unplayable "video" source.
       const bound = { ...client, fetchUrl: (u, o = {}) => client.fetchUrl(u, { signal, ...o }) };
       const admitWhole = (admitted) => {
         if (!admitted?.doc || !admitted?.record) return null;
         const src = appCtx.addSource({
           title: admitted.record.title, url: admitted.record.url || norm,
-          text: admitted.doc.text, kind: 'web', record: admitted.record, doc: admitted.doc,
+          text: admitted.doc.text, kind: 'web', record: admitted.record, doc: admitted.doc, topicId: targetTopicId,
         });
         appCtx.settleJob(jid, 'done');
         return src;
       };
       try {
+        if (looksLikePdfUrl) {
+          const src = await admitBytesAsFile(norm, signal, progress, { name: 'document.pdf', type: 'application/pdf', topicId: targetTopicId });
+          if (src) { appCtx.settleJob(jid, 'done'); return src; }
+          throw new Error('this PDF has no recoverable text');
+        }
         if (gutenbergIdOf(norm) != null) {
-          const src = admitWhole(await fetchGutenbergBook(norm, { client: bound, fetched_at: nowIso() }));
+          const bytesBound = { ...bound, fetchUrlBytes: (u, o = {}) => client.fetchUrlBytes(u, { signal, ...o }) };
+          // onProgress → admitWebSource's chunked, yielding parse (same wiring as recordHit's
+          // library-search "Read" hit below) — without it a whole novel parses in one synchronous
+          // sweep and freezes the tab for the length of the read (the reported "import freezes";
+          // a URL pasted straight into the address bar hit this every time, unlike a search hit).
+          const src = admitWhole(await fetchGutenbergBook(norm, {
+            client: bytesBound, fetched_at: nowIso(),
+            onProgress: (p) => { if (p && p.phase === 'parse' && p.total) progress({ kind: 'fetch', label: `Reading ${domainOf(norm)} — ${p.done.toLocaleString()} / ${p.total.toLocaleString()} sentences` }); },
+          }));
           if (src) return src;
+          // A Gutenberg URL that couldn't be read as a book (EPUB unreadable AND the canonical
+          // .txt failed too) must never fall through to the generic page-fetch below — `norm` is
+          // typically the /ebooks/{id} OVERVIEW page, and admitting that landed the exact bug this
+          // guards against: the "book" turning out to be Gutenberg's site chrome, not the novel.
+          throw new Error('this Project Gutenberg book could not be read (no readable EPUB or plain-text edition)');
         }
         if (youtubeIdOf(norm) != null) {
           const src = admitWhole(await fetchYoutubeTranscript(norm, { client: bound, fetched_at: nowIso() }));
           if (src) return src;
+          throw new Error('No captions available for this video — YouTube may not have any, or is briefly blocking the fetch. Try again shortly.');
         }
+        const feedSrc = await fetchFeedSource(appCtx, norm, { client, signal });
+        if (feedSrc) { appCtx.settleJob(jid, 'done'); return feedSrc; }
         const raw = (await client.fetchUrl(norm, { signal })).text;
+        if (isFeed(raw)) {
+          const src = await fetchFeedSource(appCtx, norm, { client, signal, raw });
+          if (src) { appCtx.settleJob(jid, 'done'); return src; }
+        }
+        // The extension didn't give it away, but the bytes did: this "page" is binary/PDF syntax
+        // that survived (mangled) a UTF-8 decode. Re-fetch it as real bytes and read it properly
+        // rather than admitting `1 0 obj<<`/`endobj` as prose and calling the source "Ready".
+        const { _looksLikeBinaryGarbage } = await import('../import-file.js');
+        if (_looksLikeBinaryGarbage(raw)) {
+          const src = await admitBytesAsFile(norm, signal, progress, { topicId: targetTopicId });
+          if (src) { appCtx.settleJob(jid, 'done'); return src; }
+          throw new Error('this page is a binary file, not readable text — try uploading it directly');
+        }
         const title = (/<title[^>]*>([^<]*)</i.exec(raw)?.[1] || '').trim() || norm;
         const text = htmlToText(raw);
-        const { doc, record } = admitWebSource({ url: norm, title, text, fetched_at: nowIso(), engine: 'feed-proxy' });
-        const src = appCtx.addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc });
+        const { doc, record } = admitWebSource({ url: norm, title, text, salient_image: firstSalientImage(raw, norm), fetched_at: nowIso(), engine: 'feed-proxy' });
+        const src = appCtx.addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc, topicId: targetTopicId });
         appCtx.settleJob(jid, 'done');
         return src;
       } catch (e) {
@@ -87,9 +162,6 @@ export const installIngest = (appCtx) => {
     });
   };
 
-  // Each hit is dressed in the CUSTOMIZED SURFACE its kind of thing deserves (libraries.js): an
-  // article card, a book card, a media card, a code card — `it.surface` is what the results list
-  // paints. Additive: the raw item fields are untouched, so recordHit/preview still read them.
   const dress = (items) => (items || []).map((it) => ({ ...it, surface: surfaceCard(it) }));
 
   const search = (query, { kind = 'auto', k = 8 } = {}) =>
@@ -99,9 +171,6 @@ export const installIngest = (appCtx) => {
       return dress(items);
     });
 
-  // searchLibrary(libId, query) → search ONE named shelf (wikipedia · gutenberg · commons · github)
-  // on its own kind, so the reader gets the media grid / book list / repo list that shelf is for,
-  // not the auto-routed grab-bag. Returns dressed hits; the surface renders them by `it.surface`.
   const searchLibrary = (libId, query, { k = 12 } = {}) => {
     const lib = LIBRARIES[libId];
     return search(query, { kind: lib ? lib.kind : 'auto', k });
@@ -124,15 +193,24 @@ export const installIngest = (appCtx) => {
       } catch { return null; /* dup — the codebase still read */ }
     });
 
+  const ingestFeed = (url) => runIngestFeed(appCtx, url);
+
   const recordHit = (item, query = null) =>
-    runCancellable({ kind: 'fetch', label: `Reading ${item.title || item.url}…` }, async (signal) => {
+    runCancellable({ kind: 'fetch', label: `Reading ${item.title || item.url}…` }, async (signal, progress) => {
       const full = FULL_TEXT[item.source] || FULL_TEXT[item.kind];
       let text = '';
       try { text = full ? await full(client, item) : htmlToText((await client.fetchUrl(item.url, { signal })).text); } catch (e) { if (signal.aborted) throw e; /* else fall through */ }
       if (!text) text = item.text || item.title || '';
-      const { doc, record } = admitWebSource({
+      // onProgress → admitWebSource's chunked, yielding parse (websource.js) instead of one
+      // synchronous sweep. A library "Read" hit (a Gutenberg book, chiefly) hands this the
+      // ENTIRE text — parsed eagerly, that locks the tab for the whole read, freezing the left
+      // rail's live "reading" card (index.html's _beginPendingRead) mid-animation right along
+      // with it: no tick, no advancing %, until the sweep finally finished.
+      const { doc, record } = await admitWebSource({
         url: item.url, title: item.title, text,
         retrieval_query: query, engine: `web:${item.source || item.kind || 'search'}`, fetched_at: nowIso(),
+      }, {
+        onProgress: (p) => { if (p && p.phase === 'parse' && p.total) progress({ kind: 'fetch', label: `Reading ${item.title || item.url} — ${p.done.toLocaleString()} / ${p.total.toLocaleString()} sentences` }); },
       });
       return appCtx.addSource({ title: item.title, url: item.url, text: doc.text, kind: 'web', record, doc });
     });
@@ -160,18 +238,27 @@ export const installIngest = (appCtx) => {
   // one site stays one source, every page you click through logged beneath it (dedup keeps a
   // re-visit a no-op on the registry). Returns { html, url, childSn } — childSn null if the page had
   // no readable text (nothing to record) or admission failed; the page still renders either way.
+  //
+  // The nesting is DOMAIN-GATED: a followed page is a child of the site it was clicked on only while
+  // it stays on that site's own registrable domain. A link that leaves for ANOTHER domain is still
+  // recorded (the page you navigated to always joins the record) but as its OWN top-level source,
+  // never a cross-domain child — the authoritative form of the Native surface's same-site rule, so
+  // the "child ⟺ same domain" invariant holds for any caller, not just the click delegate.
   const navigatePage = (parentSn, url) => {
     const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
     return runCancellable({ kind: 'fetch', label: `Loading ${domainOf(norm)}…` }, async (signal) => {
       const res = await client.fetchUrl(norm, { signal });
       const raw = res.text || '';
       const title = (/<title[^>]*>([^<]*)</i.exec(raw)?.[1] || '').trim() || norm;
+      // Keep the page under its parent only if it is the same domain; otherwise land it as a root.
+      const par = parentSn ? appCtx.sourceBySn(parentSn) : null;
+      const nestUnder = (par && par.url && !sameRegistrableDomain(par.url, norm)) ? null : parentSn;
       let childSn = null;
       try {
         const text = htmlToText(raw);
         if (text && text.trim()) {
-          const { doc, record } = admitWebSource({ url: norm, title, text, fetched_at: nowIso(), engine: 'feed-proxy' });
-          const child = appCtx.addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc, parentSn });
+          const { doc, record } = admitWebSource({ url: norm, title, text, salient_image: firstSalientImage(raw, norm), fetched_at: nowIso(), engine: 'feed-proxy' });
+          const child = appCtx.addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc, parentSn: nestUnder });
           childSn = child.sn;
         }
       } catch { /* un-admittable (empty/dup-of-parent) — still render the page */ }
@@ -242,5 +329,5 @@ export const installIngest = (appCtx) => {
   // Louis-vs-Neil separation the bag-of-words frame could never make (drops the off-topic sources).
   const walkEmbed = () => (appCtx.minilm?.isWarm?.() ? (t) => appCtx.minilm.embed(t) : null);
 
-  Object.assign(appCtx, { fetchPage, ingestRepo, ingestUrl, navigatePage, recordHit, runCancellable, saveWalkDoc, search, searchLibrary, setBusy, sourceToggleCollapse, walkEmbed, webSearchAdmit });
+  Object.assign(appCtx, { fetchPage, ingestFeed, ingestRepo, ingestUrl, navigatePage, recordHit, runCancellable, saveWalkDoc, search, searchLibrary, setBusy, sourceToggleCollapse, walkEmbed, webSearchAdmit });
 };

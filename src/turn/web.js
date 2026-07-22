@@ -12,6 +12,7 @@
 // without a model or the network.
 
 import { runTurn } from './pipeline.js';
+import { RESEARCH_STOPWORDS } from './research.js';
 import { createCompositeDoc } from '../organs/in/index.js';
 import { createAuditLog } from '../rooms/audit/index.js';
 import { discourseFrame } from './converse/index.js';
@@ -21,11 +22,9 @@ import { speak } from '../model/index.js';
 // lexical check: how many of the answer's salient (content) terms appear in the fetched text.
 // `supported` when enough do; `missing` names the ones it couldn't find — the honest "couldn't
 // confirm this" signal (true contradiction needs the meaning classifier; this flags absence).
-const STOP = new Set(('the a an of to in on for and or but is are was were be been being with as at by from this that ' +
-  'these those it its his her their your our my we you they he she them then than so not no yes do does did has have ' +
-  'had will would can could should about into over under more most some any all what who whom whose when where why ' +
-  'which how there here just only also very much many out up off down').split(/\s+/));
-const terms = (s) => [...new Set((String(s || '').toLowerCase().match(/[a-z][a-z0-9'’-]{2,}/g) || []))].filter(t => !STOP.has(t));
+// The stopword list is research.js's RESEARCH_STOPWORDS (this file's old copy was an exact
+// prefix of it); only the dedup-before-filter shape here is web.js's own.
+const terms = (s) => [...new Set((String(s || '').toLowerCase().match(/[a-z][a-z0-9'’-]{2,}/g) || []))].filter(t => !RESEARCH_STOPWORDS.has(t));
 
 export const verifyAgainstWeb = (answer, corpus, { question = '', floor = 0.5 } = {}) => {
   // Check the answer's DISTINCTIVE terms — the ones it adds beyond the question. "Lyon" in "the

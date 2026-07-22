@@ -12,7 +12,7 @@ export { bindAndVeto } from './section.js';
 // rests on the model's own training). Nothing is groundless: void is the ground of last
 // resort, named so the surface can raise it. A response can be a mix; the void-grounded
 // propositions are the ones a veto flags.
-export { classifyProvenance } from './provenance.js';
+export { classifyProvenance, namedFigures, isContrastiveLoser } from './provenance.js';
 // Per-SPAN provenance — the answer-grain projection of the type law. Every span the reader
 // hovers is grounded EITHER to a source (with the precise line it came from — the jumpable
 // "where") OR to the void (the model's own words). So "every span needs to be grounded" is
@@ -22,6 +22,10 @@ export { groundSpans, groundSummary } from './spans.js';
 // into an honest "is this actually grounded, or the model's own words wearing a source's passages?"
 // decision (SUPPORT_FLOOR). Modality-neutral, so the chat answer path and the text organ share it.
 export { supportVerdict, SUPPORT_FLOOR } from './spans.js';
+// groundText composes the span-grounding chain (segment → groundSpans → groundSummary →
+// supportVerdict) once, modality-neutrally — the fold summary stands on the same ground as
+// a chat answer through it, rather than re-wiring the three steps at each call site.
+export { groundText } from './compose.js';
 // citationHolds is the per-CITATION honesty gate the render binder reads: below the verbatim floor a
 // lexical passage match may stand only if the passage actually WITNESSES the claim (propositional
 // correspondence, not shared words), so a citation is never severed from the claim it carries.

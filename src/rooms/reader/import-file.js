@@ -31,7 +31,7 @@ const IN = () => import(new URL('../../organs/in/index.js', import.meta.url).hre
 // The MIDI reader is a pure, dependency-free local module (no CDN, no browser API), so —
 // unlike the heavy extractors — it is safe to bind statically; the summary uses its
 // pitch-namer directly rather than a lazily-rebound global.
-import { parseMidi, midiNoteName } from './midi.js';
+import { parseMidi, midiNoteName } from './midi.js'; import { fromSubtitle } from './import-subtitle.js';
 
 // WebGPU if the browser offers it, else WASM — the same probe transcribe.html uses.
 let _device = null;
@@ -42,12 +42,25 @@ const device = async () => {
   return _device;
 };
 
-const TEXT_EXT  = ['txt', 'md', 'markdown', 'text', 'log', 'rst'];
-const HTML_EXT  = ['html', 'htm', 'xhtml'];
+const TEXT_EXT  = ['txt', 'text', 'log', 'rst'], HTML_EXT = ['html', 'htm', 'xhtml'];
 const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff'];
-const AUDIO_EXT = ['mp3', 'm4a', 'wav', 'ogg', 'oga', 'flac', 'aac', 'opus', 'weba'];
-const VIDEO_EXT = ['mp4', 'mov', 'webm', 'mkv', 'avi', 'm4v'];
-const MIDI_EXT  = ['mid', 'midi', 'smf', 'kar', 'rmi'];
+const AUDIO_EXT = ['mp3', 'm4a', 'wav', 'ogg', 'oga', 'flac', 'aac', 'opus', 'weba'], VIDEO_EXT = ['mp4', 'mov', 'webm', 'mkv', 'avi', 'm4v'];
+const MIDI_EXT  = ['mid', 'midi', 'smf', 'kar', 'rmi'], SUBTITLE_EXT = ['srt', 'vtt'];
+// Markdown is its OWN modality (not folded into TEXT_EXT above) so the Native tab can render
+// it typeset (markdown-render.js) instead of the plain reflow every other text file gets.
+const MD_EXT = ['md', 'markdown'];
+// A recognised source-code extension → the language name code-highlight.js's LANGS table
+// keys on, so `source.language` needs no translation to reach the highlighter. This is the
+// kind:'code' the source-viewer UI already has a landing-page case and an explorer genre
+// chip for (index.html's _sourceLandingVM, _genre) — nothing before this ever produced it.
+const CODE_LANG_BY_EXT = {
+  js: 'javascript', mjs: 'javascript', cjs: 'javascript', jsx: 'javascript',
+  ts: 'typescript', tsx: 'typescript', mts: 'typescript', cts: 'typescript',
+  py: 'python', rb: 'ruby', go: 'go', rs: 'rust', java: 'java',
+  c: 'c', h: 'c', cpp: 'cpp', cc: 'cpp', hpp: 'cpp', cs: 'csharp', php: 'php',
+  sh: 'shell', bash: 'shell', sql: 'sql', css: 'css', scss: 'css', less: 'css',
+  yml: 'yaml', yaml: 'yaml',
+};
 const extOf  = (name) => (String(name || '').split('.').pop() || '').toLowerCase();
 const titleOf = (name) => String(name || 'file').replace(/\.[^.]+$/, '');
 
@@ -59,7 +72,24 @@ export async function importAnyFile(file, opts = {}) {
   const title = titleOf(name);
   const say = typeof opts.onProgress === 'function' ? opts.onProgress : () => {};
 
-  // TEXT / Markdown — no extractor, no module load.
+  if (mime.includes('subrip') || mime.includes('vtt') || SUBTITLE_EXT.includes(ext)) { say('Reading the captions…'); return await fromSubtitle(file, title, name); }   // timed cues (import-subtitle.js) — checked before plain-text below
+
+  // Markdown — read verbatim (no extractor, no module load); the Native tab typesets it.
+  if (MD_EXT.includes(ext)) {
+    const text = await file.text();
+    return { text, title, meta: { modality: 'markdown', coverage: { complete: true, chars: text.length, dropped: [] } } };
+  }
+
+  // Source code — checked by extension, not mime (a code file's browser-reported mime is
+  // inconsistent — often empty or generic — so the extension is the only reliable signal).
+  // Read verbatim, same as plain text below; the background read (parseText) is the same
+  // one a text file gets too, so this costs nothing extra — it only tags what the file IS.
+  if (CODE_LANG_BY_EXT[ext]) {
+    const text = await file.text();
+    return { text, title, meta: { modality: 'code', language: CODE_LANG_BY_EXT[ext], coverage: { complete: true, chars: text.length, dropped: [] } } };
+  }
+
+  // TEXT — no extractor, no module load.
   if (mime.startsWith('text/plain') || TEXT_EXT.includes(ext)) {
     const text = await file.text();
     return { text, title, meta: { modality: 'text', coverage: { complete: true, chars: text.length, dropped: [] } } };
@@ -76,7 +106,23 @@ export async function importAnyFile(file, opts = {}) {
   // a clean born-digital page takes the text-layer-only fast path. Geometry kept as spans.
   if (mime === 'application/pdf' || ext === 'pdf') {
     say('Reading the PDF…');
-    return await fromPdf(file, title, name, say, opts);
+    try { return await fromPdf(file, title, name, say, opts); }
+    catch (e) {
+      // pdf.js is a browser-side, CDN-loaded extractor. If that loader is offline/blocked (or a
+      // browser refuses the worker module), the import must still LAND as a PDF source: the original
+      // bytes are preserved by app/paper.js for the PDF surface, and the universal byte reader gives
+      // the record a fixity-backed floor instead of failing the whole ingestion.
+      say('PDF text extraction is unavailable — recording the PDF bytes…');
+      const got = await fromBinary(file, title, name, mime || 'application/pdf');
+      const reason = `PDF text extraction unavailable: ${String(e?.message || e).slice(0, 140)}`;
+      return { ...got, meta: {
+        ...got.meta,
+        modality: 'pdf',
+        extraction: 'binary-fallback',
+        coverage: { ...(got.meta?.coverage || {}), complete: false,
+          dropped: [...(got.meta?.coverage?.dropped || []), reason] },
+      } };
+    }
   }
 
   // Spreadsheet — SheetJS rows; CSV/TSV — Papaparse (table organ).
@@ -177,6 +223,20 @@ export const _printableRuns = (bytes, min = 4) => {
   }
   flush(bytes.length);
   return runs;
+};
+
+// The signature of a binary/structured format (PDF object syntax, mostly) surviving a UTF-8 text
+// decode it was never meant for — `1 0 obj<<`, `endobj`, `stream`, `/Type /Page`, `xref`, `trailer`
+// — plus the replacement-character scar (�) that decode leaves on the bytes it couldn't
+// represent. Either signal alone can be a false positive (a paper THAT DISCUSSES PDF internals, a
+// glyph); together, at these thresholds, they mark text a caller must not admit as ordinary prose.
+const PDF_SYNTAX_RE = /\d+\s+\d+\s+obj\b|\bendobj\b|\bendstream\b|\/Type\s*\/(?:Page|Catalog|Font|XObject|Pages)\b|^\s*%PDF-\d|\bxref\b|\btrailer\b/m;
+export const _looksLikeBinaryGarbage = (text) => {
+  const sample = String(text || '').slice(0, 20000);
+  if (!sample.trim()) return false;
+  const replacementRatio = (sample.match(/�/g) || []).length / sample.length;
+  const pdfHits = (sample.match(new RegExp(PDF_SYNTAX_RE, 'gm')) || []).length;
+  return replacementRatio > 0.02 || pdfHits >= 3;
 };
 
 // mm:ss for a duration in seconds — the reader's clock, so a 3-minute piece reads "3:04".
@@ -602,6 +662,13 @@ export async function _transcribeWindows(asr, mono, SR, duration, norm, { onPart
 // its waveform and its holons, but transcription is skipped — "THEN transcribe IF NECESSARY".
 const MIN_SIGNAL_SECONDS = 0.3;
 
+// The manual override for that same gate. The holon separation reads a WINDOW's own loud/quiet
+// split (acoustic.js's windowThreshold) — a real recording can still defeat it (a heavily
+// mastered/compressed podcast whose loud tier never opens a wide enough gap over its quiet tier,
+// or simply an unusual room/mic), landing a source that is plainly speech but scores no signal
+// holons at all. `opts.forceTranscribe` is the listener's own call overriding that verdict: skip
+// the "is there anything to hear" question entirely and whisper the WHOLE clip, window by window.
+
 async function fromMedia(file, title, name, say, opts = {}) {
   const SR = 16000;
   // Decode to mono 16 kHz — the rate whisper wants — via an offline graph.
@@ -687,19 +754,21 @@ async function fromMedia(file, title, name, say, opts = {}) {
   const holons = separateHolons(mono, SR);
   const acousticDoc = ingestAcoustic({ name, title, duration, sampleRate: SR, analysis, holons, peaks, media, mediaKind });
 
-  const necessary = holons.signalSeconds >= MIN_SIGNAL_SECONDS;
+  const forced = !!opts.forceTranscribe;
+  const necessary = forced || holons.signalSeconds >= MIN_SIGNAL_SECONDS;
   const norm = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
 
   // ── PHASE 2 — transcription, DEFERRED. ────────────────────────────────────────────────
   // Handed back as a thunk the caller runs in the background AFTER the source has landed, so
   // loading whisper never blocks the source from appearing. Null when there is no signal to
-  // hear (the "if necessary" gate). It transcribes only the windows a signal holon covers.
+  // hear (the "if necessary" gate). It transcribes only the windows a signal holon covers —
+  // unless forced, where every window is whispered regardless of what the holon split found.
   const transcribe = necessary ? async ({ onPartial, signal, twoWitness } = {}) => {
     if (signal && signal.aborted) throw new DOMException('aborted', 'AbortError');
     const { asr, dev } = await _loadWhisper();
     const witness = `whisper-base · ${dev}`;
     const { utterances, text: liveText } = await _transcribeWindows(asr, mono, SR, duration, norm, {
-      onPartial, signalSpans: holons.signalSpans, signal,
+      onPartial, signalSpans: forced ? null : holons.signalSpans, signal,
     });
 
     // A transcript is one READING, not the objective truth of the waveform. When "audit
@@ -762,6 +831,7 @@ async function fromMedia(file, title, name, say, opts = {}) {
     signalSeconds: Math.round(holons.signalSeconds * 10) / 10,
     signalHolons: holons.signalSpans.length,
     transcribable: necessary,
+    forced,
     dropped: necessary ? [] : ['no signal above the noise floor — not transcribed'],
   };
 

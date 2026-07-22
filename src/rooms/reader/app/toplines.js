@@ -296,7 +296,19 @@ export const installToplines = (appCtx) => {
         else bySight.set(r, { id: r, sightings: ent.sightings || 0 });
       }
       const top = [...bySight.values()].sort((a, b) => b.sightings - a.sightings).slice(0, TOPLINE_FIGURES);
-      for (const f of top) entitySummary(src.docId, f.id, { telegramOnly: true }).catch(() => {});
+      // Each figure's telegram runs entityProfile — a whole-log scan (O(events)) plus figureSurface —
+      // so firing all TOPLINE_FIGURES at once fanned out that many full-document reads in one blocking
+      // burst the moment a big source landed. Route each through the background queue so they run ONE
+      // AT A TIME, yielding to the frame between them, rather than in parallel. bgSerial dedups by
+      // figure, so a panel-open that also asks for the same one never doubles the read.
+      const queue = appCtx.bgSerial
+        ? (fn, key) => appCtx.bgSerial(fn, { key })
+        : (fn) => { try { fn(); } catch { /* no scheduler (bare harness) — inline, as before */ } };
+      for (const f of top) {
+        const entId = f.id;
+        queue(() => entitySummary(src.docId, entId, { telegramOnly: true }).catch(() => {}),
+              `esum:${src.docId}#${entId}`);
+      }
     } catch { /* a summary must never cost the record */ }
   };
 

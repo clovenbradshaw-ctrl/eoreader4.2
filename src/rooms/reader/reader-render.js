@@ -466,9 +466,14 @@ export const readerHtml = (model, prefsIn = {}, opts = {}) => {
   const toc = [];
   const segsOf = typeof opts.segsOf === 'function' ? opts.segsOf : null;
   const isCited = typeof opts.isCited === 'function' ? opts.isCited : () => false;
+  // tabindex/role/aria-label make a mention a real keyboard control, not just a mouse target
+  // (Mobile Reader already renders its entity segments as actual buttons — this brings the
+  // desktop book reader to the same standard). tabindex follows the same initial linksOn gate
+  // the eo-links-on CSS class uses; the app's toggleEntityMode flips both live together.
+  const entTabIndex = opts.linksOn ? '0' : '-1';
   const inner = (t) => segsOf
     ? segsOf(t).map((sg) => (sg && sg.t === 'ent')
-        ? '<span class="eo-ent" data-doc="' + escAttr(sg.docId) + '" data-ent="' + escAttr(sg.entId) + '">' + esc(sg.s) + '</span>'
+        ? '<span class="eo-ent" data-doc="' + escAttr(sg.docId) + '" data-ent="' + escAttr(sg.entId) + '" tabindex="' + entTabIndex + '" role="link" aria-label="' + escAttr(String(sg.s || '') + ' — open entity profile') + '">' + esc(sg.s) + '</span>'
         : esc(sg && sg.s != null ? sg.s : '')).join('')
     : esc(t);
   const citedCls = (t) => { try { return isCited(t) ? ' eo-cited' : ''; } catch { return ''; } };
@@ -816,6 +821,13 @@ export const decorateNativeDoc = (doc, {
             span.className = 'eo-ent';
             span.setAttribute('data-doc', sg.docId == null ? '' : String(sg.docId));
             span.setAttribute('data-ent', sg.entId == null ? '' : String(sg.entId));
+            // A mention only reads as a hyperlink once Links is on (the eo-links-on class
+            // gates the underline/pointer in CSS); tabindex/role follow the same initial gate
+            // — toggleEntityMode flips both live — so an inert span is never a stray Tab stop
+            // in Links-off text, and a reachable one always has somewhere real to go.
+            span.setAttribute('tabindex', linksOn ? '0' : '-1');
+            span.setAttribute('role', 'link');
+            span.setAttribute('aria-label', String(sg.s || '') + ' — open entity profile');
             span.textContent = sg.s; frag.appendChild(span); out.entWraps++;
           } else {
             frag.appendChild(doc.createTextNode(sg && sg.s != null ? sg.s : ''));
@@ -1208,3 +1220,10 @@ export const inlineMdMarks = (segsIn) => {
   }
   return { pieces, opaque };
 };
+
+// ── kind-aware Native-tab rendering — split into sibling modules (doc-kind.js,
+// markdown-render.js, data-render.js, code-highlight.js, native-render.js) and re-exported
+// here so the surface's one membrane (window.EO.readerRender) still reaches everything the
+// source viewer's tabs need, without this file growing into the dispatcher itself.
+export { renderKindOf, isNativelyRenderable, RENDER_KINDS } from './doc-kind.js';
+export { renderNativeKindHtml } from './native-render.js';

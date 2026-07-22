@@ -144,16 +144,22 @@ export const networkGraphData = (topic, { rootOf = (id) => id, labelOf = (id) =>
   const nodes = [];
   const seen = new Set();
   const rootIds = new Set(article.links.flatMap((l) => [l.a, l.b]));
+  // `ref` is the tiered-graph renderer's own "this node is a destination, not just a context
+  // dot" signal (mountTieredGraph only fires onOpen for a node carrying one — see tiered-
+  // graph.js's click handler). It has always been entity-shaped ({ docId, entId }) because only
+  // the entity web used it; a source/link node is a destination too, just not an entity one, so
+  // it carries its own kind-tagged ref instead of being left un-openable.
   for (const id of rootIds) {
     if (seen.has(id)) continue;
     seen.add(id);
-    nodes.push({ id, tier: 0, label: labelOf(id), kind: 'source', terrain: 'Entity', t: 0 });
+    nodes.push({ id, tier: 0, label: labelOf(id), kind: 'source', terrain: 'Entity', t: 0, ref: { kind: 'source', id } });
   }
   const edges = [];
   for (const link of article.links) {
     nodes.push({
       id: link.id, tier: 1, label: `${labelOf(link.a)} ↔ ${labelOf(link.b)}`,
       kind: 'link', terrain: 'Link', evidence: link.evidence, t: 0,
+      ref: { kind: 'link', id: link.id, a: link.a, b: link.b, evidence: link.evidence },
     });
     edges.push({ a: link.a, b: link.id, tier: 1, gl: '⋈', code: 'CON' });   // endpoint_of
     edges.push({ a: link.b, b: link.id, tier: 1, gl: '⋈', code: 'CON' });   // endpoint_of

@@ -22,10 +22,10 @@ const EMIT = Object.freeze({ src: 'src/perceiver/referents/index.js' });
 const tokensOf = (label) => String(label || '').trim().split(/\s+/).filter(Boolean);
 
 // buildReferents(ctx) → the doc.* referent API. ctx carries the leaf state the layer reads:
-//   { log, sentences, admission, corefField, docId }
+//   { log, sentences, admission, corefField, deixis, docId }
 // Called ONLY under referentIdentity:'mention'; when off it never runs, so the parse is
 // byte-identical (acceptance 10).
-export const buildReferents = ({ log, sentences, admission, corefField, docId = 'doc' } = {}) => {
+export const buildReferents = ({ log, sentences, admission, corefField, deixis, docId = 'doc' } = {}) => {
   const snapshot = () => (log.snapshot ? log.snapshot() : log.events);
   const mentions = observeMentions(sentences, { docId });
   const mentionById = new Map(mentions.map((m) => [m.id, m]));
@@ -70,7 +70,7 @@ export const buildReferents = ({ log, sentences, admission, corefField, docId = 
 
   // ── Seed: emit one denotes per resolvable mention ──────────────────────────────
   // A NAME resolves to the firm root of its admitted id; a DESCRIPTION to the figure its head was
-  // admitted as (a dark referent / common noun), else it opens a HELD referent of its own; a
+  // admitted as (a unnamed referent / common noun), else it opens a HELD referent of its own; a
   // PRONOUN/DEIXIS resolves through the coreference field at its sentence, if that field is
   // concentrated enough to name one referent. Nothing borrows a label it did not earn — an
   // unresolved anaphor stays held (referentOf → null), an identity void, never a silent merge.
@@ -87,15 +87,28 @@ export const buildReferents = ({ log, sentences, admission, corefField, docId = 
         seedDenote(m.id, refForRoot(root), 'legacy-label-quotient', 0.95, ['name-admission']);
       }
     } else if (m.form === 'description') {
-      // A description whose head was admitted as a figure (a dark referent / common noun) denotes
+      // A description whose head was admitted as a figure (a unnamed referent / common noun) denotes
       // that figure; an ordinary setting-description ("the room") stays HELD.
       if (admission.isAdmitted(m.normalized)) {
         const root = rep(admission.idOf(m.normalized));
         seedDenote(m.id, refForRoot(root), 'legacy-label-quotient', 0.8, ['description-figure']);
       }
+    } else if (m.form === 'deixis' && deixis?.tellerAt) {
+      // First person names the current TELLER, not the nearest named figure — the same deixis
+      // frame the main read binds "I" through (parse/deixis.js), never the raw field-concentration
+      // test below: an addressee this very sentence happens to be hottest about is exactly what
+      // the teller channel exists to NOT borrow salience from.
+      const teller = deixis.tellerAt(m.sentIdx);
+      if (teller?.id) {
+        const root = rep(teller.id);
+        seedDenote(m.id, refForRoot(root), 'deixis-teller', Math.min(0.9, teller.w ?? 0.5),
+                   ['first-person-continuity']);
+      }
+      // else: held — the teller channel has not grounded a bearer here yet (fails toward silence).
     } else {
-      // pronoun / deixis — resolve through the field's posterior BEFORE this sentence would be
-      // circular; the field at the mention's own sentIdx already reflects the reading to here.
+      // pronoun (third person) — resolve through the field's posterior BEFORE this sentence
+      // would be circular; the field at the mention's own sentIdx already reflects the reading
+      // to here. Also the fallback for deixis when no deixis frame was threaded through.
       const field = corefField?.field ? corefField.field(m.sentIdx) : [];
       const top = field[0], next = field[1];
       const concentrated = top && (!next || (top.w ?? 0) - (next.w ?? 0) >= 0.15);
@@ -258,7 +271,7 @@ export const buildReferents = ({ log, sentences, admission, corefField, docId = 
         if (e.srcKind === 'prop' || e.tgtKind === 'prop') continue;   // proposition-to-proposition links
         const srcRef = rootToRef(rep(e.src));
         // The target resolves to a referent through the SAME rep→ref path — including an np-lemma
-        // node the dark read unioned onto a figure ("the wretch" pursued → the creature). Only when
+        // node the unnamed-referent read unioned onto a figure ("the wretch" pursued → the creature). Only when
         // no referent claims it does the bare lemma stand as the endpoint (a genuine np referent).
         const tgtRef = rootToRef(rep(e.tgt)) || e.tgt;
         if (!srcRef) continue;   // subject is not a referent figure (an np subject etc.)
@@ -269,4 +282,26 @@ export const buildReferents = ({ log, sentences, admission, corefField, docId = 
       return out;
     },
   };
+};
+
+// referentApiFor(doc) — the referent-first identity API for a doc, built LAZILY and cached on
+// the doc itself (doc._referentApi). buildReferents ships off by a parse-time flag
+// (referentIdentity:'mention', byte-identical when unset) and no reading path threads that flag
+// through today, so `doc.referents` is never already a function on an ordinarily-parsed doc —
+// every caller that wants referent-quotient identity (not the raw union-find) must build it
+// post-hoc, off the already-parsed doc's own log/sentences/admission/corefField. The single
+// shared entry point, so a re-render or a second caller (the entity explorer, the cross-source
+// crosswalk) never rebuilds it twice, or worse, silently reads an empty `[]` because it forgot to.
+export const referentApiFor = (doc) => {
+  if (!doc || !doc.log || doc.modality !== 'text') return null;
+  if (typeof doc.referents === 'function') return doc;   // flag was already on upstream
+  if (doc._referentApi === undefined) {
+    try {
+      doc._referentApi = buildReferents({
+        log: doc.log, sentences: doc.sentences, admission: doc.admission,
+        corefField: doc.corefField, deixis: doc.deixis, docId: doc.docId,
+      });
+    } catch { doc._referentApi = null; }
+  }
+  return doc._referentApi;
 };

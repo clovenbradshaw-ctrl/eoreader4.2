@@ -11,19 +11,34 @@ export const createDeixisFrame = ({
 } = {}) => {
   const frames = []; // { startSent, depth, bearer, bearerW, support, strain }
 
-  const current = () => frames[frames.length - 1] || null;
+  // The frame FOR THIS DEPTH — the most recent one ever opened at it, wherever in the
+  // history it sits. A dip to a nested depth and back (a short embedded quote closing)
+  // must RESUME the outer run's own established bearer, not discard it and start over —
+  // so this searches the whole stack by depth, not just the last-pushed frame.
+  const frameAt = (depth) => {
+    for (let i = frames.length - 1; i >= 0; i--) if (frames[i].depth === depth) return frames[i];
+    return null;
+  };
 
   const noteFirstPerson = (sentIdx = 0) => {
     const depth = depthAt(sentIdx) ?? 0;
-    const cur = current();
-    if (!cur || cur.depth !== depth) frames.push({ startSent: sentIdx, depth, bearer: null, support: 1, strain: 0 });
+    const cur = frameAt(depth);
+    if (!cur) frames.push({ startSent: sentIdx, depth, bearer: null, support: 1, strain: 0 });
     else cur.support += 1;
   };
 
-  const groundTeller = (_sentIdx = 0, { margin = 0.15 } = {}) => {
-    const cur = current();
+  const groundTeller = (sentIdx = 0, { margin = 0.15 } = {}) => {
+    const cur = frameAt(depthAt(sentIdx) ?? 0);
     if (!cur || cur.support < minRun || cur.bearer) return;
-    const ranked = field(cur.startSent).filter((c) => (c.grounded ?? 0) > 0);
+    // Prefer the field AS OF THE RUN'S OWN OPENING — the moment the quote/section began is the
+    // right anchor ("he thus began his tale" deposits the teller's own mass right there), and
+    // staying there avoids drifting onto whatever the run's own content later happens to name
+    // (a place the teller mentions partway through should never unseat the teller). Only fall
+    // back to THIS call's own position when the opening truly had nothing grounded yet (a run
+    // that started before any candidate had accrued mass at all) — so a run is not stuck
+    // unground-able forever, but a run with a real anchor never drifts off it.
+    const atOpen = field(cur.startSent).filter((c) => (c.grounded ?? 0) > 0);
+    const ranked = atOpen.length ? atOpen : field(sentIdx).filter((c) => (c.grounded ?? 0) > 0);
     if (!ranked.length) return;
     const [top, next] = ranked;
     if (next && (top.w - next.w) < margin) return;
@@ -41,8 +56,8 @@ export const createDeixisFrame = ({
     return { held: true };
   };
 
-  const evaTeller = (_sentIdx = 0, holds = true) => {
-    const cur = current();
+  const evaTeller = (sentIdx = 0, holds = true) => {
+    const cur = frameAt(depthAt(sentIdx) ?? 0);
     if (!cur) return;
     if (holds) { if (cur.strain > 0) cur.strain -= 1; }
     else if (++cur.strain > cur.support) { cur.bearer = null; cur.bearerW = undefined; }

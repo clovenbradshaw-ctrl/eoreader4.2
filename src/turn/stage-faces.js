@@ -68,8 +68,9 @@ const grainForCell = ({ op, terrain, stance }) => {
 // `faculty` is the §5 column the stage belongs to; `spec` is the verbatim §5
 // spelling as cells; `connector` joins a multi-cell phrase the way §5 wrote it
 // (→ sequence, · walk, + pair); `note` is §5's parenthetical (grain:edge, budget…).
-// The order is PIPELINE order (turn/pipeline.js), so reading the table top to
-// bottom is reading a turn.
+// The key order below IS the pipeline order — turn/pipeline.js's PIPELINE reads
+// it (PIPELINE_STAGES) rather than keeping its own copy, so reading this table
+// top to bottom is reading a turn, and the two can no longer drift apart.
 const STAGE_SPEC = Object.freeze({
   route:      { faculty: 'enactor', connector: ' · ', note: 'terminate?',
                 spec: [{ op: 'EVA', terrain: 'Lens', stance: 'Dissecting' }] },

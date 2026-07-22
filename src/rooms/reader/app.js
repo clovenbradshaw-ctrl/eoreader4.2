@@ -63,20 +63,22 @@ import { deriveTopicTitle, isDefaultTopicTitle, DEFAULT_TOPIC_TITLE } from './to
 // public ones at their historical site.
 import { chainFetch, FULL_TEXT } from './app/net.js';
 import { kv } from './app/kv.js';
-import { keepGuardAlive, probeModelAlive, REFLECTION_CAP, recordReflections, LOG_CAP, appendLog } from './app/guards.js';
+import { keepGuardAlive, probeModelAlive, REFLECTION_CAP, recordReflections, LOG_CAP, appendLog, exportLogJson } from './app/guards.js';
 import { nowIso, nowMs, RESEARCH_HOPS, wantsLongform, LONGFORM_MAX_TOKENS, domainOf, shaShort, LINK_TITLES, bytesOf, esc } from './app/util.js';
 export { keepGuardAlive, probeModelAlive, REFLECTION_CAP, recordReflections, LOG_CAP, appendLog };
 // ── the app ──────────────────────────────────────────────────────────────────
 import { buildApi } from './app/api.js';
+import { installSchedule } from './app/schedule.js';
 import { installTrail } from './app/trail.js';
 import { installPersistence } from './app/persistence.js';
 import { installJobs } from './app/jobs.js';
 import { installTopics } from './app/topics.js';
 import { installWorkspaces } from './app/workspaces.js';
-import { installRegistry } from './app/registry.js';
+import { installRegistry } from './app/registry.js'; import { installSourceStage } from './app/source-stage.js';
+import { installIntakeGate } from './app/intake.js';
 import { installFolders } from './app/folders.js';
 import { installIngest } from './app/ingest.js';
-import { installSearch } from './app/search.js';
+import { installSearch } from './app/search.js'; import { installResearchReview } from './app/research-review.js'; import { installResearchReviewActions } from './app/research-review-actions.js';
 import { installAudio } from './app/audio.js';
 import { installTranscript } from './app/transcript.js';
 import { installPicture } from './app/picture.js';
@@ -95,7 +97,7 @@ import { installEntities } from './app/entities.js';
 import { installLevels } from './app/levels.js';
 import { installTransmission } from './app/transmission.js';
 import { installStanding } from './app/standing.js';
-import { installListen } from './app/listen.js';
+import { installSync } from './app/sync.js'; import { installListen } from './app/listen.js';
 import { installToplines } from './app/toplines.js';
 import { installSummaries } from './app/summaries.js';
 import { installDigest } from './app/digest.js';
@@ -108,7 +110,7 @@ import { installPins } from './app/pins.js';
 import { installReread } from './app/reread.js';
 import { installDeep } from './app/deep.js';
 
-export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch } = {}) => {
+export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch, intake: intakeOpts = {} } = {}) => {
   // The shared spine every section stands on. Sections are install()ed in the
   // closure's original order; each publishes its public functions onto ctx, and
   // cross-section calls ride ctx at CALL time — so order only matters for the
@@ -117,7 +119,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // the mint counters + the cross-section mutables (persistence resets the
     // counters on restore; chat arms abort/stallGuard; a settled answer clears
     // the wedge streak)
-    sn: 0, tn: 0, ln: 0, mn: 0, wn: 0, fon: 0, pn: 0, stn: 0,
+    sn: 0, tn: 0, ln: 0, mn: 0, wn: 0, fon: 0, pn: 0, stn: 0, scn: 0,
     abort: null, stallGuard: null, localWedges: 0,
     audit, murmur, fetchImpl,
   };
@@ -195,27 +197,29 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const subscribe = (fn) => { subs.add(fn); return () => subs.delete(fn); };
   const emit = (kind, data = null) => { for (const fn of subs) { try { fn(kind, data); } catch { /* surface's problem */ } } };
 
-  // `opts.coalesce` folds a repeating beat into the tail rather than appending a fresh line —
-  // used only by the at-rest reflection, so idle passes don't flood the Actions feed (see appendLog).
+  // opts.coalesce folds a repeating beat into the tail (see appendLog); also mirrors to the console.
   const logIt = (kind, text, effect = '', opts = {}) => {
     appendLog(state.log, { kind, t: nowIso(), text, effect }, () => `L${++appCtx.ln}`, opts);
-    emit('log');
+    try { console.info(`[eo:${kind}]`, text, effect || ''); } catch { /* console never gates the pass */ } emit('log');
   };
+  const exportLog = () => exportLogJson(state.log, nowIso());
 
   // Engine working for the user — a turn (busy) or a composing panel summary (foreModel); deep.js yields to it.
   const modelEngaged = () => !!state.busy || (state.foreModel || 0) > 0;
 
-  Object.assign(appCtx, { audit, client, emit, fetchImpl, ledger, logIt, modelEngaged, monitor, murmur, state, subs, subscribe });
+  Object.assign(appCtx, { audit, client, emit, exportLog, fetchImpl, ledger, logIt, modelEngaged, monitor, murmur, state, subs, subscribe });
 
+  installSchedule(appCtx);   // bgSerial — the background queue every heavy after-read rides
   installTrail(appCtx);
   installPersistence(appCtx);
   installJobs(appCtx);
   installTopics(appCtx);
   installWorkspaces(appCtx);
-  installRegistry(appCtx);
+  installRegistry(appCtx); installSourceStage(appCtx);
+  installIntakeGate(appCtx, intakeOpts);
   installFolders(appCtx);
   installIngest(appCtx);
-  installSearch(appCtx);
+  installSearch(appCtx); installResearchReview(appCtx); installResearchReviewActions(appCtx);
   installAudio(appCtx);
   installTranscript(appCtx);
   installPicture(appCtx);
@@ -233,7 +237,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   installEntities(appCtx);
   installLevels(appCtx);
   installTransmission(appCtx);
-  installStanding(appCtx);
+  installSync(appCtx); installStanding(appCtx);
   installListen(appCtx);
   installToplines(appCtx);
   installSummaries(appCtx);

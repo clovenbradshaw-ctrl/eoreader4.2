@@ -19,6 +19,7 @@ import { projectGraph }      from '../../core/index.js';
 import { createConventions } from '../../core/conventions/index.js';
 import { tok }               from '../../perceiver/parse/index.js';
 import { attachReading }     from '../ingest/index.js';
+import { createEmbeddingMemo } from '../../model/embed-store.js';
 
 const typeOf = (v) => v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v; // object|array|string|number|boolean|null
 const isContainer = (v) => v !== null && typeof v === 'object';
@@ -105,12 +106,10 @@ export const ingestJson = (input = {}) => {
   // three-faced events every other modality lands on the spine.
   attachReading(doc);
 
-  const vecByOrgan = new Map();
-  doc.sentenceEmbeddings = async (embedder) => {
-    const key = embedder?.id || 'default';
-    if (!vecByOrgan.has(key)) vecByOrgan.set(key, Promise.all(sentences.map(s => embedder.embed(s))));
-    return vecByOrgan.get(key);
-  };
+  const sentMemo = createEmbeddingMemo();   // globally budgeted (model/embed-store.js)
+  doc.sentenceEmbeddings = async (embedder) =>
+    sentMemo.get(embedder?.id || 'default', sentences.length, () => Promise.all(sentences.map(s => embedder.embed(s))));
+  doc.releaseEmbeddings = () => sentMemo.release();
 
   return doc;
 };

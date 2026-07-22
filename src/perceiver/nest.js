@@ -1,0 +1,128 @@
+// EO: SEG·SYN(Field → Field, Dissecting,Composing) — nest extraction: one file → its nested sources
+// nest.js — a single ingested file is often not one document but MANY nested inside one: a
+// journal of forty book reviews, an mbox of emails, a chaptered book, a transcript of turns.
+// Ingested flat, it is ONE source spanning the whole axis (multilevel.js sourceRanges), so the
+// chorus surf has nothing to triage — it reads one neighbourhood and lets the other thirty-nine
+// reviews go unread (the source DRIFT the audits show). This module recovers the nesting: it cuts
+// the file at the boundaries its own reading surprise marks, and re-presents the SAME text as a
+// COMPOSITE of its parts. Then sourceRanges sees the parts, and the chorus (richSurf /
+// multiLevelSurf) drops the off-topic ones and reads only the sub-document the ask concerns.
+//
+// The boundary is not stated by a human — it is READ off the signal, the same way the void
+// boundary and the SEG cut are (predict/segment.js): a boundary is a LOCAL PEAK in the surf's own
+// reading surprise, above the (1−alpha) quantile of its background, no two within minGap. So the
+// file segments itself; alpha is the only knob (the tolerated false-cut rate), minGap the shortest
+// a sub-document may be.
+//
+// Pure and deterministic: the surf is a pure read, the parse is deterministic, and nothing is
+// appended to any log. A file with no internal nesting (one segment survives) is returned
+// UNCHANGED — the non-nested case pays nothing and reads exactly as before.
+
+import { parseText, tok } from './parse/index.js';
+import { surfFold } from '../surfer/index.js';
+import { learnBoundariesFromSurprise } from './predict/index.js';
+import { createCompositeDoc } from '../organs/in/index.js';
+
+// The surprise the whole-document surf reads at every unit — the signal the cuts are made from.
+// surprisalBits is the per-unit information the reading did not predict; a new sub-document opens
+// with a jump in it (a topic the prior part never set up). bayes is the fallback when a field
+// entry carries no surprisalBits.
+const surpriseSeries = (doc) => {
+  const surf = surfFold(doc, 0, { reach: 'adaptive' });
+  return (surf.field || []).map((f) => ({ at: f.idx, surprise: f.surprisalBits ?? f.bayes ?? 0 }));
+};
+
+// The boundaries (sub-document START indices, 0 first) the file's own reading surprise marks.
+export const nestBoundaries = (doc, { alpha = 0.06, minGap = 6 } = {}) =>
+  learnBoundariesFromSurprise(surpriseSeries(doc), { alpha, minGap });
+
+// A name for a nested source, emergent from its OWN strongest content terms — so a part is
+// addressed by what it is about ("doc#7:symmetry-molecular-groups"), not a bare ordinal. This is
+// the same "names emergent from content, not position" the section surface reads.
+const nameOf = (text, k, docId) => {
+  const tf = new Map();
+  for (const t of tok(text)) tf.set(t, (tf.get(t) || 0) + 1);
+  const top = [...tf.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => t);
+  return `${docId || 'doc'}#${k + 1}${top.length ? `:${top.join('-')}` : ''}`;
+};
+
+// nestComposite(doc, opts) → the SAME text as a COMPOSITE of its nested sub-documents (isComposite,
+// origin per unit), ready for the chorus to triage; or the doc UNCHANGED when it shows no nesting.
+// Segments of one file get the SAME cross-doc SYN pass any composite gets (crossDocSyn: true, the
+// createCompositeDoc default) — NOT held apart. This matters for the case nesting exists to serve
+// as much as the journal does: a chaptered NOVEL. Split into chapters, "Victor Frankenstein" named
+// identically in chapter 1 and chapter 15 must still resolve to ONE referent, or the nesting that
+// let the chorus find the right chapter would break coreference across the very work it read. The
+// cross-doc pass is exactly the machinery the Armstrong probe validates: it merges a SHARED,
+// specific label across parts (the same Victor); it does not merge distinct labels that merely
+// share a surname (Neil Armstrong stays apart from Louis Armstrong) — so a journal's unrelated
+// reviews are no more at risk here than any other composite already accepts.
+// `unnamedReferents` is forwarded to the per-segment re-parse below. The composite's figures come
+// ENTIRELY from those re-parses (createCompositeDoc folds them), so a figure the whole-file parse
+// admitted only by description — Frankenstein's creature ("the creature"/"the monster"/"the wretch")
+// — is lost the moment the file nests into chapters UNLESS the re-parse also resolves it. OFF by
+// default so every other caller stays byte-identical; the reader turns it on (registry.js#docFor).
+export const nestComposite = (doc, { alpha = 0.06, minGap = 6, minSegments = 2, unnamedReferents = false } = {}) => {
+  if (!doc) return doc;
+  const units = doc.units || doc.sentences || [];
+  if (units.length < 2 * minGap) return doc;                    // too short to carry a nesting
+  const bounds = nestBoundaries(doc, { alpha, minGap });
+  if (bounds.length < minSegments) return doc;                  // one segment → not a composite
+
+  // The [lo, hi) unit ranges between successive boundaries, with RUNTS folded back: a sub-document
+  // has extent (the SEG coherence — a shape is not a single point), so a segment shorter than
+  // minGap is not its own document; it merges into the one before it. This is what keeps a
+  // coherent passage that threw one weak late peak from splitting into a body + a one-line tail.
+  const ranges = [];
+  for (let k = 0; k < bounds.length; k++) {
+    const lo = bounds[k];
+    const hi = (k + 1 < bounds.length) ? bounds[k + 1] : units.length;
+    if (ranges.length && (hi - lo) < minGap) ranges[ranges.length - 1][1] = hi;   // fold the runt back
+    else ranges.push([lo, hi]);
+  }
+  if (ranges.length < minSegments) return doc;                  // it was one document after all
+
+  // The whole-file read already seated the nameless bodies at full scope (doc.unnamedReferentBodies:
+  // conventions-filtered, past the star-scale floor — the creature, folded from creature/monster/
+  // wretch). Hand them to each segment's re-parse as the `nameReferent` talker, so a chapter carrying
+  // only a few of those epithets still resolves them to the ONE body the whole read earned, instead of
+  // falling under that chapter's own floor and dropping the figure the composite exists to show. Only
+  // when the reader asked for unnamed referents; otherwise null and the re-parse is exactly as before.
+  const seededBodies = unnamedReferents ? (doc.unnamedReferentBodies || []) : [];
+  const nameReferent = seededBodies.length ? () => seededBodies.map((b) => ({ ...b })) : null;
+
+  const parts = [];
+  for (let k = 0; k < ranges.length; k++) {
+    const [lo, hi] = ranges[k];
+    const segText = units.slice(lo, hi).join('\n');
+    if (segText.trim().length < 20) continue;                   // an empty cut carries no document
+    parts.push(parseText(segText, { docId: nameOf(segText, k, doc.docId), unnamedReferents, nameReferent }));
+  }
+  if (parts.length < minSegments) return doc;
+  return reseatWholeDocGrain(doc, createCompositeDoc(parts));
+};
+
+// GRAIN (grain.js: figure / kind / setting) is a company-distribution judgment — it reads
+// cleanly only off a referent's FULL sighting history. Geneva oblique in most of its 30+
+// book-wide sightings reads as a clean setting; the 3-6 sightings any ONE re-parsed segment
+// carries are too thin, so the per-segment grainRead pass above mostly abstains, and where it
+// does commit the verdict is whichever segment's namespaced id the cross-doc union-find
+// happens to keep (core/project.js's merge takes the first-seen id's props, the rest are
+// lost) — not the best-evidenced one. The whole, UNSEGMENTED `doc` already read every
+// sighting together and graded accordingly; re-seat its verdicts onto the composite's own
+// admitted id for the same label, appended last so they win the DEF overwrite over any
+// thin per-segment guess. Additive only: a label the whole read never graded (HELD) leaves
+// the composite exactly as the segments produced it.
+const reseatWholeDocGrain = (doc, composite) => {
+  if (!composite || !composite.isComposite || !composite.admission) return composite;
+  const wholeGrain = (doc.log?.snapshot?.() || []).filter((e) => e.op === 'DEF' && e.key === 'grain');
+  for (const e of wholeGrain) {
+    const label = doc.admission?.labelOf?.(e.id);
+    if (!label) continue;
+    const id = composite.admission.idOf(label);
+    if (id == null) continue;
+    composite.log.append({ op: 'DEF', id, key: 'grain', value: e.value, grain: e.grain,
+                            cue: e.cue, defeasible: true, sentIdx: 0 });
+  }
+  return composite;
+};

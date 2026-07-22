@@ -9,6 +9,7 @@ export { parseText, createParser } from './pipeline.js';
 export { tok, tokSet, isStop }     from './tokenize.js';
 export { segmentSentences }        from './sentences.js';
 export { parseRelations, headVerb } from './relations.js';
+export { scanAbsoluteDescriptors } from './absolute-descriptors.js';
 export { fuzzCeiling, editWithin, fuzzyMatches } from './fuzzy.js';
 export { induceBoundaries }        from './boundaries.js';
 export { segmentClauses, SEED_CLAUSE_BOUNDARY } from './clauses.js';
@@ -21,8 +22,10 @@ export { argumentSpanSeg, positionElements, argumentSpansHold,
 export { nameTokens, isSubsequence, clusterAnchors, distinctReferentCount, epithetReducedHead } from './name-variants.js';
 export { TITLE_WORDS } from './entities.js';
 export { discoverUncasedReferents, discoverUncasedRelations } from './uncased.js';
-export { discoverDarkReferents, admitDarkReferents, darkReferentId } from './dark-referent.js';
-export { proposeReferentNames } from './dark-referent-name.js';
+export { discoverUnnamedReferents, admitUnnamedReferents, unnamedReferentId,
+         censusUnnamedCentres, createCentreScanner } from './unnamed-referent.js';
+export { proposeReferentNames } from './unnamed-referent-name.js';
 export { readGrain, readUncasedGrain } from './grain.js';
 export { induceAdpositions } from './adpositions.js';
 export { createDeixisFrame } from './deixis.js';
+export { induceNarrativeDepth } from './narrative-depth.js';
