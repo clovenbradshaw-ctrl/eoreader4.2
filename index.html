@@ -10928,7 +10928,7 @@ class Component extends DCLogic {
       }
       this._srcGraphEntId = ref;
       if (!ref) { this._drawSourceGraphChooser(el, ents); return; }
-      const ego = this._app.tieredData(ref.docId, ref.entId);
+      const ego = this._app.solarMeaningData ? this._app.solarMeaningData(ref.docId, ref.entId) : this._app.tieredData(ref.docId, ref.entId);
       if (!ego.nodes || !ego.nodes.length) {
         this._srcGraphEntId = null;
         this._drawSourceGraphChooser(el, ents, 'Nothing to place in orbit yet for that figure — pick another.');
@@ -11110,7 +11110,7 @@ class Component extends DCLogic {
     // DIFFERENT entity's profile whose embedded EOGraph works fine. Never guess: land on an
     // explicit chooser instead, so every state is either a real orbit or an honest prompt.
     if (w.scope !== 'entity' || w.entId == null) { this._drawSolarChooser(el); return; }
-    const data = this._app.tieredData(w.docId, w.entId);
+    const data = this._app.solarMeaningData ? this._app.solarMeaningData(w.docId, w.entId) : this._app.tieredData(w.docId, w.entId);
     if (!data.nodes || !data.nodes.length) {
       this._drawSolarChooser(el, `“${w.entLabel || 'This entity'}” has nothing to place in orbit yet — pick another figure.`);
       return;
