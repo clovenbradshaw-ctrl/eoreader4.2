@@ -37,6 +37,8 @@
 //   count:  number           how many times it was witnessed (the dashboard's tally)
 //   onPivot(node) · onSelect(node) · onOpen(node) · onSpan(span)
 
+import { glyphOf, mannerOf } from '../../core/index.js';
+
 const NS = 'http://www.w3.org/2000/svg';
 
 // The three descent levels — each a kind of math with its own palette (shared with the tiered
@@ -179,9 +181,15 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
     claims.forEach((n) => {
       const grp = sv('g', { class: 'ss-body' });
       grp.appendChild(sv('circle', { r: 5.5, fill: n.color || LEVELS[0].fill, stroke: LEVELS[0].stroke, 'stroke-width': 1.1 }));
+      // The claim's SPECTRUM, next to its position: the manner it was asserted in (distinguishes/
+      // links/introduces), read off the same operator glyph the tier legends already use — never
+      // drawn for a claim that carries none, so an unread claim shows a bare body, not a fabricated
+      // mark.
+      if (n.op) { const ti = sv('title', {}); ti.textContent = mannerOf(n.op) || ''; grp.appendChild(ti); }
       grp.addEventListener('click', (ev) => { ev.stopPropagation(); focusMeaning(n.id); });
       g.appendChild(grp);
-      const lab = text(0, 0, clip(n.label, 26), { anchor: 'start', size: 10.5, cls: 'ss-plabel' });
+      const glyph = n.op ? glyphOf(n.op) + ' ' : '';
+      const lab = text(0, 0, clip(glyph + n.label, 26), { anchor: 'start', size: 10.5, cls: 'ss-plabel' });
       g.appendChild(lab);
       orbiters.push({ id: n.id, grp, lab });
     });

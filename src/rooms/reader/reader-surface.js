@@ -20,6 +20,7 @@
 import { mountSolarSystem } from './solar-system.js';
 import { mountLedger } from './ledger-surface.js';
 import { assembleQuestionResult, STANDINGS } from './question-result.js';
+import { mannerOf } from '../../core/index.js';
 
 const STYLE_ID = 'eo-reader-style';
 const CSS = `
@@ -272,20 +273,24 @@ export const mountReaderSurface = (host, opts = {}) => {
   const renderVerdictCard = (c) => {
     const cs = CARD_STYLE[c.standing] || CARD_STYLE['single-source'];
     const card = doc.createElement('div'); card.className = 'eo-rd__verdict'; card.style.background = cs.bg; card.style.borderColor = cs.border;
+    // The manner the claim was asserted in — distinguishes/links/introduces — read alongside the
+    // standing kicker, the same spectrum-next-to-position move as the ledger row. Silent when the
+    // claim carries no operator tag.
+    const manner = mannerOf(c.op);
     if (c.standing === 'contested') {
       // Two readings side by side (spec §6.2): the claim and its rival. The disagreement IS the
       // answer — never collapsed into a prose compromise. Both columns keep their source roster.
       const mySns = (c.support.length ? c.support : c.spanRefs).map((w) => w.sn).filter(Boolean);
       const rival = c.rival || (c.contest.length ? { text: c.contest[0].quote, sns: c.contest.map((w) => w.sn) } : null);
       card.innerHTML =
-        `<span class="eo-rd__verdictKick" style="color:${cs.kickC};background:${cs.kickBg};">CONTESTED · ${esc(c.meta || '')}</span>` +
+        `<span class="eo-rd__verdictKick" style="color:${cs.kickC};background:${cs.kickBg};">CONTESTED${manner ? ' · ' + esc(manner) : ''} · ${esc(c.meta || '')}</span>` +
         '<div class="eo-rd__split" style="margin-top:12px;">' +
           `<div class="eo-rd__splitCol"><div class="eo-rd__quote">“${esc(c.text)}”</div><div class="eo-rd__srcTag">${mySns.join(' ')}</div></div>` +
           (rival ? `<div class="eo-rd__splitCol"><div class="eo-rd__quote">“${esc(rival.text || 'A rival reading')}”</div><div class="eo-rd__srcTag">${(rival.sns || []).join(' ')}</div></div>` : '') +
         '</div>';
     } else {
       card.innerHTML =
-        `<span class="eo-rd__verdictKick" style="color:${cs.kickC};background:${cs.kickBg};">${cs.kick}</span>` +
+        `<span class="eo-rd__verdictKick" style="color:${cs.kickC};background:${cs.kickBg};">${cs.kick}${manner ? ' · ' + esc(manner) : ''}</span>` +
         `<div class="eo-rd__verdictText">${esc(c.text)}</div>` +
         `<div class="eo-rd__verdictMeta">${esc(c.meta || '')}</div>`;
     }
