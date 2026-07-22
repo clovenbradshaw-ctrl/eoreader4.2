@@ -43,6 +43,10 @@ export const SEAMS = Object.freeze([
   ['src/organs/in/music.js',    'src/model/embed-store.js', 'bounded embedding matrices — leaf import avoids the model-barrel cycle (see embed-hash seam)'],
   ['src/rooms/reader/app/registry.js', 'src/perceiver/nest.js',
     'docFor recovers a source\'s nested structure via nestComposite before caching it — but nest.js depends on surfer/index.js and organs/in/index.js, both of which already depend back on the perceiver entrance (surf.js -> readingAt, reading-dispatch.js -> buildTextReading), so riding perceiver/index.js here would close that cycle the instant it loads; this reads the leaf directly'],
+  ['src/rooms/competencies/catalog.js', 'src/metabolism/organ.js',
+    'the Priors catalog must price and instantiate prospective organs with the metabolism\'s exact upkeep/founding-organ primitives; metabolism/index.js is the running soma surface, not the organ-constructor entrance, so the catalog reads the leaf deliberately'],
+  ['src/rooms/competencies/catalog.js', 'src/metabolism/constitution.js',
+    'the Priors checkpoint exposes the constitution\'s isolation law verbatim before an organ is installed; routing through metabolism/index.js would couple this pure catalog to the running metabolism surface'],
 ].map(Object.freeze));
 
 // The seam set, keyed "from → to", for the boundary test's membership check.
