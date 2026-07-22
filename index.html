@@ -3435,7 +3435,10 @@ table{border-collapse:collapse;width:100%}
                   <div class="eo-media-fold" style="display:flex;flex-direction:column;gap:6px;background:{{ viewer.media.asrBg }};border-radius:8px;padding:9px 12px">
                     <div style="display:flex;align-items:center;gap:9px;font-size:12px;font-weight:600;color:{{ viewer.media.asrTone }}">
                       <sc-if value="{{ viewer.media.asrBusy }}"><span style="width:13px;height:13px;border-radius:50%;border:2px solid rgba(109,94,245,.25);border-top-color:#6355f2;animation:eoSpin .8s linear infinite;display:inline-block;box-sizing:border-box;flex:0 0 auto"></span></sc-if>
-                      <span>{{ viewer.media.asrLabel }}</span>
+                      <span style="flex:1 1 auto">{{ viewer.media.asrLabel }}</span>
+                      <sc-if value="{{ viewer.media.canForceTranscribe }}">
+                        <button onClick="{{ viewer.media.forceTranscribe }}" style="font-size:10.5px;font-weight:600;color:#5a49e8;background:#fff;border:1px solid #ded8fd;border-radius:6px;padding:4px 9px;flex:0 0 auto;white-space:nowrap" style-hover="background:#f1eefe">{{ viewer.media.forceTranscribeLabel }}</button>
+                      </sc-if>
                     </div>
                     <sc-if value="{{ viewer.media.hasPartial }}">
                       <div class="eo-scroll" ref="{{ viewer.media.setPartialEl }}" style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;color:#5A5A66;line-height:1.55;max-height:200px;overflow-y:auto">…{{ viewer.media.asrPartial }}</div>
@@ -3555,7 +3558,10 @@ table{border-collapse:collapse;width:100%}
                       <div style="display:flex;flex-direction:column;gap:6px;background:{{ viewer.media.asrBg }};border-radius:8px;padding:9px 12px">
                         <div style="display:flex;align-items:center;gap:9px;font-size:12px;font-weight:600;color:{{ viewer.media.asrTone }}">
                           <sc-if value="{{ viewer.media.asrBusy }}"><span style="width:13px;height:13px;border-radius:50%;border:2px solid rgba(109,94,245,.25);border-top-color:#6355f2;animation:eoSpin .8s linear infinite;display:inline-block;box-sizing:border-box;flex:0 0 auto"></span></sc-if>
-                          <span>{{ viewer.media.asrLabel }}</span>
+                          <span style="flex:1 1 auto">{{ viewer.media.asrLabel }}</span>
+                          <sc-if value="{{ viewer.media.canForceTranscribe }}">
+                            <button onClick="{{ viewer.media.forceTranscribe }}" style="font-size:10.5px;font-weight:600;color:#5a49e8;background:#fff;border:1px solid #ded8fd;border-radius:6px;padding:4px 9px;flex:0 0 auto;white-space:nowrap" style-hover="background:#f1eefe">{{ viewer.media.forceTranscribeLabel }}</button>
+                          </sc-if>
                         </div>
                         <sc-if value="{{ viewer.media.hasPartial }}">
                           <div class="eo-scroll" ref="{{ viewer.media.setPartialEl }}" style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;color:#5A5A66;line-height:1.55;max-height:160px;overflow-y:auto">…{{ viewer.media.asrPartial }}</div>
@@ -7491,6 +7497,12 @@ class Component extends DCLogic {
       else if (asr.state === 'error') { asrShow = true; asrLabel = `Transcription failed — ${asr.reason || 'error'}`; asrTone = '#B4402F'; asrBg = '#FBEAE6'; }
       else if (asr.state === 'done') { asrShow = false; }
     }
+    // Manual override for the automated signal/noise gate — shown whenever there is no transcript
+    // AND nothing is currently in flight, so a listener can force it through when the holon split
+    // misreads a real recording (or just retry after a stop/error), rather than being stuck with
+    // whatever the automated call decided. Needs the original bytes to re-decode from.
+    const canForceTranscribe = !!(s.audioRef) && !!asr && ['skipped', 'stopped', 'error'].includes(asr.state);
+    const forceTranscribeLabel = (asr && asr.state === 'skipped') ? 'Transcribe anyway' : 'Retry transcription';
     // A compact form of the transcription state for the collapsed dock handle — a short verb and,
     // while running, the live percentage so the strip carries the progress without the full banner.
     const asrPct = (asr && asr.state === 'running' && asr.pct != null) ? asr.pct : null;
@@ -7528,6 +7540,8 @@ class Component extends DCLogic {
       hasStats: stats.length > 0,
       asrShow, asrLabel, asrTone, asrBg, asrBusy, asrPartial,
       hasPartial: !!asrPartial,
+      canForceTranscribe, forceTranscribeLabel,
+      forceTranscribe: () => this._app.forceTranscribe(s.sn),
       // compact fields for the collapsible dock handle
       kindLabel: isVideo ? 'Video' : 'Audio',
       lengthLabel: clock(dur),

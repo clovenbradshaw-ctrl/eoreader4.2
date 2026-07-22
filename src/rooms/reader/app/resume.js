@@ -34,13 +34,16 @@ export const installResume = (appCtx) => {
       const ref = src.audioRef || {};
       const file = new File([bytes], src.title || 'clip', { type: ref.mime || 'audio/mpeg' });
       const { importAnyFile } = await import('../import-file.js');
-      const got = await importAnyFile(file, { signal, onProgress: (msg) => progress({ kind: 'file', label: String(msg) }) });
+      // `job.force` — set when this job began life as a manual forceTranscribe (transcript.js) —
+      // carries the gate-bypass across the reload, so a resume redoes the SAME forced transcription
+      // rather than re-asking the automated signal/noise split, which would just skip it again.
+      const got = await importAnyFile(file, { signal, forceTranscribe: !!job.force, onProgress: (msg) => progress({ kind: 'file', label: String(msg) }) });
       // Re-hydrate the session-only visualization artefacts too, so the Listen surface is whole again.
       if (got.meta) { src._wave = got.meta.waveform || src._wave; src._analysis = got.meta.analysis || src._analysis; src._holons = got.meta.holons || src._holons; }
       // Re-derive the picture reading (motion + born entities) after a reload — model-free, so it just
       // re-runs; the composite then re-forms with the resumed transcript.
       if (got.meta?.watch) await appCtx.runWatch(src, got.meta.watch, { signal, progress });
-      if (got.meta?.transcribe) await appCtx.runTranscription(src, got.meta.transcribe, { signal, progress });
+      if (got.meta?.transcribe) await appCtx.runTranscription(src, got.meta.transcribe, { signal, progress, force: !!job.force });
       else { appCtx.setAsr(src, { state: 'skipped', reason: 'no signal above the noise floor', pct: 100, partial: '' }); appCtx.settleJob(job.id, 'skipped'); appCtx.persist(); emit('sources'); }
     });
 
