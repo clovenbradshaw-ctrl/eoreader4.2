@@ -3082,15 +3082,41 @@ table{border-collapse:collapse;width:100%}
                   <sc-if value="{{ viewerIsAudio }}"><button onClick="{{ viewerModeListen }}" title="Listen — player, waveform + interactive transcript" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmListenFg }};background:{{ vmListenBg }}">Listen</button></sc-if>
                   <sc-if value="{{ viewer.isPdf }}"><button onClick="{{ viewerModePdf }}" title="The pages themselves — the document as a PDF" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmPdfFg }};background:{{ vmPdfBg }}">PDF</button></sc-if>
                   <sc-if value="{{ viewerCanPage }}"><button onClick="{{ viewerModePage }}" title="Render the real website" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmPageFg }};background:{{ vmPageBg }}">{{ vmPageLabel }}</button></sc-if>
-                  <button onClick="{{ viewerModeOverview }}" title="Source landing page — provenance, counts, ways in, findings, pins and synthesis" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmOverviewFg }};background:{{ vmOverviewBg }}">Overview</button>
                   <button onClick="{{ viewerModeReader }}" title="Read it as a clean book — toggle Links to reveal entities and cited passages" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
                   <button onClick="{{ viewerModeFacing }}" title="The document beside how the system read it" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmFacingFg }};background:{{ vmFacingBg }}">{{ vmFacingLabel }}</button>
-                  <button onClick="{{ viewerModeRaw }}" title="The raw text — every character, exactly as stored, line by line" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmRawFg }};background:{{ vmRawBg }}">Raw</button>
-                  <!-- Structure tab (byte-structure binvis surface) hidden — not useful enough to earn its
-                       place in the bar. Mount code (setStructureEl, mountBinvis) stays intact below in case
-                       it's worth resurfacing later; only the entrance is gone. -->
-                  <button onClick="{{ viewerModeGraph }}" title="This source's knowledge graph — the figures it names and the bonds among them. Click a node to open its profile." style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmGraphFg }};background:{{ vmGraphBg }}">Graph</button>
-                  <button onClick="{{ viewerModeEot }}" title="Every proposition this reading admitted, with its own thinking alongside" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmEotFg }};background:{{ vmEotBg }}">{{ vmEotLabel }} · {{ viewer.eotCount }}</button>
+                </span>
+                <!-- INSPECT — Overview, Raw, Graph, Metadata (EoT) and the Audit trail all used to be
+                     persistent tabs competing with Reader for the same row; they now sit one deliberate
+                     click away, off the primary reading path by default. Each item still rides the SAME
+                     viewer-mode state its surface already used (Structure/binvis stays hidden here too,
+                     unchanged from before — never earned its place). -->
+                <span style="position:relative">
+                  <button onClick="{{ toggleInspectMenu }}" title="Inspect — provenance, raw text, the knowledge graph, every admitted proposition, and the audit trail" style="display:flex;align-items:center;gap:4px;padding:4px 11px;border-radius:6px;font-size:11px;font-weight:600;color:{{ inspectFg }};background:{{ inspectBg }};border:1px solid {{ inspectBd }}" style-hover="filter:brightness(.97)">Inspect ▾</button>
+                  <sc-if value="{{ inspectMenuOpen }}">
+                    <div class="eo-scroll" style="position:absolute;left:0;top:calc(100% + 6px);z-index:35;background:#fff;border:1px solid #ececf0;border-radius:11px;box-shadow:0 14px 40px rgba(20,20,30,.16);padding:6px;width:260px;max-height:360px;overflow-y:auto;animation:eoFade .14s ease">
+                      <button onClick="{{ viewerModeOverview }}" style="display:block;width:100%;text-align:left;border-radius:8px;padding:7px 9px;font-size:12.5px;font-weight:600;color:#2a2a32;background:{{ inspectOverviewBg }}" style-hover="background:#f1eefe">
+                        Overview
+                        <div style="font-size:10.5px;font-weight:500;color:#8a8a95;margin-top:1px">Provenance, counts, ways in, findings, pins and synthesis</div>
+                      </button>
+                      <button onClick="{{ viewerModeRaw }}" style="display:block;width:100%;text-align:left;border-radius:8px;padding:7px 9px;font-size:12.5px;font-weight:600;color:#2a2a32;background:{{ inspectRawBg }}" style-hover="background:#f1eefe">
+                        Raw
+                        <div style="font-size:10.5px;font-weight:500;color:#8a8a95;margin-top:1px">Every character, exactly as stored, line by line</div>
+                      </button>
+                      <button onClick="{{ viewerModeGraph }}" style="display:block;width:100%;text-align:left;border-radius:8px;padding:7px 9px;font-size:12.5px;font-weight:600;color:#2a2a32;background:{{ inspectGraphBg }}" style-hover="background:#f1eefe">
+                        Graph
+                        <div style="font-size:10.5px;font-weight:500;color:#8a8a95;margin-top:1px">The figures this source names and the bonds among them</div>
+                      </button>
+                      <button onClick="{{ viewerModeEot }}" style="display:block;width:100%;text-align:left;border-radius:8px;padding:7px 9px;font-size:12.5px;font-weight:600;color:#2a2a32;background:{{ inspectEotBg }}" style-hover="background:#f1eefe">
+                        Metadata <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#a6a6ae">· {{ viewer.eotCount }}</span>
+                        <div style="font-size:10.5px;font-weight:500;color:#8a8a95;margin-top:1px">Every proposition this reading admitted, with its own thinking alongside</div>
+                      </button>
+                      <div style="height:1px;background:#ececf0;margin:5px 2px"></div>
+                      <button onClick="{{ inspectAudit }}" style="display:block;width:100%;text-align:left;border-radius:8px;padding:7px 9px;font-size:12.5px;font-weight:600;color:#2a2a32" style-hover="background:#f1eefe">
+                        Audit trail
+                        <div style="font-size:10.5px;font-weight:500;color:#8a8a95;margin-top:1px">Every claim traces to a passage, a stored source, and a hash-verified file</div>
+                      </button>
+                    </div>
+                  </sc-if>
                 </span>
                 <span style="flex:1"></span>
                 <sc-if value="{{ viewerIsReader }}">
@@ -5403,7 +5429,7 @@ class Component extends DCLogic {
       // A turning point clicked open in the waveform of surprise: the surprising sentence held up
       // in a modal (line, Δbelief/pull, the EO operations that fired), with a jump into the reader.
       surpriseModal: null,
-      modelOpen: false, topicMenu: null, exportMenuOpen: false, transcriptMenuOpen: false,
+      modelOpen: false, topicMenu: null, exportMenuOpen: false, transcriptMenuOpen: false, inspectMenuOpen: false,
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
       wsMenuOpen: false, wsRenameId: null,
       // Source explorer (the Sources tab is a Drive): explorerFolder is the folder currently
@@ -6742,7 +6768,7 @@ class Component extends DCLogic {
     // own "Sources N" badge promises this topic's sources but the Drive opens on a stale "All
     // sources" (or another topic's) view instead.
     const enteringRegister = tab === 'register' && this.state.tab !== 'register';
-    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}), ...(enteringRegister ? { explorerBucket: 'topic', explorerFolder: null, explorerSel: null, explorerShowAll: false } : {}) };
+    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, inspectMenuOpen: false, tocOpen: false, listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}), ...(enteringRegister ? { explorerBucket: 'topic', explorerFolder: null, explorerSel: null, explorerShowAll: false } : {}) };
     // Jumping straight to a root screen (the bottom tabs, or any of the "Ask about this topic" /
     // "View findings" style CTAs that land on the same five ids) is a deliberate reset of the
     // mobile view stack, not one more hop to chain onto — Back from a fresh root should never
@@ -7675,7 +7701,7 @@ class Component extends DCLogic {
     // previously only cleared this on a topic switch; a same-topic source change leaked it too.
     const entityScopePatch = (this.state.entitySel && this.state.entitySel.docId !== sn) ? { entitySel: null } : {};
     // Open the source AS A TAB in the main stage and make it the active tab.
-    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, readerProgress: 0, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...mobilePatch, ...entityScopePatch });
+    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, readerProgress: 0, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, inspectMenuOpen: false, ...mobilePatch, ...entityScopePatch });
     if (modes[sn] === 'native') this.loadPage(sn);
     if (modes[sn] === 'pdf') this.loadPdf(sn);
     this._syncRoute();
@@ -7714,7 +7740,7 @@ class Component extends DCLogic {
       const top = this._mStack[this._mStack.length - 1];
       if (top && top.tab === sn && top.mode != null) top.mode = mode;
     }
-    this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false });
+    this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, inspectMenuOpen: false });
     if (mode === 'native') this.loadPage(sn);
     if (mode === 'pdf') this.loadPdf(sn);
     this._syncRoute();
@@ -8152,6 +8178,12 @@ class Component extends DCLogic {
   }
   toggleExportMenu() { this.setState({ exportMenuOpen: !this.state.exportMenuOpen }); }
   toggleTranscriptMenu() { const v = !this.state.transcriptMenuOpen; this.setState({ transcriptMenuOpen: v, listenTocOpen: false, listenVoicesOpen: false, listenRedactOpen: false }); }
+  // INSPECT — the drawer that holds Overview/Raw/Graph/Metadata + the Audit trail, off the primary
+  // reading path by default (docs: the P0 "everything that used to dominate the experience belongs
+  // under a single Inspect drawer"). Selecting an item rides the SAME viewer-mode state those
+  // surfaces already used — only the entrance changed, from a persistent tab to a deliberate click.
+  toggleInspectMenu() { const v = !this.state.inspectMenuOpen; this.setState({ inspectMenuOpen: v, transcriptMenuOpen: false }); }
+  openInspectAudit() { this.setState({ inspectMenuOpen: false }); this.openMonologue(); }
   // Download the active audio source's transcript in one of the export formats (subtitles, JSON,
   // the elegant by-speaker read, the process trace) — built by the engine (transcript-export.js).
   exportTranscriptAs(id) {
@@ -14128,6 +14160,18 @@ class Component extends DCLogic {
       vmStructureFg: vMode === 'structure' ? '#1B1B22' : '#8A8A95', vmStructureBg: vMode === 'structure' ? '#fff' : 'transparent',
       vmGraphFg: vMode === 'graph' ? '#1B1B22' : '#8A8A95', vmGraphBg: vMode === 'graph' ? '#fff' : 'transparent',
       vmEotFg: vMode === 'eot' ? '#1B1B22' : '#8A8A95', vmEotBg: vMode === 'eot' ? '#fff' : 'transparent',
+      // INSPECT drawer — Overview/Raw/Graph/Metadata + the Audit trail, tucked behind one button.
+      // The button itself reads as active whenever the open mode is one Inspect owns, so leaving it
+      // open doesn't look like the reading was lost.
+      inspectMenuOpen: !!st.inspectMenuOpen, toggleInspectMenu: () => this.toggleInspectMenu(),
+      inspectFg: (st.inspectMenuOpen || ['overview', 'raw', 'graph', 'eot'].includes(vMode)) ? '#1B1B22' : '#8A8A95',
+      inspectBg: (st.inspectMenuOpen || ['overview', 'raw', 'graph', 'eot'].includes(vMode)) ? '#fff' : 'transparent',
+      inspectBd: st.inspectMenuOpen ? '#ded8fd' : 'transparent',
+      inspectOverviewBg: vMode === 'overview' ? '#f1eefe' : 'transparent',
+      inspectRawBg: vMode === 'raw' ? '#f1eefe' : 'transparent',
+      inspectGraphBg: vMode === 'graph' ? '#f1eefe' : 'transparent',
+      inspectEotBg: vMode === 'eot' ? '#f1eefe' : 'transparent',
+      inspectAudit: () => this.openInspectAudit(),
       // Listen surface — the interactive transcript refs + edit/redaction actions
       setListenAudio: (el) => this.setListenAudio(el),
       setListenTranscript: (el) => this.setListenTranscript(el),
