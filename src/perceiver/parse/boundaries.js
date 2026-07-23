@@ -32,9 +32,11 @@
 import { createEnactedLoop } from '../../core/enacted/index.js';
 import { segmentSentences } from './sentences.js';
 
-// The marks the reader is allowed to promote — punctuation that, in some dialects,
-// separates sentences. Never letters or spaces; presence is bedrock.
-const CANDIDATE_MARKS = Object.freeze([':', ';']);
+// The marks the reader is allowed to promote — punctuation that, in some dialects or
+// modalities, separates sentences/units. Never letters or spaces; presence is bedrock.
+// MODALITY-AGNOSTIC: includes marks from prose (: for archaic text), code (; newline),
+// and other modalities.
+const CANDIDATE_MARKS = Object.freeze([':', ';', '\n']);
 
 // Subjects that open an independent clause after a mark (a new proposition, not a
 // list item): a capitalised word or a pronoun, early-modern included.
@@ -44,15 +46,29 @@ const CLAUSE_OPENER = /^\s*(?:and\s+)?(?:[A-Z][a-z]+|he|she|they|it|we|I|you|tho
 // A mark counts only when an independent clause of real length follows it — so a
 // colon before a short list item ("sons: Shem, Ham") does not strain, but a colon
 // before a clause ("of Shem: Shem was an hundred years old…") does.
+// For newlines (code modality), a line break counts as a fused boundary if followed
+// by a non-empty line of real length.
 const fusionByMark = (unit, ignored) => {
   const counts = {};
   for (const mk of ignored) counts[mk] = 0;
   for (let i = 0; i < unit.length; i++) {
     const ch = unit[i];
     if (!ignored.has(ch)) continue;
+
+    // Handle newlines specially: test if next line has content
+    if (ch === '\n') {
+      const after = unit.slice(i + 1);
+      const nextLine = after.split('\n')[0].trim();
+      if (nextLine.length > 0 && nextLine.split(/\s+/).length >= 2) {
+        counts['\n']++;
+      }
+      continue;
+    }
+
+    // Original logic for : ; . ! ?
     const after = unit.slice(i + 1);
     if (!CLAUSE_OPENER.test(after)) continue;
-    const seg = after.split(/[:;.!?]/)[0].trim();
+    const seg = after.split(/[:;\n.!?]/)[0].trim();
     if (seg.split(/\s+/).filter(Boolean).length >= 4) counts[ch]++;   // a clause, not a fragment
   }
   return counts;
@@ -74,7 +90,8 @@ export const induceBoundaries = (text, { isAbbreviation, thresholds, confirmBand
     if (units.length < 4) break;                       // too thin to fit a convention
 
     // EVA strain per unit, and the per-mark tally that decides the restructuring.
-    const total = { ':': 0, ';': 0 };
+    const total = {};
+    for (const mk of ignored) total[mk] = 0;
     const strain = units.map((u) => {
       const f = fusionByMark(u, ignored);
       let s = 0;

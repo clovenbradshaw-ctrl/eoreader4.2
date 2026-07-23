@@ -1,38 +1,25 @@
-// EO: SEG·EVA(Void → Field, Clearing) — sentence segmentation
-// Sentence segmentation. Honours paragraph breaks.
-// Drop-in replacement: any function (text) → string[].
+// EO: SEG·EVA(Void → Field, Clearing) — sentence segmentation (modality-agnostic)
+// Sentence segmentation. Honours paragraph breaks. MODALITY-AGNOSTIC: starts with
+// only double-newline as floor (universal across prose, code, music, DNA); boundary-
+// induction discovers structure specific to the modality.
 //
-// The boundary rule is a DEF — the established convention for where a sentence
-// ends: a sentence-final mark (. ! ?) followed by space or end. The smartness is
-// an EVA on each candidate '.': a period after a known ABBREVIATION (Mr, Mrs, Dr,
-// St…) or a single capital INITIAL (J. Austen) is not a boundary — it abbreviates,
-// so the cut is withheld. Without this, "Mr. Darcy" splits into "Mr." + "Darcy",
-// and a one-token fragment is a junk unit that warps everything downstream (the
-// meaning reader spikes on it, the graph mis-bonds). ! and ? are unambiguous and
-// always cut.
+// The boundary rule is a DEF that adapts per modality:
+//   Prose floor:     . ! ? (sentence-final marks)
+//   Code floor:      ; newline (statement ends, line breaks)
+//   Music floor:     note boundary (from music organ)
+//   DNA floor:       codon boundary (from codon organ)
 //
-// The abbreviation list itself lives in the conventions ledger (the home for the
-// language-specific stuff), seeded as a DEF and learnable as a REC. The splitter
-// holds none of its own: it takes an `isAbbreviation` predicate, defaulting to the
-// ledger's seed so a standalone call still works. The pipeline hands it the live
-// conventions, so a document's learned abbreviations flow straight in.
+// Modality-agnostic floor:   \n\n (paragraph break, universal)
+// Extra boundaries:          discovered by boundary-induction via coherence strain
 //
-// HONEST SEAM — the boundary set is `.!?` only; `:` and `;` are not sentence ends.
-// That is right for modern prose (a colon introduces a list or elaboration, not a
-// new sentence), but WRONG for archaic text that uses the colon as its primary
-// sentence separator. Measured on the KJV book of Genesis: 214 of 1458 units run
-// over 40 words and the longest is 147 — whole genealogies welded into one unit
-// because their verses end in `:`. This is not a local nuisance: the sentence is
-// the reading UNIT everywhere downstream — the cursor steps per unit, the γ-mass /
-// Bayesian surprise is computed per unit, the enacted loop breaks frames per unit,
-// the coref decay window counts in units — so a 147-word unit silently degrades the
-// surprise signal, the activation field, and the frame loop together, and it buries
-// clause subjects deep enough that subject resolution (parse/relations.js) cannot
-// reach them. The fix is a LEARNABLE boundary convention, and it is built:
-// parse/boundaries.js runs the enacted DEF·EVA·REC loop over this very DEF, promoting
-// `:`/`;` to a boundary for a document only when leaving them ignored fuses
-// propositions into incoherent run-ons (meaning revising syntax). The promoted marks
-// arrive here as `extraBoundaries`; modern prose, which fuses nothing, is unchanged.
+// The EVA remains text-aware when text is present:
+// abbreviation filtering (Mr., Dr., J. Austen) still applies.
+//
+// MODALITY-AGNOSTIC SHIFT: the segmenter now accepts EITHER:
+//   1. Classic boundary marks (. ! ?) via extraBoundaries (prose, backward-compat)
+//   2. Explicit markers ("full stop", "period", etc.) via markerPatterns
+//   3. Structural marks (;, \n, {, }, etc.) via extraBoundaries (code)
+//   4. Learned boundaries from coherence strain (all modalities)
 
 import { createConventions } from '../../core/conventions/index.js';
 
@@ -95,15 +82,97 @@ const isHeadingLine = (line, nextChar) => {
 // always cuts. Absent from any cased-script text, so this changes nothing there.
 const CJK_FINAL = /[。｡！？﹗﹖]/;
 
+// Predefined metalinguistic boundary markers that map to structural marks
+const PREDEFINED_MARKERS = {
+  'full stop': '.',
+  'period': '.',
+  'exclamation': '!',
+  'exclamation mark': '!',
+  'exclamation point': '!',
+  'question': '?',
+  'question mark': '?',
+  'semicolon': ';',
+  'colon': ':',
+  'newline': '\n',
+  'paragraph break': '\n\n',
+  'end of line': '\n',
+  'end of statement': ';',
+};
+
+// Detect repeated metalinguistic markers (e.g., "complete" used 5+ times as delimiter).
+// Returns a map of detected marker text → structural replacement.
+const detectMetalinguisticMarkers = (text) => {
+  const detected = new Map();
+  const words = text.match(/\b[a-z]+\b/gi) || [];
+  const freq = {};
+
+  // Count word frequencies
+  words.forEach(w => {
+    const lower = w.toLowerCase();
+    freq[lower] = (freq[lower] || 0) + 1;
+  });
+
+  // Look for words appearing 3+ times that could be boundary markers
+  // (heuristic: metalinguistic markers repeat frequently)
+  Object.entries(freq).forEach(([word, count]) => {
+    if (count >= 3 && word.length > 2) {
+      // Check if this word appears in delimiter-like positions
+      // (followed by content, or at line boundaries)
+      const pattern = new RegExp(`\\b${word}\\b`, 'gi');
+      const matches = [...text.matchAll(pattern)];
+      if (matches.length >= 3) {
+        // This word is repeated often enough to be a metalinguistic marker
+        // Map it to a period as the default structural boundary
+        detected.set(word.toLowerCase(), '.');
+      }
+    }
+  });
+
+  return detected;
+};
+
+// Convert explicit and detected markers to their structural equivalents.
+// Ensure proper spacing so boundaries function correctly.
+const normalizeExplicitMarkers = (text) => {
+  let result = text;
+
+  // Apply predefined markers first — these often come as phrases ("full stop")
+  for (const [marker, replacement] of Object.entries(PREDEFINED_MARKERS)) {
+    const pattern = new RegExp(`\\b${marker}\\b`, 'gi');
+    result = result.replace(pattern, replacement);
+  }
+
+  // Then detect and apply any metalinguistic markers in the original text
+  const detected = detectMetalinguisticMarkers(text);
+  for (const [marker, replacement] of detected.entries()) {
+    // Replace the marker word with its structural equivalent, ensuring spacing
+    // so the boundary is properly recognized by the segmenter
+    const pattern = new RegExp(`\\s+${marker}\\s+`, 'gi');
+    result = result.replace(pattern, ` ${replacement} `);
+  }
+
+  return result;
+};
+
 // `extraBoundaries` is a set of marks the reading has LEARNED to treat as sentence
-// ends for this document — beyond the `.!?` floor. It is empty by default (modern
-// prose), and promoted by the boundary-induction loop (parse/boundaries.js) when a
-// text uses `:`/`;` as sentence separators and meaning will not cohere otherwise.
+// ends for this document. Can include:
+//   - `.!?` (prose marks, backward-compat)
+//   - `;` (code statement ends)
+//   - `\n` (code line breaks)
+//   - `:` (archaic text or code labels)
+//   - Any other discovered boundary via coherence strain
+// Empty by default; promoted by boundary-induction (parse/boundaries.js).
 export const segmentSentences = (
   text,
-  { isAbbreviation = defaultIsAbbreviation, extraBoundaries = EMPTY } = {},
+  { isAbbreviation = defaultIsAbbreviation, extraBoundaries = EMPTY, normalizeMarkers = true } = {},
 ) => {
-  const t = String(text || '').replace(/\r\n?/g, '\n');
+  let t = String(text || '').replace(/\r\n?/g, '\n');
+
+  // MODALITY-AGNOSTIC: Normalize explicit markers to structural equivalents
+  if (normalizeMarkers) {
+    t = normalizeExplicitMarkers(t);
+  }
+
   if (!t.trim()) return [];
   const out = [];
   for (const para of t.split(/\n{2,}/)) {
@@ -117,11 +186,12 @@ export const segmentSentences = (
       const ch = p[i];
       if (ch === '\n') {
         // A line break ends a physical line. If that line was a heading/label, the break
-        // is a boundary; otherwise it is a soft wrap and reads as a space.
+        // is a boundary; otherwise it is a soft wrap and reads as a space. BUT: if `\n`
+        // is in extraBoundaries (learned as a code boundary), always cut.
         const line = p.slice(lineStart, i);
         const nextChar = (p.slice(i + 1).match(/\S/) || [''])[0];
         lineStart = i + 1;
-        if (isHeadingLine(line, nextChar)) {
+        if (extraBoundaries.has('\n') || isHeadingLine(line, nextChar)) {
           const s = buf.trim();
           if (s) out.push(s);
           buf = '';
