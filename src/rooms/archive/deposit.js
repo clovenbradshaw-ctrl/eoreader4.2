@@ -21,13 +21,14 @@
 // becomes { ok:false, stage, error }, mirroring the webhook's own envelope.
 
 import { checkpointId, checkpointUrl, contentHash } from './checkpoints.js';
+import { webhookUrl } from '../../organs/ingest/index.js';
 
 // The checkpoint webhook — honors a client identifier (idempotent). A sibling of the
 // feed proxy the reader already speaks to, on the same n8n instance.
-export const ARCHIVE_CASES_WEBHOOK = 'https://n8n.intelechia.com/webhook/archiveo-cases';
+export const ARCHIVE_CASES_WEBHOOK = webhookUrl('archiveo-cases');
 // The consent/redaction webhook — validates server-side but mints its own UUID per
 // upload (not idempotent). Kept for reference / non-checkpoint use.
-export const ARCHIVE_WEBHOOK = 'https://n8n.intelechia.com/webhook/archiveo';
+export const ARCHIVE_WEBHOOK = webhookUrl('archiveo');
 
 // The three acknowledgements before a permanent deposit: it is permanent, may expose
 // private matter, and you hold the rights.

@@ -37,6 +37,7 @@ export { CIVIC_CATALOG, searchCatalog, renderCatalogEntry, discoverCivic, fetchC
 // Which endpoints answer a browser cross-origin, so the fetch can skip the proxy chain entirely —
 // the Wikimedia API family and OpenAlex. Keeps the common search routes alive through a proxy outage.
 export { directCorsUrl } from './direct-cors.js';
+export { DEFAULT_WEBHOOK_BASE, WEBHOOK_BASE_STORAGE_KEY, normalizeWebhookBase, configuredWebhookBase, webhookUrl } from './webhook-config.js';
 // The library sources: Project Gutenberg (search the catalog, read ENTIRE BOOKS as needed) and
 // the Wikimedia reference shelf — every sister project plus Wikidata — as search kinds that ride
 // the same fetch-through-proxy, admit-with-provenance path (docs/web-search.md).
