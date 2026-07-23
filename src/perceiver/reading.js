@@ -339,6 +339,32 @@ export const readingAt = (doc, cursor, opts = {}) => {
     out.bridge = round(bridge);
     out.bridgeAxis = axis;       // [labelA, labelB] of the bridging pair, or null
   }
+  // THE GROUND / TERRAIN channels (docs/ground-column §0) — OPT-IN so default
+  // reading stays byte-identical (the parity gate). The three prior channels
+  // this file maintains ARE the three Ground terrains of the cube: what the
+  // span was READ AGAINST, not what it asserts (representation.schema.json's
+  // Ground grain — "an ambient/prior condition, not asserted by it").
+  //   Existence × Void        the γ-mass reserve of entities already standing
+  //   Structure × Field       the standing bond field (what is connected)
+  //   Interpretation × Atmosphere  the belief field (what is taken to be the case)
+  // Exposed as amplitudes so a downstream fold (eoPriors) can carry the prior
+  // column as Ground-grain evidence instead of recomputing the γ-decay itself.
+  // `recurrence` reports COUNTS of what this span re-instances that already
+  // stood — the raw material for Pattern grain — but the grain contract holds:
+  // only the projector's condensation (emergence) may mint Pattern-grain
+  // holons; the reader just reports the counts.
+  if (opts.terrains) {
+    let voidMass = 0; for (const v of priorMass.values()) voidMass += v;
+    let atmosphereMass = 0; for (const v of priorProp.values()) atmosphereMass += v;
+    const recurEntities = insAt.filter((id) => firstIns.has(id) && firstIns.get(id) < at).length;
+    const recurBonds = relAt.filter((r) => priorBond.has(`${r.src}|${r.tgt}`)).length;
+    out.ground = {
+      void: round(voidMass),          // Existence — γ-mass of entities standing before this span
+      field: priorBond.size,          // Structure — bonds standing before this span
+      atmosphere: round(atmosphereMass), // Interpretation — γ-mass of the belief/proposition field
+    };
+    out.recurrence = { entities: recurEntities, bonds: recurBonds };
+  }
   return out;
 };
 
