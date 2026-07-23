@@ -34,7 +34,7 @@
 // was read under (L2); the default Lens leaves output byte-identical (L4).
 
 import { CONVERSATIONAL_CAP } from '../turn/converse/index.js';
-import { surpriseAt, forwardDist, bridgeSurprise, noveltyAmplitude } from '../core/index.js';
+import { surpriseAt, forwardDist, bridgeSurprise, noveltyAmplitude, terrainOf } from '../core/index.js';
 import { resolveLens, lensId } from './lens.js';
 
 const NOVELTY = 1.0;   // the VOID prior (Existence × Ground): reserved prior mass for an
@@ -318,6 +318,20 @@ export const readingAt = (doc, cursor, opts = {}) => {
     // Tagged conversational warmth folded into the prior this turn (0 when the
     // expect door wasn't used). Separable, so the fold can subtract the echo.
     conversationalPrior: round(conversationalPrior),
+    // The cube's Ground column, exposed as first-class evidence for downstream folds.
+    // These are PRIOR masses, not span-local Figure events: Void is the live novelty
+    // reserve, Field is the structural bond prior, and Atmosphere is the proposition
+    // prior the Bayesian-surprise channel reads. Consumers can now type a holon by the
+    // ground it rested on, not only by the figures it happened to name.
+    ground: Object.freeze({
+      novelty: Object.freeze({ terrain: terrainOf('Existence', 'Ground'), mass: round(figReserve), probability: round(pNovel) }),
+      bonds: Object.freeze({ terrain: terrainOf('Structure', 'Ground'), mass: priorBond.size }),
+      propositions: Object.freeze({
+        terrain: terrainOf('Interpretation', 'Ground'),
+        mass: round([...priorProp.values()].reduce((a, b) => a + b, 0)),
+        axes: priorProp.size,
+      }),
+    }),
   };
   // p(next | profile) — the explicit forward distribution, OPT-IN so default reading stays
   // byte-identical (the parity gate). It is the object the generator draws from (Part II)
