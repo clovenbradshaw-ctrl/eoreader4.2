@@ -96,42 +96,62 @@ test('gate: an exact restatement is continuous', () => {
   assert.equal(g.counts.dropped, 0);
 });
 
-test('gate: a new bond FABRICATES in a closed task and refuses', () => {
+test('gate: a new bond is UNGROUNDED under scope=derivability and refuses (old name: fabricated)', () => {
+  const before = propositionsOf(codeDoc());
+  const after = new Map([['ledger ⟩ owns ⟩ chargecard', { sub: 'ledger', rel: 'owns', dif: 'chargeCard', pol: '+' }]]);
+  const g = continuityGate(before, after, { scope: 'derivability' });
+  assert.equal(g.verdict, 'ungrounded');
+  assert.equal(g.ok, false);
+  assert.equal(g.refuses, true);
+  assert.ok(g.fired.some((f) => f.id === 'proposition-ungrounded' && f.refuses));
+  assert.ok(g.fired.some((f) => f.id === 'proposition-fabricated' && f.refuses), 'back-compat alias still fires this release');
+});
+
+test('gate: the deprecated mode:"closed" still works and logs a deprecation, mapping to scope=derivability', () => {
   const before = propositionsOf(codeDoc());
   const after = new Map([['ledger ⟩ owns ⟩ chargecard', { sub: 'ledger', rel: 'owns', dif: 'chargeCard', pol: '+' }]]);
   const g = continuityGate(before, after, { mode: 'closed' });
-  assert.equal(g.verdict, 'fabricated');
+  assert.equal(g.scope, 'derivability');
+  assert.equal(g.verdict, 'ungrounded');
   assert.equal(g.ok, false);
-  assert.equal(g.refuses, true);
-  assert.ok(g.fired.some((f) => f.id === 'proposition-fabricated' && f.refuses));
 });
 
-test('gate: the same new bond is a PROPOSAL in an open task and passes', () => {
+test('gate: the same new bond is a PROPOSAL under scope=truth and passes, does not refuse', () => {
   const before = propositionsOf(codeDoc());
   const after = new Map([['refund ⟩ imports ⟩ ledger', { sub: 'refund', rel: 'imports', dif: 'ledger', pol: '+' }]]);
-  const g = continuityGate(before, after, { mode: 'open' });
-  assert.equal(g.verdict, 'proposed');
+  const g = continuityGate(before, after, { scope: 'truth' });
+  assert.equal(g.verdict, 'proposal');
   assert.equal(g.ok, true);
+  assert.equal(g.refuses, false);
   assert.equal(g.counts.proposals, 1);
   assert.equal(g.fired.length, 0);   // a proposal is surfaced, never fired
 });
 
-test('gate: a flipped bond CONTRADICTS and refuses in either mode', () => {
+test('gate: a flipped bond CONTRADICTS and refuses in either scope', () => {
   const neg = new Map([['ledger ⟩ imports ⟩ auth', { sub: 'ledger', rel: 'imports', dif: 'auth', pol: '-' }]]);
   const pos = new Map([['ledger ⟩ imports ⟩ auth', { sub: 'ledger', rel: 'imports', dif: 'auth', pol: '+' }]]);
-  for (const mode of ['open', 'closed']) {
-    const g = continuityGate(neg, pos, { mode });
+  for (const scope of ['truth', 'derivability']) {
+    const g = continuityGate(neg, pos, { scope });
     assert.equal(g.verdict, 'contradicted');
     assert.equal(g.ok, false);
     assert.ok(g.fired.some((f) => f.id === 'proposition-contradicted' && f.refuses));
   }
 });
 
+test('gate: a base that was NULL (declared-closure, no reading either way) and now witnessed does not refuse', () => {
+  const before = new Map([['ledger ⟩ imports ⟩ auth', { sub: 'ledger', rel: 'imports', dif: 'auth', pol: POLARITY.NULL }]]);
+  const after = new Map([['ledger ⟩ imports ⟩ auth', { sub: 'ledger', rel: 'imports', dif: 'auth', pol: '+' }]]);
+  const g = continuityGate(before, after, { scope: 'derivability' });
+  assert.equal(g.verdict, 'witnessed');
+  assert.equal(g.ok, true);
+  assert.equal(g.refuses, false);
+});
+
 test('gate: requireTotal makes erosion a hard fail', () => {
   const before = propositionsOf(codeDoc());
   const after = new Map([['chargecard ⟩ imports ⟩ ledger', { sub: 'chargeCard', rel: 'imports', dif: 'ledger', pol: '+' }]]);
-  assert.equal(continuityGate(before, after, { mode: 'closed' }).ok, true);
-  assert.equal(continuityGate(before, after, { mode: 'closed', requireTotal: true }).ok, false);
+  assert.equal(continuityGate(before, after, { scope: 'derivability' }).ok, true);
+  assert.equal(continuityGate(before, after, { scope: 'derivability', requireTotal: true }).ok, false);
 });
 
 // ── the driver, end to end (echo/stub backend) ─────────────────────────────────────
@@ -145,9 +165,9 @@ test('generateOverStructure runs the whole loop and gates a faithful answer', as
   assert.equal(r.gate.ok, true);
 });
 
-test('generateOverStructure catches a fabrication in a closed task', async () => {
+test('generateOverStructure catches an ungrounded addition in a closed task', async () => {
   const r = await generateOverStructure({ model: stub('Referent2 -> Referent1 : owns'), doc: codeDoc(), task: 't', mode: 'closed' });
-  assert.equal(r.gate.verdict, 'fabricated');
+  assert.equal(r.gate.verdict, 'ungrounded');
   assert.equal(r.gate.ok, false);
   assert.match(r.restored, /ledger -> chargeCard : owns/);
 });
