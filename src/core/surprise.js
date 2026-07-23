@@ -91,7 +91,17 @@ export const surpriseAt = (prior, arrival, { gamma, novelty = NOVELTY_RESERVE, a
   for (const k of support) {                   // enacted loop accumulates so a REC knows what broke it
     const pPost = postMass.get(k) / denomPost;
     if (pPost <= 0) continue;
-    const c = pPost * Math.log2(pPost / (priorW(k) / sumW));
+    // priorW(k) can UNDERFLOW to exactly 0 for a `k` already `prior.has(k)`: its mass is
+    // γ^(at−1−firstSeenSentIdx), and for `at` far enough past a stale, never-since-refreshed
+    // atom that exponent underflows past Number.MIN_VALUE to a literal 0.0. If that same atom
+    // then recurs in `arrival` (pPost > 0), dividing by priorW(k)/sumW = 0 makes the KL term
+    // Infinity — a real occurrence, not a hypothetical: confirmed on a full read of Frankenstein,
+    // 43/3364 spans past sentence ~2153 (0.7^2153 underflows). The reserve atom below exists for
+    // exactly this "unseen" case, but `prior.has(k)` is true here (the atom IS in the map, just
+    // at 0.0), so that branch never fires. Floor instead, matching the 1e-6 epsilon this same
+    // reading pipeline already uses elsewhere (reading.js's pOf floors) — still a large, finite
+    // surprise for a genuine long-range recurrence, never a NaN/Infinity that poisons a sum.
+    const c = pPost * Math.log2(pPost / Math.max(priorW(k) / sumW, 1e-6));
     bayesBits += c;
     if (c > 0) { const a = axisLabel(k); bayesBy[a] = round((bayesBy[a] || 0) + c); }  // belief moved TOWARD it
   }
