@@ -147,6 +147,8 @@ export { createReader, interpret, curiousSurf } from './reader.js';
 
 // (seam healing) re-exported so the module stays behind the entrance
 export { retreads } from './salience.js';
+// Recurring Kinds — detected, not asserted (Born-rule density clustering over entity activations).
+export { detectKinds } from './kinds.js';
 
 // Answer a question AS THE RECORD HOLDS IT from inside one figure's fold — a mechanically bounded
 // projection of the figure's own claims (never roleplay), gated by referential containment, that
