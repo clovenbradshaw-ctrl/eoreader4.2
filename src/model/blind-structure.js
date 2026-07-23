@@ -42,6 +42,7 @@
 import { redactEot, restore, assertNoNameLeak, EOT_LEGEND } from '../weave/write/index.js';
 import { eotDoc } from '../organs/ingest/index.js';
 import { projectGraph, propositionOfEdge } from '../core/index.js';
+import { POLARITY } from './polarity.js';
 
 // ── the charge — a REASONER over structure, not the prosifier redact.js ships ──────────────────
 // redact.js's EOT carrier tells the model to turn the reading into speech. This tells it to REASON
@@ -111,23 +112,39 @@ export const makeStreamRestorer = (table) => {
 // sharpest signal. Built off projectGraph's SIG/CON edges via the core's own propositionOfEdge, so
 // this reads the same relation currency the edge-grounding veto does (factcheck/correspond.js).
 const normLabel = (s) => String(s ?? '').trim().toLowerCase();
-export const propositionsOf = (doc) => {
+// propositionsOf(doc, { closure, universe }) — `closure: 'open'` (default) is the
+// original behavior: an unread base is simply absent from the map, byte-identical to
+// the pre-trichotomy reading. `closure: 'declared'` additionally materializes every
+// base in the caller-supplied `universe` that this doc did NOT read, with
+// `pol: POLARITY.NULL` — the third state (¬⊢A), never inferred, only ever declared.
+export const propositionsOf = (doc, { closure = 'open', universe = null } = {}) => {
   const out = new Map();
-  if (!doc?.log) return out;
+  if (!doc?.log) {
+    if (closure === 'declared') for (const base of universe || []) out.set(base, nullProposition(base));
+    return out;
+  }
   let graph;
-  try { graph = projectGraph(doc.log, {}); } catch { return out; }
-  const has = (id) => graph.entities?.has?.(id);
-  const labelOf = (id) => graph.entities?.get?.(id)?.label ?? String(id);
-  for (const e of graph.edges || []) {
+  try { graph = projectGraph(doc.log, {}); } catch { graph = null; }
+  const has = (id) => graph?.entities?.has?.(id);
+  const labelOf = (id) => graph?.entities?.get?.(id)?.label ?? String(id);
+  for (const e of graph?.edges || []) {
     const p = propositionOfEdge(e);
     const sub = labelOf(p.substrate);
     const dif = has(p.differentia) ? labelOf(p.differentia) : String(p.differentia);   // a type/literal rides as itself
-    const pol = p.polarity === '-' ? '-' : '+';
+    const pol = p.polarity === '-' ? POLARITY.NEG : POLARITY.POS;
     const base = `${normLabel(sub)} ⟩ ${normLabel(p.relation)} ⟩ ${normLabel(dif)}`;
     if (!out.has(base)) out.set(base, { sub, rel: p.relation, dif, pol });
   }
+  if (closure === 'declared') {
+    for (const base of universe || []) if (!out.has(base)) out.set(base, nullProposition(base));
+  }
   return out;
 };
+
+// a declared-but-unread base: no sub/rel/dif is known beyond the base string itself
+// (the universe is a list of base keys, not full triples), so those ride null and the
+// polarity carries the whole signal — ¬⊢A, no reading either way.
+const nullProposition = (base) => ({ sub: null, rel: null, dif: null, pol: POLARITY.NULL, base });
 
 // ── the propositional continuity gate ─────────────────────────────────────────────────────────────
 // continuityGate(before, after, { mode, requireTotal }) → the return-path check.

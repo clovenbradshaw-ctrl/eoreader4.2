@@ -7,6 +7,7 @@ import {
   generateOverStructure, makeStreamRestorer,
 } from '../src/model/blind-structure.js';
 import { restore } from '../src/weave/write/redact.js';
+import { POLARITY } from '../src/model/polarity.js';
 
 // The blind-structure loop — the meaning-withheld membrane + the propositional continuity gate.
 //
@@ -169,4 +170,27 @@ test('makeStreamRestorer restores across chunk boundaries, splitting no handle',
   out += r.flush();
   assert.equal(out, restore('Referent1 -> Referent2 : imports', table));
   assert.match(out, /chargeCard -> ledger : imports/);
+});
+
+// ── the polarity trichotomy (Assembly 1) ───────────────────────────────────────────
+
+test('propositionsOf: closure "open" (default) never produces POLARITY.NULL and is byte-identical to the bare call', () => {
+  const withOpts = propositionsOf(codeDoc(), { closure: 'open' });
+  const bare = propositionsOf(codeDoc());
+  assert.deepEqual([...withOpts.entries()], [...bare.entries()]);
+  for (const p of withOpts.values()) assert.notEqual(p.pol, POLARITY.NULL);
+});
+
+test('propositionsOf: closure "declared" agrees with "open" on every base actually read, and adds NULL only for undeclared-but-unread universe bases', () => {
+  const open = propositionsOf(codeDoc(), { closure: 'open' });
+  const universe = [...open.keys(), 'nobody ⟩ imports ⟩ nothing', 'ghost ⟩ calls ⟩ void'];
+  const declared = propositionsOf(codeDoc(), { closure: 'declared', universe });
+
+  // every base the open reading has, the declared reading agrees on exactly
+  for (const [base, p] of open) assert.deepEqual(declared.get(base), p);
+
+  // the universe bases NOT read materialize as NULL, and only those
+  const extra = [...declared.keys()].filter((b) => !open.has(b));
+  assert.deepEqual(extra.sort(), ['ghost ⟩ calls ⟩ void', 'nobody ⟩ imports ⟩ nothing'].sort());
+  for (const base of extra) assert.equal(declared.get(base).pol, POLARITY.NULL);
 });

@@ -18,6 +18,7 @@ export const CONTRACTS = Object.freeze({
   'src/model/embed.js': contract({ ops: ['SIG', 'INS'], targets: ['Field'], products: ['Atmosphere', 'Entity'], stances: ['Tending', 'Making'], note: 'MiniLM semantic embedder' }),
   'src/model/index.js': contract({ ops: ['INS', 'SYN', 'SIG'], targets: ['Field'], products: ['Entity', 'Field'], stances: ['Making', 'Tending'], note: 'barrel' }),
   'src/model/interface.js': contract({ ops: ['INS'], targets: ['Kind'], products: ['Entity'], stances: ['Making'], note: 'backend registry + createModel' }),
+  'src/model/polarity.js': contract({ ops: ['DEF'], targets: ['Lens'], products: ['Lens'], stances: ['Dissecting'], note: 'the polarity trichotomy — POS/NEG/NULL, ⊢A vs ⊢¬A vs ¬⊢A' }),
   'src/model/openai-local.js': contract({ ops: ['INS'], targets: ['Field'], products: ['Entity'], stances: ['Making'], note: 'LM Studio / Ollama local-server backend' }),
   'src/model/prompt.js': contract({ ops: ['SYN', 'DEF', 'SEG'], targets: ['Field'], products: ['Field', 'Lens'], stances: ['Dissecting', 'Composing'], note: 'grounded prompt assembler + frame' }),
   'src/model/redact-remote.js': contract({ ops: ['NUL', 'SIG', 'INS'], targets: ['Entity', 'Field'], products: ['Void', 'Entity'], stances: ['Clearing', 'Tending', 'Making'], note: 'remote-talk privacy membrane — real entities collapse to tokens off the wire' }),
