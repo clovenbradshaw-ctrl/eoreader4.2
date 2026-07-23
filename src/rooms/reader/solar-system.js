@@ -520,7 +520,15 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
   // ── pan (translate only) + wheel = semantic descend/ascend ──────────────────
   function applyPan() { panG.setAttribute('transform', 'translate(' + pan.x.toFixed(1) + ',' + pan.y.toFixed(1) + ')'); }
   let drag = null;
-  svg.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y }; svg.style.cursor = 'grabbing'; svg.setPointerCapture(e.pointerId); });
+  // A pointerdown that lands on a body (the sun, a claim, a bonded figure) must reach THAT
+  // body's own click handler untouched — capturing the pointer here regardless of target (the
+  // reported "clicking a node doesn't do anything") retargets the resulting click to the svg
+  // itself per the pointer-capture spec, so the body's own listener never fires. Only a
+  // pointerdown that starts on open canvas begins a pan.
+  svg.addEventListener('pointerdown', (e) => {
+    if (e.target.closest && e.target.closest('.ss-body')) return;
+    drag = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y }; svg.style.cursor = 'grabbing'; svg.setPointerCapture(e.pointerId);
+  });
   svg.addEventListener('pointermove', (e) => { if (!drag) return; const r = svg.getBoundingClientRect(), sc = W / r.width; pan.x = drag.px + (e.clientX - drag.x) * sc; pan.y = drag.py + (e.clientY - drag.y) * sc; applyPan(); });
   svg.addEventListener('pointerup', () => { drag = null; svg.style.cursor = 'grab'; });
   let wheelAcc = 0;
