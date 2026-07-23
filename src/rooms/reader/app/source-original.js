@@ -8,11 +8,11 @@ import { safeSourceName } from '../source-export.js';
 export const installSourceOriginal = (appCtx) => {
   // The file/bytes as ingested — distinct from every edited/parsed/interpreted projection
   // registry.js's sourceExport folds into JSON/JSONL. A PDF stays a PDF, a clip stays audio or
-  // video (both rest in OPFS off the JSON snapshot, keyed by content hash — paper.js/audio.js);
-  // every other kind (web, GitHub, Gutenberg, plain text, images, tables…) keeps only its
-  // admitted text, so that text — untouched since ingest, EO's append-only log records edits as
-  // events on top of it, never in place — IS the original for those kinds. Async: a byte read
-  // may hit OPFS.
+  // video, an upload stays its own picture (all three rest in OPFS off the JSON snapshot, keyed
+  // by content hash — paper.js/audio.js/image.js); every other kind (web, GitHub, Gutenberg,
+  // plain text, tables…) keeps only its admitted text, so that text — untouched since ingest,
+  // EO's append-only log records edits as events on top of it, never in place — IS the original
+  // for those kinds. Async: a byte read may hit OPFS.
   const sourceOriginalExport = async (snId) => {
     const source = appCtx.sourceBySn(snId);
     if (!source) return null;
@@ -26,6 +26,14 @@ export const installSourceOriginal = (appCtx) => {
       if (bytes) {
         const mime = source.audioRef.mime || 'audio/mpeg';
         const ext = mime.split('/')[1]?.split(';')[0] || (mime.startsWith('video') ? 'mp4' : 'mp3');
+        return { bytes, ext, mime, filename: `${safe}.original.${ext}` };
+      }
+    }
+    if (source.imageRef) {
+      const bytes = await appCtx.imageBytes?.(source);
+      if (bytes) {
+        const mime = source.imageRef.mime || 'image/*';
+        const ext = mime.split('/')[1]?.split(';')[0] || 'bin';
         return { bytes, ext, mime, filename: `${safe}.original.${ext}` };
       }
     }

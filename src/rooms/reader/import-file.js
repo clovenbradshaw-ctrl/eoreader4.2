@@ -141,10 +141,11 @@ export async function importAnyFile(file, opts = {}) {
     return await fromJson(file, title, name);
   }
 
-  // Image — a scan reads as a document (Tesseract word boxes, ocr organ); a photograph,
-  // where OCR finds no prose, reads as a SCENE (Florence-2 regions, image organ).
+  // Image — lands AT ONCE as the picture itself (file facts only); what it SHOWS (a scan's text,
+  // Tesseract word boxes; failing that a photograph's SCENE, Florence-2 regions) is read after, in
+  // the background — see fromImage below.
   if (mime.startsWith('image/') || IMAGE_EXT.includes(ext)) {
-    say('Recognizing the text…');
+    say('Reading the picture…');
     return await fromImage(file, title, name, say, opts);
   }
 
@@ -516,16 +517,12 @@ async function fromXlsx(file, title, name) {
   return { text, title, meta: { modality: 'table', doc, docs: filled.map(s => s.doc), sheetNames: wb.SheetNames, coverage } };
 }
 
-// An image is read twice over. First as a DOCUMENT — but not by one eye. A SET OF WITNESSES
-// reads the scan (rooms/reader/eo/ocr-eyes.js): the cheap deterministic eye (Tesseract) always,
-// and the VLM eye (Florence-2 OCR) woken when that first reading is doubtful. Their readings are
-// reconciled by the QUORUM (organs/in/ocr-quorum.js) — best line elected (DEF), disagreements
-// flagged (EVA), each eye's reliability learned (REC) — and then re-read IN CONTEXT
-// (organs/in/ocr-context.js): a shaky line becomes a belief-marked GUESS at what it likely means
-// given the document's own confident vocabulary, every guess auditable and revertible on the log.
-// Only when the eyes come up empty (a photograph, not a scan) does the scene path wake: Florence-2's
-// structured region captions composed into spatial prose (organs/in/scene.js) and raised by the
-// image organ. What used to be the dead end "no text found" is still the scene path.
+// An image lands as a source AT ONCE, showing the picture itself — "the first experience of
+// uploading anything should be seeing it in its native form" — exactly the way fromMedia (below)
+// lands an audio/video source from its acoustic reading before a word is transcribed. Only file
+// facts (dimensions, format, size — no eyes, no model) are needed for that first landing;
+// recognising what the picture SHOWS is read() below, run in the background afterward
+// (app/image.js's runImageReading folds the result back in once it resolves).
 let _vision = null;
 const getVision = async () => {
   if (!_vision) {
@@ -534,8 +531,67 @@ const getVision = async () => {
   }
   return _vision;
 };
-async function fromImage(file, title, name, say, opts = {}) {
-  const url = URL.createObjectURL(file);
+
+// A blob: URL for `file`, or null rather than throwing — createObjectURL exists in Node too but
+// demands a real Blob/File; a test harness's FakeFile (or any environment without the API) must
+// still land the picture on its file-facts text, just without a showable URL.
+const _blobUrl = (file) => {
+  try { return (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') ? URL.createObjectURL(file) : null; }
+  catch { return null; }
+};
+
+// The picture's own facts, decoded from the bytes the browser already has — no eyes, no model.
+// Best-effort: an environment with neither createImageBitmap nor Image (Node, a test harness)
+// resolves {0,0} rather than hang, so the source still lands with an honest "unknown dimensions".
+const imageDimensions = (file) => new Promise((resolve) => {
+  if (typeof createImageBitmap === 'function') {
+    createImageBitmap(file).then((bmp) => {
+      const d = { width: bmp.width || 0, height: bmp.height || 0 };
+      try { bmp.close(); } catch {}
+      resolve(d);
+    }).catch(() => resolve({ width: 0, height: 0 }));
+    return;
+  }
+  const url = (typeof Image !== 'undefined') ? _blobUrl(file) : null;
+  if (!url) { resolve({ width: 0, height: 0 }); return; }
+  const img = new Image();
+  const done = (d) => { try { URL.revokeObjectURL(url); } catch {} resolve(d); };
+  img.onload = () => done({ width: img.naturalWidth || img.width || 0, height: img.naturalHeight || img.height || 0 });
+  img.onerror = () => done({ width: 0, height: 0 });
+  img.src = url;
+});
+
+const _humanBytes = (n) => {
+  if (!n) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+};
+// The file-facts placeholder every image source lands on, before a single word of OCR or a scene
+// caption exists — pure and exported so the "an image always lands with SOME readable text" shape
+// (addSource refuses an empty body) is pinned without a browser.
+export const _imageFactsText = (title, width, height, bytes) => {
+  const dims = width && height ? `${width}×${height}` : null;
+  const size = _humanBytes(bytes);
+  const bits = [dims, size].filter(Boolean).join(', ');
+  return `${title} — an image${bits ? ` (${bits})` : ''}.`;
+};
+
+// The deferred half: what the picture SHOWS. Read TWICE over. First as a DOCUMENT — but not by
+// one eye. A SET OF WITNESSES reads the scan (rooms/reader/eo/ocr-eyes.js): the cheap
+// deterministic eye (Tesseract) always, and the VLM eye (Florence-2 OCR) woken when that first
+// reading is doubtful. Their readings are reconciled by the QUORUM (organs/in/ocr-quorum.js) —
+// best line elected (DEF), disagreements flagged (EVA), each eye's reliability learned (REC) —
+// and then re-read IN CONTEXT (organs/in/ocr-context.js): a shaky line becomes a belief-marked
+// GUESS at what it likely means given the document's own confident vocabulary, every guess
+// auditable and revertible on the log. Only when the eyes come up empty (a photograph, not a
+// scan) does the scene path wake: Florence-2's structured region captions composed into spatial
+// prose (organs/in/scene.js) and raised by the image organ. Same return shape every other
+// importAnyFile branch uses ({ text, title, meta }), so app/image.js's runImageReading can fold
+// it into an already-landed source the same way finishReading folds in a deferred prose parse.
+async function readImageContent(file, title, name, say, opts = {}) {
+  const url = _blobUrl(file);
+  if (!url) throw new Error('reading this picture for text or a scene needs a browser');
   try {
     let ocrDoc = null, quorum = null, guesses = 0;
     try {
@@ -575,7 +631,24 @@ async function fromImage(file, title, name, say, opts = {}) {
     const doc = ingestImage(scene);
     return { text: scene.text, title, meta: { modality: 'image', doc, witness: seen.witness, cached: !!seen.cached,
       coverage: { complete: true, regions: (scene.regions || []).length, dropped: [] } } };
-  } finally { URL.revokeObjectURL(url); }
+  } finally { try { URL.revokeObjectURL(url); } catch {} }
+}
+
+// fromImage — the FIRST half: lands the picture, no eyes, no model. `media` is a blob: URL kept
+// alive for the session (never revoked here, same as fromMedia's audio/video URL below) so the
+// very first render already shows the image; `read` is readImageContent above, called once the
+// source has already landed (app/image.js's runImageReading), never blocking it.
+async function fromImage(file, title, name, say, opts = {}) {
+  const media = _blobUrl(file);
+  const { width, height } = await imageDimensions(file);
+  const text = _imageFactsText(title, width, height, file.size || 0);
+  const { assembleDocument } = await IN();
+  const doc = assembleDocument({ name, modality: 'image', blocks: [{ text, kind: 'caption' }], metadata: { title, width, height } });
+  const read = (readOpts = {}) => readImageContent(file, title, name, typeof readOpts.onProgress === 'function' ? readOpts.onProgress : say, { ...opts, ...readOpts });
+  return { text, title, meta: {
+    modality: 'image', doc, media, mime: file.type || '', width, height, read,
+    coverage: { complete: false, dropped: ['not yet read for text or a scene description — reading in the background'] },
+  } };
 }
 
 // One whisper pipeline per session — the model is ~150 MB of WASM/WebGPU memory, so a

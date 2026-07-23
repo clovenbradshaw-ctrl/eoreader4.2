@@ -56,6 +56,9 @@ export const buildApi = (appCtx) => {
     reviewSetIdentity: appCtx.reviewSetIdentity, reviewExpand: appCtx.reviewExpand, reviewOpenMark: appCtx.reviewOpenMark,
     reviewVerifyAnswer: appCtx.reviewVerifyAnswer, reviewFeedback: appCtx.reviewFeedback,
     sourceBySn: appCtx.sourceBySn, sourceRename: appCtx.sourceRename, removeSource: appCtx.removeSource, topicSources: appCtx.topicSources, topicSourcesAll: appCtx.topicSourcesAll, sourceToggleCollapse: appCtx.sourceToggleCollapse,
+    // a source's processing state in one name (source-stage.js) — Structuring/Reading/Ready/Failed,
+    // the comprehension roadmap's canonical read of entCount + transcription/imageRead + coverage.
+    sourceStage: appCtx.sourceStage,
     // source export — full append-only history as JSONL, one JSON snapshot (or one folded at a
     // text/log cursor), and the ORIGINAL file/bytes as ingested (PDF/audio/video bytes, else text)
     sourceExport: appCtx.sourceExport, sourceHistoryJsonl: appCtx.sourceHistoryJsonl, sourceCursorJson: appCtx.sourceCursorJson, sourceOriginalExport: appCtx.sourceOriginalExport,
@@ -175,6 +178,9 @@ export const buildApi = (appCtx) => {
     playableUrl: appCtx.playableUrl, audioBytes: appCtx.audioBytes, recordAudioEvent: appCtx.recordAudioEvent,
     // pdf: a renderable object URL (rehydrated from OPFS after reload) and the raw persisted bytes
     pdfUrl: appCtx.pdfUrl, pdfBytes: appCtx.pdfBytes, pdfRenderable: appCtx.pdfRenderable,
+    // image: a showable object URL for an uploaded picture (rehydrated from OPFS after reload,
+    // app/image.js) and its raw persisted bytes
+    imageUrl: appCtx.imageUrl, imageBytes: appCtx.imageBytes,
     // transcript export — subtitles (SRT/VTT), the elegant by-speaker read, the full-processing JSON,
     // and the process trace — built from the live organ doc or rebuilt from the persisted substrate.
     transcriptExport: appCtx.transcriptExport, transcriptFormats: appCtx.transcriptFormats,

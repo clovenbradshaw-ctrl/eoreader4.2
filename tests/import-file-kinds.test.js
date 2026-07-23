@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { importAnyFile } from '../src/rooms/reader/import-file.js';
+import { importAnyFile, _imageFactsText } from '../src/rooms/reader/import-file.js';
 
 // The kind/language a file import produces — completing a shape the source-viewer UI already
 // carries (index.html's _sourceLandingVM 'Code file' case, the explorer's Code genre chip,
@@ -71,4 +71,21 @@ test('a .json file still takes the JSON organ path, not the new code branch', as
 test('an unrecognised extension still falls through to the universal text/binary path, unchanged', async () => {
   const got = await importAnyFile(new FakeFile('plain content', 'file.xyz123'));
   assert.equal(got.meta.modality, 'text', 'decodes as text via the last-resort branch');
+});
+
+// An image lands with only file facts — no eyes, no model — so the source can appear before a
+// single word of OCR or a scene caption exists (app/picture.js's ingestFile, app/image.js).
+test('an image file resolves at once with file facts, a deferred read, and a kept media URL', async () => {
+  const got = await importAnyFile(new FakeFile('not really pixels, just bytes', 'photo.png', 'image/png'));
+  assert.equal(got.meta.modality, 'image');
+  assert.ok(got.text.startsWith('photo — an image'), 'the placeholder names the file, not blank');
+  assert.equal(typeof got.meta.read, 'function', 'the eyes/scene reading is deferred, not run eagerly');
+  assert.ok(got.meta.doc, 'a minimal doc lands with it (assembleDocument), so addSource never needs an empty body');
+  assert.equal(got.meta.coverage.complete, false, 'the coverage receipt is honest that recognition hasn’t run yet');
+});
+
+test('_imageFactsText: names the file and, when known, its dimensions and size', () => {
+  assert.equal(_imageFactsText('photo', 0, 0, 0), 'photo — an image.');
+  assert.equal(_imageFactsText('photo', 1920, 1080, 512), 'photo — an image (1920×1080, 512 B).');
+  assert.equal(_imageFactsText('photo', 0, 0, 2 * 1024 * 1024), 'photo — an image (2.0 MB).');
 });

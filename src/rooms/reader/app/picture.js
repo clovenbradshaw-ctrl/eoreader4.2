@@ -179,6 +179,33 @@ export const installPicture = (appCtx) => {
         }
         return src;
       }
+
+      // ── IMAGE — the source lands AT ONCE showing the picture itself; reading it (the eyes, then
+      // the scene) follows in the background. "The first experience of uploading anything should be
+      // seeing it in its native form" — the same audio/video promise above, for a still picture:
+      // fromImage already resolved with only the file facts (dimensions, size), so the source and
+      // its picture are on the record before a single word of OCR or a scene caption exists.
+      if (got.meta?.modality === 'image' && got.meta?.read) {
+        const src = appCtx.addSource({ title: got.title || file.name, text: got.text, kind: 'image', rights: 'local file', doc: got.meta.doc, topicId: targetTopicId });
+        settleFile('done');
+        if (src) {
+          src._media = got.meta.media ? { url: got.meta.media, kind: got.meta.mime || 'image' } : null;
+          src.dimensions = got.meta.width && got.meta.height ? `${got.meta.width}×${got.meta.height}` : null;
+          if (got.meta.coverage) src.coverage = got.meta.coverage;
+          appCtx.setImageRead(src, { state: 'pending', pct: 0 });
+          appCtx.persist(); emit('sources');
+          // Keep the original bytes so the picture — and a resumed OCR/scene read — survive a
+          // reload: OPFS locally (app/image.js). Background, off the critical path.
+          appCtx.persistImageBytes(src, file);
+          if (typeof fileOpts.onSource === 'function') { try { fileOpts.onSource(src); } catch { /* reveal is best-effort */ } }
+          // Read what the picture SHOWS — the eyes, then (failing that) the scene — now that the
+          // picture itself is already on the record. A failure here (or a Stop) leaves the source on
+          // its file-facts placeholder text; the picture never depends on this succeeding.
+          await appCtx.runImageReading(src, got.meta.read, { signal, progress });
+        }
+        return src;
+      }
+
       const structured = ['table', 'json', 'binary', 'music', 'subtitle'].includes(got.meta?.modality) && got.meta?.doc;
       // The coverage receipt — proof that 100% of the file was processed, or the named account of
       // what could not be (import-file.js) — rides the source and the ledger, whichever path lands it.

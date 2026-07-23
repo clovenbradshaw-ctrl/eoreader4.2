@@ -33,7 +33,7 @@ const makeCtx = (sns = ['A', 'B']) => {
     _readerCache: {},
     _app: { sourceBySn: (sn) => (sns.includes(sn) ? { sn } : null) },
     setState(patch) { Object.assign(this.state, patch); },
-    _syncRoute() {}, _ensureWiki() {}, _setPref() {}, loadPage() {}, loadPdf() {},
+    _syncRoute() {}, _ensureWiki() {}, _setPref() {}, loadPage() {}, loadPdf() {}, loadImage() {},
     _mob: proto._mob, _activeSrc: proto._activeSrc,
     openViewer: proto.openViewer, openEntity: proto.openEntity, setTab: proto.setTab, setSourceMode: proto.setSourceMode,
     _mPushCurrent: proto._mPushCurrent, _mRestoreFrame: proto._mRestoreFrame,
