@@ -32,6 +32,9 @@
 //                                           and narration derived from the boxes, so the expensive
 //                                           decode stays short and every phrase grounds to a region.
 //   ingestWebpage(page)         scraped   → units = markdown blocks (Readability+Turndown injected).
+//   ingestXml({xml})            TEI/XML   → units = header + body blocks, read by real tag structure
+//                                           (not sniffed as HTML) — a <teiHeader>'s front matter kept
+//                                           apart from the body it introduces (organs/ingest/xml-text.js).
 //   ingestTable(sheet)          CSV/xlsx  → units = rows; columns are DEF facts (Papaparse/SheetJS injected).
 //   readWarc / ingestWarc       archive   → the WARC record as the frozen, addressable source.
 //
@@ -73,6 +76,7 @@ export { assembleQuorumDoc } from './quorum-doc.js';
 export { resolveOcrInContext, revertOcrGuesses, buildOcrContext } from './ocr-context.js';
 export { ingestDocling }     from './docling.js';
 export { ingestWebpage }     from './webpage.js';
+export { ingestXml }         from './xml.js';
 export { ingestTable }       from './table.js';
 export { ingestJson }        from './json.js';
 export { readWarc, ingestWarc } from './warc.js';

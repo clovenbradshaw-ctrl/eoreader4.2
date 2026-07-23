@@ -16,6 +16,7 @@ import { readerModel, readerHtml, nativePageHtml } from './reader-render.js';
 import { markdownToHtml, MARKDOWN_CSS } from './markdown-render.js';
 import { jsonToHtml, tableToHtml, JSON_CSS, TABLE_CSS } from './data-render.js';
 import { highlightCode, CODE_CSS } from './code-highlight.js';
+import { xmlToHtml, XML_CSS } from './xml-render.js';
 
 const PAGE_CSS = 'html,body{margin:0;background:#fff}';
 const page = (bodyHtml, css) => '<!doctype html><html><head><meta charset="utf-8">' +
@@ -59,6 +60,15 @@ export const renderNativeKindHtml = ({ source = {}, doc = null, prefs = {} } = {
   if (kind === 'markdown') {
     const { html, toc } = markdownToHtml(source.text || '');
     return { kind, html: page('<div class="eo-md">' + html + '</div>', MARKDOWN_CSS), toc };
+  }
+
+  if (kind === 'xml') {
+    // xmlToHtml reads doc.tei/doc.spans when an ingested xml doc is there (the metadata card +
+    // the real body structure); absent, it parses source.text fresh — either way it's never the
+    // plain reflow, since a TEI/XML source's own div/p tags collide with HTML's own (doc-kind.js's
+    // looksLikeXml) and would otherwise mis-render through nativePageHtml below.
+    const { html, toc } = xmlToHtml(source, doc && doc.modality === 'xml' ? doc : null);
+    return { kind, html: page(html, XML_CSS), toc };
   }
 
   if (kind === 'html') {
