@@ -46,6 +46,11 @@ export { fetchGutenbergBook, readGutenbergBook, stripGutenbergBoilerplate, guten
 // EPUB parsing core — the OPF/spine reader epub.js exports for testing and for any caller that
 // wants to read an already-unzipped EPUB archive directly.
 export { epubTextFromEntries, parseOpf, parseContainerPath } from './epub.js';
+// XML/TEI parsing core — read by real tag structure rather than sniffed as HTML (a critical
+// edition's <teiHeader> front matter kept apart from the body it introduces); organs/in/xml.js's
+// ingestXml is the adapter onto the universal contract, this the pure parser underneath it.
+export { parseXmlDocument, xmlBodyToBlocks, teiHeaderMeta, isTeiRoot, rootTagOf,
+         unresolvedXmlEntities, stripTags as xmlStripTags } from './xml-text.js';
 // YouTube — a video's CAPTIONS read as a timestamped, groundable transcript. Two GET fetches
 // (the watch page, then the chosen caption track's json3 payload), no media pipeline touched.
 export { fetchYoutubeTranscript, youtubeIdOf, youtubeWatchUrl, parsePlayerResponse,

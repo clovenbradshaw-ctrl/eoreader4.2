@@ -71,6 +71,7 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/reader/doc-kind.js': contract({ ops: ['NUL'], targets: ['Field'], products: ['Void'], stances: ['Tending'], note: 'which render kind a source’s own content actually is — html/markdown/json/table/code/text' }),
   'src/rooms/reader/markdown-render.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Void'], stances: ['Clearing', 'Dissecting'], note: 'markdown → HTML — the document’s own typeset shape' }),
   'src/rooms/reader/data-render.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Void'], stances: ['Clearing', 'Dissecting'], note: 'a JSON tree or table doc → its own real shape — a coloured tree, an actual table' }),
+  'src/rooms/reader/xml-render.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Void'], stances: ['Clearing', 'Dissecting'], note: 'XML/TEI → HTML — a teiHeader’s metadata card apart from the body’s own typeset shape' }),
   'src/rooms/reader/code-highlight.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Void'], stances: ['Clearing', 'Dissecting'], note: 'code → line-numbered, syntax-lit HTML' }),
   'src/rooms/reader/native-render.js': contract({ ops: ['NUL'], targets: ['Field'], products: ['Void'], stances: ['Tending'], note: 'the Native tab’s kind dispatch — one document, its own shape' }),
   'src/rooms/reader/rawtext-data.js': contract({ ops: ['SIG'], targets: ['Field'], products: ['Lens'], stances: ['Tending'], note: 'the raw-text surface’s data seam — a loaded source’s own text' }),

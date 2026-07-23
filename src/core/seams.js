@@ -47,6 +47,8 @@ export const SEAMS = Object.freeze([
     'the Priors catalog must price and instantiate prospective organs with the metabolism\'s exact upkeep/founding-organ primitives; metabolism/index.js is the running soma surface, not the organ-constructor entrance, so the catalog reads the leaf deliberately'],
   ['src/rooms/competencies/catalog.js', 'src/metabolism/constitution.js',
     'the Priors checkpoint exposes the constitution\'s isolation law verbatim before an organ is installed; routing through metabolism/index.js would couple this pure catalog to the running metabolism surface'],
+  ['src/organs/in/xml.js', 'src/organs/ingest/xml-text.js',
+    'organs/ingest/index.js pulls in read.js, which depends on the perceiver entrance — and perceiver/index.js (+ nest.js) import back into organs/in, so riding the ingest barrel here would close that cycle the instant organs/in/xml.js loads (the same hazard organs/in/acoustic.js\'s embed-store seam avoids); this reads the leaf directly'],
 ].map(Object.freeze));
 
 // The seam set, keyed "from → to", for the boundary test's membership check.

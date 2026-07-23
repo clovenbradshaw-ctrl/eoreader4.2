@@ -54,6 +54,32 @@ test('table: falls back to the prose reflow when the doc isn’t table-shaped', 
   assert.equal(r.kind, 'text');
 });
 
+test('xml: reads the structured doc’s tei metadata card + body blocks, not the flattened text', () => {
+  const doc = {
+    modality: 'xml', isTei: true, tei: { title: 'Elements', authors: ['Euclid'], editors: [], respStmts: [], funder: [], availability: [], revisions: [] },
+    spans: [
+      { kind: 'title', text: 'Elements' },
+      { kind: 'frontmatter', text: 'by Euclid' },
+      { kind: 'label', text: '1' },
+      { kind: 'paragraph', text: 'A point is that which has no part.' },
+    ],
+  };
+  const r = renderNativeKindHtml({ source: { kind: 'xml', text: 'sentence reading, not the tree' }, doc });
+  assert.equal(r.kind, 'xml');
+  assert.match(r.html, /<h1 class="eo-xml-title">Elements<\/h1>/);
+  assert.match(r.html, /Author/);
+  assert.match(r.html, /A point is that which has no part\./);
+  assert.ok(!r.html.includes('by Euclid'), 'the frontmatter block is not duplicated in the body once the metadata card shows it');
+});
+
+test('xml: with no structured doc yet, parses source.text fresh rather than falling back to plain reflow', () => {
+  const xml = '<?xml version="1.0"?><TEI.2><teiHeader><fileDesc><titleStmt><title>A Title</title></titleStmt></fileDesc></teiHeader><text><body><div1 n="1"><p>Body text.</p></div1></body></text></TEI.2>';
+  const r = renderNativeKindHtml({ source: { kind: 'xml', text: xml } });
+  assert.equal(r.kind, 'xml');
+  assert.match(r.html, /Body text\./);
+  assert.ok(!r.html.includes('<div1'), 'the raw tag never leaks through — everything is escaped prose');
+});
+
 test('html (sniffed, no url): sanitized via the same pass a fetched page gets', () => {
   const r = renderNativeKindHtml({ source: { text: '<html><body><script>alert(1)</script><p>hi</p></body></html>' } });
   assert.equal(r.kind, 'html');

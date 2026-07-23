@@ -68,6 +68,34 @@ test('a .json file still takes the JSON organ path, not the new code branch', as
   assert.ok(!('language' in got.meta), 'json sources carry no language tag');
 });
 
+test('a .xml file takes the XML organ path, read by its own tag structure — not the HTML branch', async () => {
+  const xml = '<?xml version="1.0"?><TEI.2><teiHeader><fileDesc><titleStmt><title>A Title</title>' +
+    '<author>An Author</author></titleStmt></fileDesc></teiHeader><text><body><div1 n="1"><p>Body text.</p></div1></body></text></TEI.2>';
+  const got = await importAnyFile(new FakeFile(xml, 'source.xml'));
+  assert.equal(got.meta.modality, 'xml');
+  assert.equal(got.title, 'A Title');
+  assert.equal(got.meta.coverage.isTei, true);
+  assert.equal(got.meta.coverage.complete, true);
+  assert.match(got.text, /Body text\./);
+  assert.ok(!got.text.includes('<p>'), 'no raw markup leaks into the reading');
+});
+
+test('an .xml file whose header leans on a custom (external-DTD) entity still ingests, honestly noting the gap', async () => {
+  const xml = '<?xml version="1.0"?>\n<!DOCTYPE TEI.2 SYSTEM "tei2.dtd" [\n<!ENTITY funder "The Foo Foundation">\n]>\n' +
+    '<TEI.2><teiHeader><fileDesc><titleStmt><title>T</title>&unresolved.custom;</titleStmt></fileDesc></teiHeader>' +
+    '<text><body><div1 n="1"><p>Text.</p></div1></body></text></TEI.2>';
+  const got = await importAnyFile(new FakeFile(xml, 'legacy.xml'));
+  assert.equal(got.meta.modality, 'xml');
+  assert.equal(got.meta.coverage.complete, true, 'an unresolved header entity is a documented quirk, not a failed read');
+  assert.equal(got.meta.coverage.dropped.length, 1);
+  assert.match(got.meta.coverage.dropped[0], /unresolved\.custom/);
+});
+
+test('.xhtml stays on the HTML path, not the new XML branch — it is meant to render as HTML', async () => {
+  const got = await importAnyFile(new FakeFile('<html><body><p>hi</p></body></html>', 'page.xhtml', 'application/xhtml+xml'));
+  assert.notEqual(got.meta.modality, 'xml');
+});
+
 test('an unrecognised extension still falls through to the universal text/binary path, unchanged', async () => {
   const got = await importAnyFile(new FakeFile('plain content', 'file.xyz123'));
   assert.equal(got.meta.modality, 'text', 'decodes as text via the last-resort branch');

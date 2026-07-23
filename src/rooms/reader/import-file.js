@@ -43,6 +43,12 @@ const device = async () => {
 };
 
 const TEXT_EXT  = ['txt', 'text', 'log', 'rst'], HTML_EXT = ['html', 'htm', 'xhtml'];
+// XML is its OWN modality (not folded into HTML_EXT above): a TEI/DocBook/JATS document's own
+// tag names (div, p, body, head) collide with HTML's, and handing it to the HTML/Readability
+// path (fromHtml below) reads it as one run-on paragraph with fields swallowed outright — the
+// doc-kind.js bug this modality exists to fix. `.xhtml` stays on the HTML path on purpose: it IS
+// meant to render as HTML. See organs/ingest/xml-text.js + organs/in/xml.js.
+const XML_EXT = ['xml'];
 const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff'];
 const AUDIO_EXT = ['mp3', 'm4a', 'wav', 'ogg', 'oga', 'flac', 'aac', 'opus', 'weba'], VIDEO_EXT = ['mp4', 'mov', 'webm', 'mkv', 'avi', 'm4v'];
 const MIDI_EXT  = ['mid', 'midi', 'smf', 'kar', 'rmi'], SUBTITLE_EXT = ['srt', 'vtt'];
@@ -99,6 +105,14 @@ export async function importAnyFile(file, opts = {}) {
   if (mime.includes('html') || HTML_EXT.includes(ext)) {
     say('Reading the page…');
     return await fromHtml(file, title, name);
+  }
+
+  // XML / TEI — read by its own tag structure (organs/ingest/xml-text.js), never sniffed as
+  // HTML. Checked by extension OR mime (text/xml, application/xml, an RSS/Atom application/…+xml)
+  // but only once XHTML has already claimed the html-mime branch above.
+  if (mime.includes('xml') || XML_EXT.includes(ext)) {
+    say('Reading the XML…');
+    return await fromXml(file, title, name);
   }
 
   // PDF — the born-digital text layer AND the OCR of the natively-rendered page, reconciled by
@@ -372,6 +386,25 @@ async function fromHtml(file, title, name) {
   const doc = ingestWebpage({ name, title: docTitle, markdown });
   return { text: doc.text, title: docTitle, meta: { modality: 'webpage', doc,
     coverage: { complete: true, reader, retained, blocks: doc.spans.length, dropped: [] } } };
+}
+
+// An XML file — TEI's own tag structure read directly (organs/in/xml.js), never through the
+// HTML/Readability path: a <teiHeader>'s bibliographic front matter lands apart from the body
+// it introduces, and body divisions/paragraphs stay distinct rather than collapsing into one
+// run-on paragraph. `coverage.dropped` names any custom entity the document's own (external,
+// unfetched) DTD would have expanded — never silently swallowed, never a network fetch either.
+async function fromXml(file, title, name) {
+  const xml = await file.text();
+  const { ingestXml } = await IN();
+  const doc = ingestXml({ name, xml, metadata: { title } });
+  const docTitle = doc.metadata?.title || title;
+  // Not a content gap — the rest of the document reads in full; this only names a formatting
+  // quirk (a handful of header fields left as literal entity references rather than expanded).
+  const dropped = doc.unresolvedEntities?.length
+    ? [`${doc.unresolvedEntities.length} custom entity reference(s) this document's own (external) DTD would expand — left as-is: &${doc.unresolvedEntities.join(';, &')};`]
+    : [];
+  return { text: doc.text, title: docTitle, meta: { modality: 'xml', doc,
+    coverage: { complete: true, blocks: doc.spans.length, isTei: !!doc.isTei, dropped } } };
 }
 
 // A PDF is read by MORE THAN ONE EYE. First the born-digital text layer (pdf.js text-items with

@@ -38,6 +38,7 @@ export const CONTRACTS = Object.freeze({
   'src/organs/in/web.js': contract({ ops: ['DEF', 'EVA', 'SEG'], targets: ['Field', 'Network'], products: ['Lens', 'Void', 'Paradigm'], stances: ['Dissecting', 'Binding', 'Tracing', 'Clearing'], note: 'the web organ — open-web intake collapse (the membrane, the four fates, the record)' }),
   'src/organs/in/web-keep.js': contract({ ops: ['EVA', 'DEF'], targets: ['Field', 'Network'], products: ['Lens', 'Paradigm'], stances: ['Tracing', 'Binding', 'Dissecting'], note: 'the intake keep-criterion (MDL explanatory gain) + the sub-cut witness' }),
   'src/organs/in/webpage.js': contract({ ops: ['SEG'], targets: ['Void'], products: ['Field'], stances: ['Dissecting'], note: 'web-page adapter → assembleDocument' }),
+  'src/organs/in/xml.js': contract({ ops: ['SEG'], targets: ['Void'], products: ['Field'], stances: ['Dissecting'], note: 'XML/TEI adapter → assembleDocument — a teiHeader’s front matter kept apart from the body it introduces' }),
   'src/organs/out/index.js': contract({ ops: ['NUL', 'SIG'], targets: ['Lens', 'Field'], products: ['Void'], stances: ['Clearing', 'Tending'], note: 'barrel — output membrane (organs + publish)' }),
   'src/organs/out/limner/emit.js': contract({ ops: ['INS'], targets: ['Lens'], products: ['Void'], stances: ['Making'], note: 'INS — emit the view event' }),
   'src/organs/out/limner/ground.js': contract({ ops: ['EVA', 'SEG'], targets: ['Lens', 'Network'], products: ['Lens'], stances: ['Binding', 'Dissecting'], note: 'grounding guard — cite-or-veto' }),
