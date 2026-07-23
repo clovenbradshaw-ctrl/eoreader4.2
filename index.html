@@ -3124,12 +3124,10 @@ table{border-collapse:collapse;width:100%}
                 </span>
                 <span style="flex:1"></span>
                 <sc-if value="{{ viewerIsReader }}">
-                  <sc-if value="{{ hasToc }}"><span style="display:flex;align-items:center;background:#f2f2f5;border:1px solid #ececf0;border-radius:6px">
-                    <button onClick="{{ toggleToc }}" title="Contents" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6a6a73;background:transparent;border:none;padding:4px 9px" style-hover="background:#ececf0">☰ {{ tocCountLabel }}</button>
-                    <button onClick="{{ readerPrevSection }}" title="Previous section" style="font-size:11px;font-weight:700;color:#6a6a73;background:transparent;border:none;border-left:1px solid #ececf0;padding:4px 8px" style-hover="background:#ececf0">⏮</button>
-                    <button onClick="{{ readerNextSection }}" title="Next section" style="font-size:11px;font-weight:700;color:#6a6a73;background:transparent;border:none;border-left:1px solid #ececf0;padding:4px 8px" style-hover="background:#ececf0">⏭</button>
-                  </span></sc-if>
-                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#9b9ba3;padding:0 2px">{{ readerProgressPct }}%</span>
+                  <!-- The chapter dropdown, prev/next-section buttons, percentage readout, and the
+                       Paper/Companion/Lit reading-mode cycle are GONE from here — the sticky reading
+                       map (below, over the text) is now the one compact instrument for location,
+                       structure, surprise, and range — replacing all four at once. -->
                   <span style="display:flex;background:#f2f2f5;border:1px solid #ececf0;border-radius:6px">
                     <button onClick="{{ readSizeDown }}" title="Smaller" style="font-size:12px;font-weight:700;color:#6a6a73;padding:3px 9px">A−</button>
                     <button onClick="{{ readSizeUp }}" title="Larger" style="font-size:12px;font-weight:700;color:#6a6a73;padding:3px 9px">A+</button>
@@ -3137,7 +3135,6 @@ table{border-collapse:collapse;width:100%}
                   <button onClick="{{ toggleReadFont }}" title="Type family" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6a6a73;background:#f2f2f5;border:1px solid #ececf0;border-radius:6px;padding:4px 9px" style-hover="background:#ececf0">{{ readFontLabel }}</button>
                   <button onClick="{{ cycleReadWidth }}" title="Column width" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6a6a73;background:#f2f2f5;border:1px solid #ececf0;border-radius:6px;padding:4px 9px" style-hover="background:#ececf0">▤ {{ readWidthLabel }}</button>
                   <button onClick="{{ cycleReadTheme }}" title="Paper theme" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6a6a73;background:#f2f2f5;border:1px solid #ececf0;border-radius:6px;padding:4px 9px" style-hover="background:#ececf0">{{ readThemeLabel }}</button>
-                  <button onClick="{{ cycleReadingMode }}" title="{{ readingModeTitle }}" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ readingModeFg }};background:{{ readingModeBg }};border:1px solid {{ readingModeBd }};border-radius:6px;padding:4px 9px" style-hover="filter:brightness(.97)">{{ readingModeLabel }}</button>
                   <button onClick="{{ toggleFoldPeek }}" title="Temporary — show what the reading holds at the cursor: the objects in focus and its assertions (settled · held open · turns · properties · relations), not just the spans." style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ foldPeekFg }};background:{{ foldPeekBg }};border:1px dashed {{ foldPeekBd }};border-radius:6px;padding:4px 9px" style-hover="filter:brightness(.97)">{{ foldPeekLabel }}</button>
                   <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }};border-radius:6px;padding:4px 9px" style-hover="filter:brightness(.97)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>{{ entModeLabel }}</button>
                 </sc-if>
@@ -3636,17 +3633,88 @@ table{border-collapse:collapse;width:100%}
             </sc-if>
 
             <sc-if value="{{ viewerIsReader }}">
-              <div style="flex:1;min-height:0;position:relative;background:#fff">
-                <iframe ref="{{ setReaderFrame }}" srcdoc="{{ readerDoc }}" sandbox="allow-same-origin allow-popups" referrerpolicy="no-referrer" style="width:100%;height:100%;border:none;display:block;background:#fff"></iframe>
-                <span style="position:absolute;left:0;top:0;height:2px;background:#5a49e8;width:{{ readerProgressW }};transition:width .15s;pointer-events:none"></span>
-                <sc-if value="{{ tocOpen }}">
-                  <div class="eo-scroll" style="position:absolute;top:10px;left:10px;bottom:10px;width:262px;overflow-y:auto;background:#fff;border:1px solid #ececf0;border-radius:12px;box-shadow:0 14px 44px rgba(20,20,30,.18);padding:9px">
-                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#9b9ba3;padding:4px 8px 8px">Contents</div>
-                    <sc-for list="{{ readerToc }}" as="c">
-                      <button onClick="{{ c.go }}" style="display:block;width:100%;text-align:left;font-family:'Newsreader',Georgia,serif;font-size:13.5px;color:#2a2a32;border-radius:7px;padding:7px 10px 7px {{ c.pad }}px" style-hover="background:#f2f2f5">{{ c.label }}</button>
-                    </sc-for>
+              <div style="flex:1;min-height:0;display:flex;overflow:hidden">
+                <!-- NAVIGATE — Document / Meaning / Focus / Evidence: the reading's own left nav,
+                     replacing a source-wide sidebar mode-switch with modes over THIS text. Every
+                     item drives the same iframe already mounted (gotoChapter / openEntity /
+                     setTab) — nothing here is a separate surface to lose your place in. -->
+                <aside class="eo-scroll" style="flex:0 0 208px;border-right:1px solid #ececf0;overflow-y:auto;background:#fafafb;padding:12px 9px">
+                  <div style="display:flex;flex-direction:column;gap:1px;margin-bottom:12px">
+                    <button onClick="{{ viewer.readerNav.goDocument }}" style="text-align:left;padding:7px 9px;border-radius:7px;font-size:12px;font-weight:700;color:{{ viewer.readerNav.navDocumentFg }};background:{{ viewer.readerNav.navDocumentBg }}">Document</button>
+                    <button onClick="{{ viewer.readerNav.goMeaning }}" style="text-align:left;padding:7px 9px;border-radius:7px;font-size:12px;font-weight:600;color:{{ viewer.readerNav.navMeaningFg }};background:{{ viewer.readerNav.navMeaningBg }}">Meaning</button>
+                    <button onClick="{{ viewer.readerNav.goFocus }}" style="text-align:left;padding:7px 9px;border-radius:7px;font-size:12px;font-weight:600;color:{{ viewer.readerNav.navFocusFg }};background:{{ viewer.readerNav.navFocusBg }}">Focus</button>
+                    <button onClick="{{ viewer.readerNav.goEvidence }}" style="text-align:left;padding:7px 9px;border-radius:7px;font-size:12px;font-weight:600;color:{{ viewer.readerNav.navEvidenceFg }};background:{{ viewer.readerNav.navEvidenceBg }}">Evidence</button>
                   </div>
-                </sc-if>
+                  <sc-if value="{{ viewer.readerNav.navIsDocument }}">
+                    <sc-if value="{{ viewer.readerNav.hasDocItems }}">
+                      <sc-for list="{{ viewer.readerNav.docItems }}" as="c">
+                        <button onClick="{{ c.go }}" style="display:block;width:100%;text-align:left;font-family:'Newsreader',Georgia,serif;font-size:12.5px;font-weight:{{ c.weight }};color:{{ c.fg }};background:{{ c.bg }};border-radius:6px;padding:6px 8px 6px {{ c.pad }}px" style-hover="background:#f2f2f5">{{ c.label }}</button>
+                      </sc-for>
+                    </sc-if>
+                    <sc-if value="{{ !viewer.readerNav.hasDocItems }}"><div style="font-size:11.5px;color:#a6a6ae;padding:8px 4px;line-height:1.5">No structure detected in this source yet.</div></sc-if>
+                  </sc-if>
+                  <sc-if value="{{ viewer.readerNav.navIsMeaning }}">
+                    <div style="display:flex;flex-direction:column;gap:0px">
+                      <sc-for list="{{ viewer.readerNav.meaning.cats }}" as="c">
+                        <button onClick="{{ c.select }}" style="text-align:left;padding:5px 8px;border-radius:6px;font-size:11.5px;font-weight:{{ c.weight }};color:{{ c.fg }};background:{{ c.bg }}" style-hover="background:#f2f2f5">{{ c.label }}</button>
+                      </sc-for>
+                    </div>
+                    <sc-if value="{{ viewer.readerNav.meaning.catSelected }}">
+                      <div style="border-top:1px solid #ececf0;padding-top:9px;margin-top:8px">
+                        <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9b9ba3;margin-bottom:7px">{{ viewer.readerNav.meaning.catLabel }}</div>
+                        <sc-if value="{{ viewer.readerNav.meaning.hasItems }}">
+                          <sc-for list="{{ viewer.readerNav.meaning.items }}" as="mi">
+                            <button onClick="{{ mi.open }}" style="display:block;width:100%;text-align:left;padding:4px 4px;border-radius:5px;font-size:12px;color:#2a2a32" style-hover="background:#f2f2f5">{{ mi.label }} <span style="color:#a6a6ae;font-size:10px">{{ mi.meta }}</span></button>
+                          </sc-for>
+                        </sc-if>
+                        <sc-if value="{{ !viewer.readerNav.meaning.hasItems }}"><div style="font-size:11.5px;color:#a6a6ae;line-height:1.5">{{ viewer.readerNav.meaning.emptyNote }}</div></sc-if>
+                      </div>
+                    </sc-if>
+                  </sc-if>
+                  <sc-if value="{{ viewer.readerNav.navIsFocus }}">
+                    <sc-if value="{{ viewer.readerNav.focus.has }}">
+                      <sc-for list="{{ viewer.readerNav.focus.items }}" as="fe">
+                        <button onClick="{{ fe.open }}" style="display:block;width:100%;text-align:left;padding:6px 8px;border-radius:6px" style-hover="background:#f2f2f5">
+                          <div style="font-size:12.5px;font-weight:600;color:#2a2a32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ fe.label }}</div>
+                          <div style="font-size:10px;color:#9b9ba3;margin-top:1px">{{ fe.meta }}</div>
+                        </button>
+                      </sc-for>
+                    </sc-if>
+                    <sc-if value="{{ !viewer.readerNav.focus.has }}"><div style="font-size:11.5px;color:#a6a6ae;padding:8px 4px;line-height:1.5">No referents admitted yet.</div></sc-if>
+                  </sc-if>
+                  <sc-if value="{{ viewer.readerNav.navIsEvidence }}">
+                    <sc-if value="{{ viewer.readerNav.evidence.has }}">
+                      <sc-for list="{{ viewer.readerNav.evidence.items }}" as="pn">
+                        <button onClick="{{ pn.open }}" style="display:block;width:100%;text-align:left;padding:6px 8px;border-radius:6px;font-size:12px;color:#2a2a32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" style-hover="background:#f2f2f5">📌 {{ pn.label }}</button>
+                      </sc-for>
+                      <button onClick="{{ viewer.readerNav.evidence.openAll }}" style="margin-top:6px;padding:5px 8px;font-size:11px;font-weight:700;color:#5B4BE6">Open Pins →</button>
+                    </sc-if>
+                    <sc-if value="{{ !viewer.readerNav.evidence.has }}"><div style="font-size:11.5px;color:#a6a6ae;padding:8px 4px;line-height:1.5">Nothing pinned from this source yet.</div></sc-if>
+                  </sc-if>
+                </aside>
+                <!-- CENTER — the sticky reading map (never scrolls away — a plain flex sibling
+                     ABOVE the iframe, not CSS position:sticky, since the iframe scrolls its OWN
+                     content internally) directly over the text it describes. -->
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#fff">
+                  <div style="flex:0 0 auto;border-bottom:1px solid #ececf0;background:#fafafb;padding:8px 14px 10px">
+                    <sc-if value="{{ viewer.stickyMap.hasTicks }}">
+                      <div style="display:flex;justify-content:space-between;gap:6px;margin-bottom:5px">
+                        <sc-for list="{{ viewer.stickyMap.ticks }}" as="tk">
+                          <button onClick="{{ tk.go }}" title="{{ tk.label }}" style="min-width:0;flex:1;text-align:center;font-size:10px;font-weight:{{ tk.weight }};color:{{ tk.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:2px 4px">{{ tk.label }}</button>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                    <div class="eo-wave" onClick="{{ viewer.stickyMap.onStripClick }}" title="Click to jump here — a taller bar is a bigger turn in the reading" style="position:relative;display:flex;align-items:center;gap:1px;height:34px;padding:2px 2px;background:#fff;border:1px solid #efeff2;border-radius:8px;overflow:hidden;cursor:pointer">
+                      <sc-if value="{{ viewer.stickyMap.hasBars }}">
+                        <sc-for list="{{ viewer.stickyMap.bars }}" as="b">
+                          <div onClick="{{ b.go }}" title="{{ b.title }}" style="flex:1 1 0;min-width:1px;height:{{ b.hPct }};background:{{ b.bg }};border-radius:1px;cursor:{{ b.cursor }};pointer-events:{{ b.pe }}" style-hover="filter:brightness(.9)"></div>
+                        </sc-for>
+                      </sc-if>
+                      <span style="position:absolute;top:0;bottom:0;width:2px;background:#1B1B22;left:{{ viewer.stickyMap.playheadPct }};transition:left .15s;pointer-events:none;box-shadow:0 0 0 1px rgba(255,255,255,.6)"></span>
+                    </div>
+                  </div>
+                  <div style="flex:1;min-height:0;position:relative;background:#fff">
+                    <iframe ref="{{ setReaderFrame }}" srcdoc="{{ readerDoc }}" sandbox="allow-same-origin allow-popups" referrerpolicy="no-referrer" style="width:100%;height:100%;border:none;display:block;background:#fff"></iframe>
                 <!-- TEMPORARY — the fold-peek overlay: the summary fold at the cursor, made visible.
                      Dashed and mono to read as provisional. Shows the OBJECTS the engine holds in focus
                      and the READING'S ASSERTIONS (settled · held open · turns · properties · relations),
@@ -3722,6 +3790,48 @@ table{border-collapse:collapse;width:100%}
                     </sc-if>
                   </div>
                 </sc-if>
+                  </div>
+                </div>
+                <!-- FOLD RAIL — replaces the always-open entity inspector as the Reader's default
+                     right-side surface: what's happening at the current position, the active
+                     structural lens, the supporting spans (inside the passage reading, underlined),
+                     and next/previous navigation between detected sections. Atmosphere/Paradigm are
+                     named honestly as needing a loaded meaning model rather than faked (meaning.js). -->
+                <aside class="eo-scroll" style="flex:0 0 264px;border-left:1px solid #ececf0;overflow-y:auto;background:#fafafb;padding:14px">
+                  <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9b9ba3;margin-bottom:4px">At position</div>
+                  <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;font-weight:600;color:#1B1B22;margin-bottom:12px">{{ viewer.foldRail.positionLabel }}</div>
+                  <sc-if value="{{ viewer.foldRail.passage.show }}">
+                    <sc-if value="{{ viewer.foldRail.passage.has }}">
+                      <sc-if value="{{ viewer.foldRail.passage.isAi }}">
+                        <div class="eo-ai-summary" style="margin-bottom:14px">
+                          <div class="eo-ai-badge">{{ viewer.foldRail.passage.badgeLabel }}</div>
+                          <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2a2a32;margin-top:5px">{{ viewer.foldRail.passage.text }}</div>
+                        </div>
+                      </sc-if>
+                      <sc-if value="{{ !viewer.foldRail.passage.isAi }}">
+                        <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2a2a32;margin-bottom:14px">{{ viewer.foldRail.passage.text }}</div>
+                      </sc-if>
+                    </sc-if>
+                    <sc-if value="{{ viewer.foldRail.passage.composing }}">
+                      <div style="font-size:11px;color:#b0b0b8;font-style:italic;margin-bottom:14px">reading the fold…</div>
+                    </sc-if>
+                    <sc-if value="{{ !viewer.foldRail.passage.has }}"><sc-if value="{{ !viewer.foldRail.passage.composing }}">
+                      <button onClick="{{ viewer.foldRail.passage.generate }}" style="font-size:11px;font-weight:600;color:#6355f2;background:#f1eefe;border-radius:7px;padding:6px 12px;margin-bottom:14px" style-hover="background:#e4dffb">✨ Read the fold here</button>
+                    </sc-if></sc-if>
+                  </sc-if>
+                  <sc-if value="{{ viewer.foldRail.hasLenses }}">
+                    <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9b9ba3;margin:14px 0 6px">Active lens</div>
+                    <sc-for list="{{ viewer.foldRail.lenses }}" as="l">
+                      <div style="font-size:12.5px;color:#2a2a32;padding:2px 0">{{ l.label }}</div>
+                    </sc-for>
+                  </sc-if>
+                  <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9b9ba3;margin:14px 0 6px">Atmosphere · Paradigm</div>
+                  <div style="font-size:11.5px;color:#a6a6ae;line-height:1.5;margin-bottom:6px">Needs a loaded meaning model — not available model-free yet.</div>
+                  <div style="display:flex;gap:6px;border-top:1px solid #ececf0;padding-top:12px;margin-top:8px">
+                    <button onClick="{{ viewer.foldRail.prevFold }}" style="flex:1;font-size:11px;font-weight:700;color:#6a6a73;background:#f2f2f5;border-radius:7px;padding:7px 0" style-hover="background:#ececf0">‹ fold</button>
+                    <button onClick="{{ viewer.foldRail.nextFold }}" style="flex:1;font-size:11px;font-weight:700;color:#6a6a73;background:#f2f2f5;border-radius:7px;padding:7px 0" style-hover="background:#ececf0">next fold ›</button>
+                  </div>
+                </aside>
               </div>
             </sc-if>
 
@@ -5471,6 +5581,10 @@ class Component extends DCLogic {
       // topic) or 'new' (a fresh top-level quest); and the per-answer "Download audit" menu.
       askScope: 'follow', askAuditMenuOpen: false,
       entitySel: null, entityMode: this._pref('eo_entmode', false), webGraphFor: null, webGraphTick: 0,
+      // The Reader's own left nav (Document/Meaning/Focus/Evidence) and the sticky reading map's
+      // scrollspy — which detected section the reader is currently inside, kept live by the same
+      // scroll listener that already tracks readerProgress (setReaderFrame).
+      readerNavMode: 'document', readerMeaningCat: null, readerActiveSectionId: null,
       webEntQuery: '',   // the graph panel's entity/node filter — narrows the toggle list live
       // The entity explorer PIVOTS to the source open in the stage: when a source is in front
       // it shows that source's figures, not the whole topic's. entScopeAll escapes back to the
@@ -7929,6 +8043,25 @@ class Component extends DCLogic {
     if (d && this._render) this._render.scrollToAnchor(d, id);
     this.setState({ tocOpen: false });
   }
+  // Jump straight into the ALREADY-OPEN reader at a sentence — no modal, no re-fetch (the book is
+  // already mounted). Used by the sticky reading map's belief bars and turn peaks: a click should
+  // land in the text immediately, at reading speed, not detour through a dialog first.
+  jumpToText(sentence) {
+    const d = this._readerFrame && this._readerFrame.contentDocument;
+    if (d && this._render && sentence) this._render.scrollToText(d, sentence);
+  }
+  // Recompute the right FOLD rail's position reading (surfAt — lenses/stance, model-free) for a
+  // settled scroll position. Debounced by the caller (setReaderFrame's reportProgress); cached per
+  // source on the instance (not React state — the same idiom _readerCache already uses) so a
+  // re-render before the next settle just reads the prior value instead of nothing.
+  _refreshSurfAt(sn, frac) {
+    if (!this._app || !this._app.surfAtFraction) return;
+    try {
+      this._surfCache = this._surfCache || {};
+      this._surfCache[sn] = this._app.surfAtFraction(sn, frac);
+      this.setState({ readerSurfTick: (this.state.readerSurfTick || 0) + 1 });
+    } catch {}
+  }
   // Step to the previous / next detected chapter — index-based over the reader's own chapter anchors
   // (the same eo-ch-N ids the TOC drives), so "next" can't re-land on the section you're already in.
   // Stepping back before the first chapter scrolls to the top. (Ported from eoreader4.1 jumpSection.)
@@ -8071,7 +8204,24 @@ class Component extends DCLogic {
           const max = Math.max(1, (d.documentElement.scrollHeight || 0) - win.innerHeight);
           const frac = Math.max(0, Math.min(1, win.scrollY / max));
           this._saveReadPos(sn, frac);
-          if (Math.round(frac * 100) !== this.state.readerProgress) this.setState({ readerProgress: Math.round(frac * 100) });
+          const patch = {};
+          if (Math.round(frac * 100) !== this.state.readerProgress) patch.readerProgress = Math.round(frac * 100);
+          // SCROLLSPY for the sticky reading map + Document nav — the last section anchor at or
+          // above the strip's own height is "current." Headings and section-opening paragraphs
+          // both carry the same eo-ch-N id (reader-render.js readerHtml), so this reads the TOC's
+          // own anchor set directly — no separate paragraph index to keep in sync.
+          try {
+            const anchors = d.querySelectorAll('[id^="eo-ch-"]');
+            let activeId = anchors.length ? anchors[0].id : null;
+            for (const a of anchors) { if (a.getBoundingClientRect().top <= 96) activeId = a.id; else break; }
+            if (activeId !== this.state.readerActiveSectionId) patch.readerActiveSectionId = activeId;
+          } catch {}
+          if (Object.keys(patch).length) this.setState(patch);
+          // The right FOLD rail's position reading (surfAt — lenses/stance, model-free) is
+          // heavier than a scrollspy tick: recompute on a longer settle, not every scroll event,
+          // cached per source so flipping back to an already-read position costs nothing.
+          if (this._surfT) clearTimeout(this._surfT);
+          this._surfT = setTimeout(() => this._refreshSurfAt(sn, frac), 420);
         };
         setTimeout(reportProgress, 60);   // first paint — reflects a restored position
         win.addEventListener('scroll', () => {
@@ -9320,6 +9470,189 @@ class Component extends DCLogic {
         jump: passage ? () => this._jumpTo(sn, passage.text) : null,
       };
     });
+  }
+
+  // ── the Reader's own left nav — Document / Meaning / Focus / Evidence ───────────────────────
+  // Four compact modes over the SAME open source, replacing the always-open entity inspector as
+  // the reading's primary navigation. Document is the fixed detectStructure's own TOC, scrollspy-
+  // highlighted. Meaning surfaces the cube's nine Site-face categories (core/cube.js) off real
+  // engine data where it exists (Lenses, Kinds, Things, Links) and says so plainly where it
+  // doesn't yet (Atmospheres/Paradigms need a loaded meaning model — surfAt() never fabricates
+  // one; Fields/Networks/Absences aren't surfaced at this grain yet). Focus is the entity panel's
+  // own ranking (the fixed mentions+links+titleScore formula). Evidence is this source's pins.
+  _readerNavVM(sn, toc, st) {
+    const mode = st.readerNavMode || 'document';
+    const setMode = (m) => () => this.setState({ readerNavMode: m });
+    const docItems = (toc || []).map((c) => {
+      const active = !!c.id && c.id === st.readerActiveSectionId;
+      return { ...c, active, fg: active ? '#5B4BE6' : '#2a2a32', bg: active ? '#F1EFFE' : 'transparent', weight: active ? '700' : '500' };
+    });
+    const MEANING_CATS = [
+      { key: 'absences', label: 'Absences' }, { key: 'things', label: 'Things' }, { key: 'kinds', label: 'Kinds' },
+      { key: 'fields', label: 'Fields' }, { key: 'links', label: 'Links' }, { key: 'networks', label: 'Networks' },
+      { key: 'atmospheres', label: 'Atmospheres' }, { key: 'lenses', label: 'Lenses' }, { key: 'paradigms', label: 'Paradigms' },
+    ];
+    const meaningCat = st.readerMeaningCat;
+    const meaning = {
+      cats: MEANING_CATS.map((c) => {
+        const active = meaningCat === c.key;
+        return { ...c, active, fg: active ? '#5B4BE6' : '#5a5a63', bg: active ? '#F1EFFE' : 'transparent', weight: active ? '700' : '600',
+          select: () => this.setState({ readerMeaningCat: c.key }) };
+      }),
+      ...this._meaningCatVM(sn, meaningCat),
+    };
+    const app = this._app;
+    let focusEnts = [];
+    try { focusEnts = (app && app.entities ? app.entities({ merge: true }) : []).slice(0, 40); } catch {}
+    const focus = {
+      items: focusEnts.map((e) => ({
+        label: e.label, meta: `${e.mentions || 0} mention${(e.mentions || 0) === 1 ? '' : 's'} · ${e.links || 0} link${(e.links || 0) === 1 ? '' : 's'}`,
+        open: () => this.openEntity(e.docId, e.entId),
+      })),
+      has: focusEnts.length > 0,
+    };
+    const evidence = this._readerEvidenceVM(sn);
+    return {
+      navMode: mode,
+      navIsDocument: mode === 'document', navIsMeaning: mode === 'meaning', navIsFocus: mode === 'focus', navIsEvidence: mode === 'evidence',
+      navDocumentFg: mode === 'document' ? '#1B1B22' : '#8A8A95', navMeaningFg: mode === 'meaning' ? '#1B1B22' : '#8A8A95',
+      navFocusFg: mode === 'focus' ? '#1B1B22' : '#8A8A95', navEvidenceFg: mode === 'evidence' ? '#1B1B22' : '#8A8A95',
+      navDocumentBg: mode === 'document' ? '#F1EFFE' : 'transparent', navMeaningBg: mode === 'meaning' ? '#F1EFFE' : 'transparent',
+      navFocusBg: mode === 'focus' ? '#F1EFFE' : 'transparent', navEvidenceBg: mode === 'evidence' ? '#F1EFFE' : 'transparent',
+      goDocument: setMode('document'), goMeaning: setMode('meaning'), goFocus: setMode('focus'), goEvidence: setMode('evidence'),
+      docItems, hasDocItems: docItems.length > 0,
+      meaning, focus, evidence,
+    };
+  }
+  // One selected Meaning category's content. Returns an honest empty/needsModel state rather than
+  // a fabricated reading when the engine genuinely doesn't have this yet at the per-document grain.
+  _meaningCatVM(sn, cat) {
+    const app = this._app;
+    if (!cat) return { catSelected: false, catLabel: '', items: [], hasItems: false, needsModel: false, emptyNote: '' };
+    if (cat === 'lenses') {
+      let r = null; try { r = app && app.surfAt ? app.surfAt(sn, 0) : null; } catch {}
+      const items = ((r && r.lenses) || []).filter((l) => l.real).slice(0, 8).map((l, i) => ({ label: l.label || `Lens ${i + 1}`, meta: `weight ${l.weight}` }));
+      return { catSelected: true, catLabel: 'Lenses', items, hasItems: items.length > 0, needsModel: false,
+        emptyNote: items.length ? '' : 'No structural lens cleared the null in this document yet.' };
+    }
+    if (cat === 'kinds') {
+      let r = { k: 0, kinds: [] }; try { r = app && app.kindsOf ? app.kindsOf(sn) : r; } catch {}
+      const items = (r.kinds || []).slice(0, 8).map((k, i) => ({ label: k.label || `Kind ${i + 1}`, meta: `${(k.members || []).length} members` }));
+      return { catSelected: true, catLabel: 'Kinds', items, hasItems: items.length > 0, needsModel: false,
+        emptyNote: items.length ? '' : 'Not enough of a recurring cast to cluster into kinds yet.' };
+    }
+    if (cat === 'things' || cat === 'links') {
+      let ents = []; try { ents = (app && app.entities ? app.entities({ merge: true }) : []).slice(0, 8); } catch {}
+      const items = ents.map((e) => ({ label: e.label, meta: cat === 'links' ? `${e.links || 0} link${(e.links || 0) === 1 ? '' : 's'}` : `${e.mentions || 0} mention${(e.mentions || 0) === 1 ? '' : 's'}`, open: () => this.openEntity(e.docId, e.entId) }));
+      return { catSelected: true, catLabel: cat === 'links' ? 'Links' : 'Things', items, hasItems: items.length > 0, needsModel: false, emptyNote: items.length ? '' : 'No entities admitted here yet.' };
+    }
+    if (cat === 'atmospheres' || cat === 'paradigms') {
+      return { catSelected: true, catLabel: cat === 'atmospheres' ? 'Atmospheres' : 'Paradigms', items: [], hasItems: false, needsModel: true,
+        emptyNote: 'Needs a loaded meaning model — not available model-free yet.' };
+    }
+    return { catSelected: true, catLabel: cat.charAt(0).toUpperCase() + cat.slice(1), items: [], hasItems: false, needsModel: false,
+      emptyNote: 'Not yet surfaced at the per-document level in this view.' };
+  }
+  // Evidence — this source's own pins (app.pins(), the same durable list the Pins tab reads),
+  // scoped by kind the way _sourceLandingVM's pin counts already scope them.
+  _readerEvidenceVM(sn) {
+    const app = this._app; const s = app && app.sourceBySn && app.sourceBySn(sn);
+    if (!app || !app.pins || !s) return { items: [], has: false };
+    let all = []; try { all = app.pins() || []; } catch {}
+    const mine = all.filter((p) => (p.anchor && p.anchor.sn === sn) || (p.entity && p.entity.docId === s.docId));
+    const items = mine.slice(0, 30).map((p) => ({
+      label: p.label || (p.entity && p.entity.label) || (p.anchor && p.anchor.quote) || 'Pinned',
+      kind: p.kind || 'pin',
+      open: () => this.setTab('pins'),
+    }));
+    return { items, has: items.length > 0, openAll: () => this.setTab('pins') };
+  }
+  // ── the sticky reading map — section ticks + a compact surprise-intensity strip ─────────────
+  // Reuses the SAME turning-point spine the Overview waveform reads (eot.turns) but built fresh,
+  // smaller, and wired to jump straight into the text (jumpToText) rather than open the evidence
+  // modal — this strip is driven at reading speed, not stopped to inspect. Section ticks come from
+  // the same detectStructure TOC as the Document nav, spaced evenly across the strip.
+  _stickyMapVM(sn, eot, toc, st) {
+    const turns = (eot && Array.isArray(eot.turns)) ? eot.turns : [];
+    const unitsN = (eot && eot.units) || 0;
+    const NBARS = 56;
+    const posOf = (t) => (unitsN <= 0 || t.idx == null) ? -1 : Math.min(NBARS - 1, Math.max(0, Math.round((t.idx / Math.max(1, unitsN - 1)) * (NBARS - 1))));
+    const beliefOf = (t) => Math.max(t.bayesBits || 0, t.surprisalBits || 0);
+    const peak = turns.reduce((m, t) => Math.max(m, beliefOf(t)), 0) || 1;
+    const mags = Array.from({ length: NBARS }, () => 0);
+    const at = Array.from({ length: NBARS }, () => null);
+    for (const t of turns) { const bi = posOf(t); if (bi < 0) continue; const frac = beliefOf(t) / peak; if (frac > mags[bi]) { mags[bi] = frac; at[bi] = t; } }
+    const bars = mags.map((frac, i) => {
+      const hasTurn = !!(at[i] && at[i].sentence);
+      return {
+        hPct: Math.round(10 + frac * 90) + '%',
+        bg: frac > 0.55 ? '#5B4BE6' : frac > 0.28 ? '#8C7DF3' : '#DED8FD',
+        title: hasTurn ? String(at[i].sentence).replace(/\s+/g, ' ').trim().slice(0, 160) : '',
+        hasTurn, cursor: hasTurn ? 'pointer' : 'default', pe: hasTurn ? 'auto' : 'none',
+        go: hasTurn ? () => this.jumpToText(at[i].sentence) : () => {},
+      };
+    });
+    const ticks = (toc || []).slice(0, 10).map((c) => {
+      const active = !!c.id && c.id === st.readerActiveSectionId;
+      return { label: c.label, go: c.go, active, fg: active ? '#5B4BE6' : '#9b9ba3', weight: active ? '800' : '600' };
+    });
+    const playheadPct = Math.max(0, Math.min(100, st.readerProgress || 0)) + '%';
+    // The fold-at-position affordance — "when no range is selected, fold the current position"
+    // (the spec's default mode). Scoped to the same source, whole-doc detail, so it reuses the
+    // exact model-free-safe fold summary path _foldSummaryVM already renders in the FOLD rail.
+    return {
+      hasBars: bars.some((b) => b.hasTurn), bars,
+      hasTicks: ticks.length > 0, ticks,
+      playheadPct,
+      onStripClick: (e) => this._stickyMapClick(sn, e),
+    };
+  }
+  // A click anywhere on the sticky map's own belief strip (not on a bar/tick button) scrubs to the
+  // proportional position in the text — the strip's click-to-jump, independent of any turn peak.
+  _stickyMapClick(sn, e) {
+    try {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const frac = rect.width > 0 ? Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) : 0;
+      const d = this._readerFrame && this._readerFrame.contentDocument; const win = d && d.defaultView;
+      if (!d || !win) return;
+      const max = Math.max(1, (d.documentElement.scrollHeight || 0) - win.innerHeight);
+      win.scrollTo({ top: frac * max, behavior: 'smooth' });
+    } catch {}
+  }
+  // ── the right FOLD rail — replaces the always-open entity inspector as the Reader's default
+  // right-side surface: what's happening in the passage at the current position, the active
+  // structural lens (atmosphere/paradigm honestly marked as needing a loaded model — never
+  // fabricated), the supporting spans, and next/previous navigation between detected sections.
+  _readerFoldRailVM(sn, toc, st) {
+    const app = this._app;
+    const activeSec = (toc || []).find((c) => c.id && c.id === st.readerActiveSectionId);
+    const positionLabel = activeSec ? activeSec.label : 'Opening';
+    const surf = (this._surfCache && this._surfCache[sn]) || null;
+    const lenses = ((surf && surf.lenses) || []).filter((l) => l.real).slice(0, 3).map((l, i) => ({ label: l.label || `Lens ${i + 1}` }));
+    // The passage fold — a small window of sentences around the current position (surf.anchor),
+    // reusing the exact model-free-safe range-fold path _waveRangeVM already uses for audio
+    // (app.foldSummary/foldSummaryFor's scope:'range'), keyed by sentence index directly instead
+    // of a time→sentence lookup (summaries.js's `from`/`to` are already raw indices — `q.from|0`).
+    let passage = { show: false, has: false, text: '', isAi: false, badgeLabel: '', composing: false, generate: () => {} };
+    if (app && app.foldSummaryFor && surf) {
+      const from = Math.max(0, surf.anchor - 3), to = surf.anchor + 3;
+      const q = { sn, scope: 'range', from, to, detail: 'standard' };
+      const rec = app.foldSummaryFor(q);
+      const badge = rec ? this.summaryBadge(rec) : { isAi: false };
+      passage = {
+        show: true, has: !!rec, text: rec ? rec.text : '',
+        isAi: badge.isAi, badgeLabel: badge.badgeLabel || '',
+        composing: !!(rec && rec.modelless && app.optionalModel && app.optionalModel()),
+        generate: () => { app.foldSummary(q).catch(() => {}); },
+      };
+    }
+    return {
+      positionLabel,
+      hasLenses: lenses.length > 0, lenses,
+      passage,
+      prevFold: () => this.jumpReaderSection(-1),
+      nextFold: () => this.jumpReaderSection(1),
+    };
   }
 
   // ── the fold summary panel — a whole source ('full') or one figure in it ('entity') ─────────
@@ -13659,9 +13992,12 @@ class Component extends DCLogic {
           }
           readerDoc = this._readerCache[activeSn].html;
           readerToc = (this._readerCache[activeSn].toc || []).map((c) => ({
-            label: c.label, level: c.level, pad: String(11 + ((c.level || 1) - 1) * 14),
+            id: c.id, label: c.label, level: c.level, pad: String(11 + ((c.level || 1) - 1) * 14),
             go: () => this.gotoChapter(c.id),
           }));
+          viewer.readerNav = this._readerNavVM(s.sn, readerToc, st);
+          viewer.stickyMap = this._stickyMapVM(s.sn, eot, readerToc, st);
+          viewer.foldRail = this._readerFoldRailVM(s.sn, readerToc, st);
         }
         // The native render reads its memoised fetch from state (loadPage fills it).
         const pg = st.viewerPages[activeSn] || {};

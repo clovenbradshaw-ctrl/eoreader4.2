@@ -95,6 +95,7 @@ import { installChat } from './app/chat.js';
 import { installTopicQuestion } from './app/topic-question.js';
 import { installSegments } from './app/segments.js';
 import { installEntities } from './app/entities.js';
+import { installMeaning } from './app/meaning.js';
 import { installLevels } from './app/levels.js';
 import { installTransmission } from './app/transmission.js';
 import { installStanding } from './app/standing.js';
@@ -237,6 +238,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch, 
   installTopicQuestion(appCtx);
   installSegments(appCtx);
   installEntities(appCtx);
+  installMeaning(appCtx);
   installLevels(appCtx);
   installTransmission(appCtx);
   installSync(appCtx); installStanding(appCtx);
