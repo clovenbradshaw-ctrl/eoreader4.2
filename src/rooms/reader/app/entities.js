@@ -4,7 +4,7 @@
 // spine (state · emit · trail beats · client) is destructured once at install.
 // entities (the explorer)
 import { projectGraph } from '../../../core/index.js';
-import { mergeEntitiesByReferent } from '../entity-merge.js';
+import { mergeEntitiesByReferent, titleMatchBoost } from '../entity-merge.js';
 import { referentApiFor } from '../../../perceiver/referents/index.js';
 
 export const installEntities = (appCtx) => {
@@ -214,6 +214,7 @@ export const installEntities = (appCtx) => {
   };
   const _computeEntities = (merge, level, srcs) => {
     const nameRows = [], baseRows = [], convs = [];
+    const titleBySn = new Map(srcs.map((s) => [s.sn, s.title || '']));
     for (const src of srcs) {
       const c = _rowsForSource(src, level);
       if (level !== 'signal' && c.nameRows) { nameRows.push(...c.nameRows); if (c.convName) convs.push(c.convName); }
@@ -238,9 +239,15 @@ export const installEntities = (appCtx) => {
       // Gerry share — is folded into the full-name bearer of its own source, so a read about Neil
       // Armstrong never inherits Louis Armstrong's chapters (entity-merge.js). The strongest
       // instance still leads, mentions and links aggregate, and `sourceCount` records the reach.
-      return mergeEntitiesByReferent(rows, { entityKey, isEpithet, epithetHead });
+      return mergeEntitiesByReferent(rows, { entityKey, isEpithet, epithetHead, titleBySn });
     }
-    rows.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
+    // Same title-match boost as the merged path (entity-merge.js) — a source's own subject
+    // outranks a phrase merely built on its name, even in the raw per-source listing.
+    rows.sort((a, b) => {
+      const as = a.mentions + a.links + titleMatchBoost(a.label, [titleBySn.get(a.sn)].filter(Boolean));
+      const bs = b.mentions + b.links + titleMatchBoost(b.label, [titleBySn.get(b.sn)].filter(Boolean));
+      return bs - as;
+    });
     return rows;
   };
 

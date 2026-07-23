@@ -134,3 +134,42 @@ test('mergeEntitiesByReferent leaves grain undefined for a row that never got gr
   const merged = mergeEntitiesByReferent(rows);
   assert.equal(merged[0].grain, null, 'a HELD referent is not guessed into a grain by the merge');
 });
+
+// ── the document's own subject outranks a phrase merely built on its name ─────────────────────
+// A biography's own subject is often UNDER-counted by raw mentions+links (pronoun references
+// never add to `mentions` — perceiver/referents only tallies name/description admissions), while
+// a compound phrase that happens to contain the subject's name ("Ada Lovelace Bicentenary
+// Lectures") accumulates full, undiscounted mentions — so a bare mentions+links sort can crown
+// the compound phrase the panel's centered entity instead of the person the document is about
+// (the two stay correctly unmerged; this is purely a ranking bug). titleBySn threads the source's
+// own title in as a directional tiebreaker: the title, or a shortened form of it, wins; a phrase
+// that merely contains the title does not.
+
+test('the document subject outranks a compound phrase built on its name, even with fewer raw mentions', () => {
+  const rows = [
+    row('Ada Lovelace', 'd', 'S1', 6, 2, 'ada-lovelace'),
+    row('Ada Lovelace Bicentenary Lectures', 'd', 'S1', 9, 3, 'bicentenary-lectures'),
+  ];
+  const titleBySn = new Map([['S1', 'Ada Lovelace']]);
+  const merged = mergeEntitiesByReferent(rows, { titleBySn });
+  assert.equal(merged[0].label, 'Ada Lovelace', "the article's own subject ranks first, not the higher-mention compound phrase");
+});
+
+test('a shortened form of the title (a surname standing in) still gets a strong boost', () => {
+  const rows = [
+    row('Lovelace', 'd', 'S1', 4, 1, 'lovelace'),
+    row('Ada Lovelace Bicentenary Lectures', 'd', 'S1', 9, 3, 'bicentenary-lectures'),
+  ];
+  const titleBySn = new Map([['S1', 'Ada Lovelace']]);
+  const merged = mergeEntitiesByReferent(rows, { titleBySn });
+  assert.equal(merged[0].label, 'Lovelace', "a shortened form of the subject's name still outranks the compound phrase");
+});
+
+test('without a title signal, ranking falls back to plain mentions+links (unchanged default)', () => {
+  const rows = [
+    row('Ada Lovelace', 'd', 'S1', 6, 2, 'ada-lovelace'),
+    row('Ada Lovelace Bicentenary Lectures', 'd', 'S1', 9, 3, 'bicentenary-lectures'),
+  ];
+  const merged = mergeEntitiesByReferent(rows);   // no titleBySn passed
+  assert.equal(merged[0].label, 'Ada Lovelace Bicentenary Lectures', 'with no title signal, the higher raw score still leads');
+});

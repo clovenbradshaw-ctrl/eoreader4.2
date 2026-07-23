@@ -14,7 +14,13 @@ const STOP = new Set(('the a an of to in on for and or but with without into fro
   'why how using used use their there here across through one first over about out up down off away back ' +
   'many much few some any all both each other another same different new old said says say according would ' +
   'could should shall will can may might must now just only very upon while when after before during').split(/\s+/));
-const contentToks = (s) => (String(s || '').toLowerCase().match(/[a-z][a-z'-]{3,}/g) || []).filter((t) => !STOP.has(t));
+// Strip a trailing possessive ('s) the same way `norm` (below) does, so a distinctive term found
+// here can still be RE-LOCATED in the original mention text during phrase-widening — "Ada's" and
+// "Ada" must canon to the same token, or the widening loop silently fails to find `best` and the
+// label stays a bare, un-widened possessive ("Ada's") instead of the surrounding phrase.
+const contentToks = (s) => (String(s || '').toLowerCase().match(/[a-z][a-z'-]{3,}/g) || [])
+  .map((t) => t.replace(/'s$/, ''))
+  .filter((t) => t.length >= 3 && !STOP.has(t));
 const titleCase = (s) => String(s || '').trim().replace(/\s+/g, ' ').split(' ').slice(0, 4)
   .map((w) => (w.length > 2 ? w[0].toUpperCase() + w.slice(1) : w)).join(' ');
 const labelOk = (t) => { const s = String(t || '').trim(); return s.length >= 3 && /[a-z]/i.test(s) && !STOP.has(s.toLowerCase()); };

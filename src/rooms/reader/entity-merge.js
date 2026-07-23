@@ -47,6 +47,45 @@ const surnameOf = (label) => { const t = tokensOf(label); return t.length ? stem
 // The separator that keeps a per-source stray key from ever colliding with a real label key.
 const SEP = '␟';
 
+// ── the document's own subject outranks a phrase merely built on its name ─────────────────────
+// A source's title (its own name for its subject — a Wikipedia page title, an admitted doc's
+// .title) is a signal entity ranking never used: "Ada Lovelace Bicentenary Lectures" can
+// out-mention the actual subject in a long article (pronoun references never add to `mentions`;
+// a repeated proper-noun phrase always does), so the compound phrase wins a bare mentions+links
+// sort and becomes the panel's centered entity — a referent-RANKING failure, not a merge failure
+// (the two stay correctly unmerged; this is purely about which one ranks first).
+//
+// The match is DIRECTIONAL, because naive token-overlap cannot tell "Ada Lovelace" (the subject)
+// from "Ada Lovelace Bicentenary Lectures" (an event named after the subject) — both share every
+// title token. A label that IS the title, or a SHORTER form of it (a surname standing in for the
+// full name), is almost certainly the same referent. A label that ADDS words beyond the title is
+// only still-plausibly the same referent when it adds ONE (an honorific: "Countess Ada
+// Lovelace"); two or more reads as a distinct, derived entity and earns no boost, so it cannot
+// outrank the subject on title-match alone.
+const STOP_TITLE_TOK = new Set(['a', 'an', 'the', 'and', 'or', 'of', 'in', 'on', 'at', 'to', 'for', 'with']);
+const titleTokens = (s) => (String(s || '').toLowerCase().match(/[a-z0-9]+/g) || [])
+  .filter((w) => w.length > 1 && !STOP_TITLE_TOK.has(w));
+export const titleMatchBoost = (label, titles) => {
+  const lt = titleTokens(label);
+  if (!lt.length || !titles || !titles.length) return 0;
+  let best = 0;
+  for (const title of titles) {
+    const tt = titleTokens(title);
+    if (!tt.length) continue;
+    const lset = new Set(lt), tset = new Set(tt);
+    const shared = [...lset].filter((w) => tset.has(w)).length;
+    if (!shared) continue;
+    if (lset.size === tset.size && shared === tset.size) { best = Math.max(best, 1000); continue; }  // exact
+    if (shared === lset.size && lset.size < tset.size) {             // label ⊆ title — a shortened form
+      best = Math.max(best, 600 * (shared / tset.size)); continue;
+    }
+    if (shared === tset.size && lset.size > tset.size && (lset.size - tset.size) <= 1) {
+      best = Math.max(best, 500);                                    // title + one honorific/epithet
+    }
+  }
+  return best;
+};
+
 // The head token in its ORIGINAL casing — "Good God" with head "god" displays as "God".
 // Falls back to a capitalised head when no member spells it (an all-epithet cluster).
 const casedHead = (label, headStem) => {
@@ -57,7 +96,7 @@ const casedHead = (label, headStem) => {
 // `isEpithet` / `epithetHead` are the conventions ledger's `isModifier` / `isNonPerson`
 // registers (see name-variants.js epithetReducedHead). With neither supplied the merge
 // is byte-identical to before: no row reduces to a head, the epithet branch never fires.
-export const mergeEntitiesByReferent = (rows, { entityKey = DEFAULT_KEY, isEpithet, epithetHead } = {}) => {
+export const mergeEntitiesByReferent = (rows, { entityKey = DEFAULT_KEY, isEpithet, epithetHead, titleBySn } = {}) => {
   const all = Array.isArray(rows) ? rows : [];
   const epithetOn = !!(isEpithet || epithetHead);
   // The unique non-person head a row decorates ("Good God" → "god"), or '' for a plain row.
@@ -136,13 +175,21 @@ export const mergeEntitiesByReferent = (rows, { entityKey = DEFAULT_KEY, isEpith
 
   const merged = [...groups.values()].map((grp) => {
     const open = grp.fullLead || grp.lead;   // open on the full-name node when the group has one
+    const titles = titleBySn ? [...new Set(grp.instances.map((i) => titleBySn.get(i.sn)).filter(Boolean))] : [];
     return {
       key: open.key, entId: open.entId, docId: open.docId, sn: open.sn,
       label: grp.label, mentions: grp.mentions, links: grp.links,
       sourceCount: grp.sns.size, instances: grp.instances,
       kind: open.kind, level: open.level, grain: open.grain,
+      titleScore: titleMatchBoost(grp.label, titles),
     };
   });
-  merged.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
+  // The document's own named subject (its title) ranks by prominence, not raw mentions+links: a
+  // biography's subject is often UNDER-counted by that formula (pronoun references never add to
+  // `mentions` — perceiver/referents only tallies name/description admissions) while a compound
+  // phrase built on the subject's name ("<Subject> Bicentenary Lectures") accumulates full,
+  // undiscounted mentions with nothing to tell "a person's name" from "a phrase containing it".
+  // titleScore is directional (see titleMatchBoost) so it cannot be won by that compound phrase.
+  merged.sort((a, b) => (b.mentions + b.links + b.titleScore) - (a.mentions + a.links + a.titleScore));
   return merged;
 };

@@ -46,7 +46,12 @@ export const regexToText = (html) => decodeEntities(String(html || '')
   .replace(new RegExp(`<(${STRIP_WHOLE})\\b[\\s\\S]*?</\\1>`, 'gi'), ' ')
   .replace(new RegExp(`</(?:${BLOCK_CLOSE})\\s*>`, 'gi'), '\n')
   .replace(/<li\b[^>]*>/gi, '\n')          // a list item starts a new line even mid-flow
-  .replace(/<h[1-6]\b[^>]*>/gi, '\n')      // a heading starts on its own line, never welded to it
+  // A heading starts on its own line, never welded to it — AND carries its level as a markdown
+  // marker ("## Biography") rather than flattening to a bare line indistinguishable from a
+  // paragraph. detectStructure's strongest signal is exactly this markdown form; without it, an
+  // arbitrary (non-canonical, non-numbered) HTML heading has only the weak typographic/spacing
+  // fallback to be recognized by.
+  .replace(/<h([1-6])\b[^>]*>/gi, (_, n) => '\n' + '#'.repeat(+n) + ' ')
   .replace(/<br\s*\/?>/gi, '\n')
   .replace(/<[^>]+>/g, ' '))
   .replace(/[ \t]+/g, ' ')
