@@ -39,7 +39,7 @@ const freshApp = async () => {
 const watchSources = (app) => {
   const snaps = [];
   app.subscribe((k) => {
-    if (k === 'sources') snaps.push(app.topicSources().map((s) => ({ sn: s.sn, title: s.title, kind: s.kind, ent: s.entCount })));
+    if (k === 'sources') snaps.push(app.topicSources().map((s) => ({ sn: s.sn, title: s.title, kind: s.kind, ent: s.entCount, text: s.text })));
   });
   return snaps;
 };
@@ -109,4 +109,28 @@ test('a structured file (json) still lands with its reading in one step', async 
   const landed = firstWithSrc.find((s) => s.sn === src.sn);
   assert.equal(landed.kind, 'json', 'recorded under its structured modality');
   assert.ok(typeof landed.ent === 'number', 'landed fully-read (entity count already numeric)');
+});
+
+// "The first experience of uploading anything should be seeing it in its native form" — an image
+// must land in the sources the instant its file facts are known, the same promise a prose/audio
+// import already keeps, BEFORE the (browser-only) eyes/scene reading ever gets a chance to run.
+test('an image lands as a source immediately, on its file-facts text, before any reading of it', async () => {
+  const app = await freshApp();
+  const snaps = watchSources(app);
+
+  const src = await app.ingestFile(new FakeFile('not really pixels, just bytes', 'my-photo.png', 'image/png'));
+  assert.ok(src && src.sn, 'the import resolved with a recorded source');
+  assert.equal(src.kind, 'image', 'kind stays "image" regardless of what a later OCR/scene read turns out to be');
+
+  const firstWithSrc = snaps.find((snap) => snap.some((s) => s.sn === src.sn));
+  assert.ok(firstWithSrc, 'the source appeared in a sources emit');
+  const landed = firstWithSrc.find((s) => s.sn === src.sn);
+  assert.equal(landed.title, 'my-photo', 'titled from the file name');
+  assert.ok((landed.text || '').includes('my-photo'), 'lands on the file-facts placeholder, not blank, not stalled on the eyes/scene');
+
+  // No browser in this test harness, so the deferred eyes/scene read can only fail — but that must
+  // never unwind the already-landed picture: the source and its placeholder text still stand.
+  const now = app.sourceBySn(src.sn);
+  assert.ok(now.imageRead && ['error', 'done', 'skipped'].includes(now.imageRead.state), 'the background read reached a terminal state');
+  assert.ok((now.text || '').includes('my-photo'), 'the source is never unwound by a failed/absent read');
 });

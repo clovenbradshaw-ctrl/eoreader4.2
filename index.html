@@ -3146,6 +3146,16 @@ table{border-collapse:collapse;width:100%}
                       <button style="background:#f2f2f5;border:1px solid #ececf0;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:650;color:#5a5a63">•••</button>
                     </div>
                   </div>
+                  <!-- THE PICTURE — an uploaded image's first view is the image itself, full-bleed,
+                       above the stats/metadata this page reports about it (not just a stats table). -->
+                  <sc-if value="{{ sourceLanding.hasImage }}">
+                    <div style="margin-top:14px;border:1px solid #E3E0E7;border-radius:16px;background:#101014;overflow:hidden;display:flex;align-items:center;justify-content:center">
+                      <img src="{{ sourceLanding.image }}" alt="{{ sourceLanding.imageAlt }}" style="display:block;width:100%;max-height:70vh;object-fit:contain" />
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ sourceLanding.imagePending }}">
+                    <div style="margin-top:14px;padding:40px;border:1px dashed #E3E0E7;border-radius:16px;background:#fafafb;text-align:center;color:#8a8a95;font-size:12.5px">Loading the picture…</div>
+                  </sc-if>
                   <!-- PROVENANCE ABOVE THE FOLD — fixity, then what this source actually contributes,
                        then its corroboration status in one line, then a verbatim excerpt. This is
                        what makes a source a first-class object instead of a pasted URL; it used to
@@ -7655,6 +7665,9 @@ class Component extends DCLogic {
     this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, readerProgress: 0, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...mobilePatch, ...entityScopePatch });
     if (modes[sn] === 'native') this.loadPage(sn);
     if (modes[sn] === 'pdf') this.loadPdf(sn);
+    // Overview (this open's mode, always) is the picture's own first showing — rehydrate it from
+    // OPFS now if this session didn't import it (a reload), same trigger loadPdf gets above.
+    if (src.kind === 'image') this.loadImage(sn);
     this._syncRoute();
   }
   closeTab(sn, e) {
@@ -7694,6 +7707,7 @@ class Component extends DCLogic {
     this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false });
     if (mode === 'native') this.loadPage(sn);
     if (mode === 'pdf') this.loadPdf(sn);
+    if (mode === 'overview') this.loadImage(sn);
     this._syncRoute();
   }
   // Overview waveform controls — the only surprise view is the overlay; the toggles add structure,
@@ -7753,6 +7767,16 @@ class Component extends DCLogic {
     if (!s || !this._app.pdfUrl) return;
     if (s._pdfUrl || !(s.pdfRef && s.pdfRef.opfs)) return;   // already renderable, or nothing to rehydrate
     this._app.pdfUrl(s).catch(() => { /* the mode chip still offers the Reader book */ });
+  }
+  // Ensure an image source has a showable object URL for the Overview hero. The live blob is
+  // already on the source (s._media) if this session imported it; after a reload it is rehydrated
+  // from the persisted bytes (app.imageUrl → OPFS, app/image.js), which emits 'sources' and
+  // re-renders the hero once the URL is ready — the same loadPdf pattern, for the picture.
+  loadImage(sn) {
+    const s = this._app && this._app.sourceBySn(sn);
+    if (!s || !this._app.imageUrl) return;
+    if ((s._media && s._media.url) || !(s.imageRef && s.imageRef.opfs)) return;   // already showable, or nothing to rehydrate
+    this._app.imageUrl(s).catch(() => { /* the stats card still stands without the picture */ });
   }
   // The native render — a URL-bearing source fetches the real page's HTML through the app's proxy
   // and sanitizes it (nativePageHtml); everything else renders synchronously off its OWN text (or
@@ -9330,6 +9354,22 @@ class Component extends DCLogic {
     const icon = type === 'PDF' ? '📄' : type === 'Audio' ? '🎧' : type === 'Video' ? '🎬' : type === 'Image' ? '🖼' : type === 'Dataset' ? '▦' : type === 'Code file' ? '⌘' : type === 'Repository' ? '⎇' : type === 'Conversation' ? '💬' : type === 'Book' ? '📚' : type === 'Webpage' ? '🌐' : '□';
     const primaryLabel = type === 'PDF' ? 'Open document' : type === 'Webpage' ? 'Read captured page' : type === 'Audio' ? 'Listen' : type === 'Video' ? 'Watch' : type === 'Image' ? 'Inspect' : type === 'Dataset' ? 'Explore data' : type === 'Code file' ? 'Browse code' : type === 'Repository' ? 'Explore repository' : type === 'Conversation' ? 'Read conversation' : type === 'Unknown file' ? 'Inspect source' : 'Read';
     const primaryMode = type === 'PDF' ? 'pdf' : type === 'Webpage' ? 'native' : type === 'Audio' || type === 'Video' ? 'listen' : 'reader';
+    // The picture itself — shown in the hero the instant it's available (the live blob: URL this
+    // session imported it with, or the OPFS-rehydrated copy after a reload, via loadImage/imageUrl
+    // in app/image.js) — so an image source's FIRST view is the picture, not a stats table. Pending
+    // (rather than absent) when a reload has original bytes but hasn't rehydrated them into view yet.
+    const liveImage = s._media && s._media.url ? s._media.url : '';
+    const hasImage = type === 'Image' && !!liveImage;
+    const imagePending = type === 'Image' && !liveImage && !!(s.imageRef && s.imageRef.opfs);
+    // What the picture has been read for, so far — "OCR text: Available" used to show unconditionally
+    // off s.text truthiness, which now holds even before a word is recognised (the file-facts
+    // placeholder fromImage lands the source with). Absent imageRead (a source from before this
+    // read-in-the-background split, or any non-image kind) reads as already-resolved.
+    const imgReadState = type === 'Image' ? ((s.imageRead && s.imageRead.state) || 'done') : null;
+    const ocrTextLabel = imgReadState === 'pending' || imgReadState === 'running' ? 'Reading…'
+      : imgReadState === 'error' ? 'Reading failed'
+        : imgReadState === 'skipped' ? 'None found'
+          : (s.text && s.text.trim() ? 'Available' : 'Unknown');
     const title = s.title || s.domain || s.reg || 'Untitled source';
     const origin = s.creator || s.author || s.publisher || s.domain || (s.url ? new URL(s.url, location.href).hostname : 'Local record');
     const paras = (() => { try { return app.viewerParas(s.sn, { entities: false }) || []; } catch { return []; } })();
@@ -9373,7 +9413,7 @@ class Component extends DCLogic {
       'PDF': [['Pages', s.pages || (s.coverage && s.coverage.pages) || 'Unknown'], ['Reconstructed sections', headings || 'Unknown'], ['OCR coverage', this._ocrCoverageLabel(s)], ['Layout quality', s.coverage && s.coverage.disagreements ? `${s.coverage.disagreements} line(s) needed reconciling` : (s.text ? 'No disagreements reconciled' : 'Unknown')]],
       'Code file': [['Language', s.language || 'Unknown'], ['Lines', String(s.text || '').split('\n').length], ['Symbols', entPending ? 'Structuring…' : entN], ['Dependencies', s.dependencies || 'Unknown']],
       'Repository': [['Files', s.files || 'Unknown'], ['Languages', s.languages || s.language || 'Unknown'], ['Entry points', s.entryPoints || 'Unknown'], ['Tests', s.tests || 'Unknown']],
-      'Image': [['Dimensions', s.dimensions || 'Unknown'], ['Objects', entPending ? 'Structuring…' : entN], ['OCR text', s.text ? 'Available' : 'Unknown'], ['Rights', this._rights(s).label]],
+      'Image': [['Dimensions', s.dimensions || 'Unknown'], ['Objects', entPending ? 'Structuring…' : entN], ['OCR text', ocrTextLabel], ['Rights', this._rights(s).label]],
       'Conversation': [['Participants', s.participants || 'Unknown'], ['Messages', s.messages || paras.length || 'Unknown'], ['Time range', s.timeRange || 'Unknown'], ['Threads', s.threads || 'Unknown']],
     };
     const generic = type === 'Book' ? [['Structure', `${headings || 'Unknown'} chapters/sections · ${size}`], ['Reading time', mins ? `${mins} min` : 'Unknown'], ['Characters / figures', entPending ? 'Structuring…' : String(entN)], ['Recurring language', 'Open EoT for terms']]
@@ -9694,6 +9734,8 @@ class Component extends DCLogic {
     return {
       workspace: ws.name || 'Workspace', topic: topic.title || 'Topic', sourceLabel: s.reg || 'Source', icon, typeLabel: type.toUpperCase(), title,
       origin, verification: s.verified === false ? 'UNVERIFIED' : 'VERIFIED', rights: this._rights(s).label, retrieved: this._ago(s.retrieved) || 'captured',
+      // the picture itself, shown in the hero above everything else this Overview reports about it
+      hasImage, image: liveImage, imageAlt: title, imagePending,
       primaryLabel, primary: () => this.setSourceMode(primaryMode), search: () => this.setTab('search'), explore: () => this.setTab('graph'), pin: () => this._pinSource?.(s.sn), reread: () => this.openReReadModal(s.sn), openWorkspace: () => this.setTab('register'), openTopic: () => this.setTab('chat'),
       coreCounts: baseCounts, synthesisState: 'off', glance, recordId: s.reg || `S-${s.sn}`, provenance: s.url ? `Captured from ${s.domain || 'web'}` : 'Local/imported source',
       // provenance above the fold — hero-level facts (see above)

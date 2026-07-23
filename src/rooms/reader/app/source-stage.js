@@ -46,6 +46,18 @@ export const deriveSourceStage = (src) => {
       : 'Queued for transcription…';
     return { stage: 'reading', label: 'Reading', detail, ...SOURCE_STAGE_TONE.reading };
   }
+  // An image's picture is already on the record by the time this ever runs (it lands before its
+  // reading, app/image.js) — imageRead names what's still in flight: recognising the picture's
+  // text or scene, the way `asr` names an audio clip's still-in-flight transcript above.
+  const imgRead = src.imageRead || null;
+  if (imgRead && imgRead.state === 'error') {
+    const detail = `Reading the picture failed${imgRead.reason ? ` — ${imgRead.reason}` : ''}. The image is available; retry the read.`;
+    return { stage: 'failed', label: 'Failed', detail, ...SOURCE_STAGE_TONE.failed };
+  }
+  if (imgRead && (imgRead.state === 'pending' || imgRead.state === 'running')) {
+    const detail = imgRead.state === 'running' ? 'Reading the picture for text and a scene description…' : 'Queued to read the picture…';
+    return { stage: 'reading', label: 'Reading', detail, ...SOURCE_STAGE_TONE.reading };
+  }
   if (src.entCount == null) {
     return { stage: 'structuring', label: 'Structuring', detail: 'Extracting referents and structure from the text…', ...SOURCE_STAGE_TONE.structuring };
   }
