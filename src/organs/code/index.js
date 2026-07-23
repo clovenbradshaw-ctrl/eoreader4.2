@@ -36,6 +36,8 @@ export { extractPyFacts, PY_BUILTINS, pyScrub } from './python.js';
 export { eotOfModule, lowerCorpus, codeDoc, parseSign, declSign, scopeSign, useSign } from './eot.js';
 export { dependencyOrder, moduleGraphOf, tarjanSCC, helixRank, HELIX } from './helix.js';
 export { findIssues, issuesToEot, reportText, DEFAULT_GLOBALS, SEVERITIES } from './issues.js';
+export { refoldCycle, declGraphOf } from './refold.js';
+export { coherenceOf } from './coinduct.js';
 export { mergeIssues, FIXABLE_LAWS } from './fix.js';
 export { composeProgram, composeAndVerify, composeFromModel, blueprintPrompt } from './compose.js';
 export { composeWidget, composeWidgetAndVerify, composeWidgetFromModel, widgetPrompt, specToWidgetBlueprint } from './widget.js';
