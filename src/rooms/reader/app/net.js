@@ -2,6 +2,7 @@
 // "no god module — no file over ~250 lines", docs/architecture.md). Same holon.
 // The proxy chain: public CORS proxies raced in order, and the full-text mirrors.
 import { GUTENBERG_FULLTEXT, WIKIMEDIA_FULLTEXT, GITHUB_FULLTEXT, wikiExtract, directCorsUrl } from '../../../organs/ingest/index.js';
+import { webhookUrl } from '../../../organs/ingest/index.js';
 // ── the proxy chain ───────────────────────────────────────────────────────────
 // The primary is the n8n feed proxy (webfetch's default); when it fails the two
 // public CORS proxies are tried in order, same target. The chain rides UNDER
@@ -9,7 +10,7 @@ import { GUTENBERG_FULLTEXT, WIKIMEDIA_FULLTEXT, GITHUB_FULLTEXT, wikiExtract, d
 // recovers the target and walks the chain — so search kinds, wiki extracts and
 // page fetches all inherit the fallback without knowing it exists.
 export const PROXY_FORMS = [
-  (u) => `https://n8n.intelechia.com/webhook/feed?url=${encodeURIComponent(u)}`,
+  (u) => `${webhookUrl('feed')}?url=${encodeURIComponent(u)}`,
   // corsproxy.io was dropped: its free tier now returns a 200 HTML landing page (no CORS
   // header) for every request, so it poisoned the chain — a fake "success" that hid a real
   // failure and blocked the working fallback below. allorigins is the public backstop for a

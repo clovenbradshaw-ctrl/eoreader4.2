@@ -17,7 +17,9 @@ import { liveView, describeEvent } from './live.js';
 import { renderReportFragment, renderTraceFragment, renderReportHTML, REPORT_CSS } from './render.js';
 import { modelDisambiguator } from '../../turn/index.js';
 
-const PROXY = 'https://n8n.intelechia.com/webhook';
+import { configuredWebhookBase } from '../../organs/ingest/index.js';
+
+const PROXY = configuredWebhookBase();
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 

@@ -18,10 +18,11 @@ import { FEED_SOURCES, FEED_FULLTEXT } from './feed.js';
 import { API_SOURCES, API_FULLTEXT } from './api.js';
 import { CIVIC_SOURCES, CIVIC_FULLTEXT } from './civic.js';
 import { GITHUB_SOURCES, GITHUB_FULLTEXT } from './github.js';
+import { webhookUrl } from './webhook-config.js';
 
 // The proxy the user pointed us at. Overridable per client; no auto-fire is wired here — a
 // caller (a confirmed user action) constructs the client and admits the results into scope.
-export const DEFAULT_FEED_PROXY = 'https://n8n.intelechia.com/webhook/feed';
+export const DEFAULT_FEED_PROXY = webhookUrl('feed');
 
 // Search by FEED: a query → a feed-search URL the proxy can fetch. Google News RSS is the
 // default (the proxy's Accept headers prefer feeds); swap `searchUrl` for another engine.
