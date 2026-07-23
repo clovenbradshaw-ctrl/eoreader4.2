@@ -41,9 +41,14 @@ const dot = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] 
 // detector's prototype was only its cast: real, but 100% Figure-grain. This adds the two
 // missing readings over the same units:
 //   • terrainMix: the locus terrain that actually landed at each unit (Figure/Pattern/Ground)
-//   • groundPrior: reading.js's three Ground channels (Void/Field/Atmosphere) accumulated as
+//   • groundPrior: reading.js's Ground channels (Void/Field/Atmosphere) accumulated as
 //     the prior the holon rested on before its figures became legible.
 // No embeddings, no lexical shortcuts — only the event log and readingAt's prior channels.
+// readingAt needs { terrains: true } to compute reading.ground at all (opt-in, parity gate —
+// see reading.js); groundPrior reads each site's `cultivating` (accumulated mass) except Void,
+// which reads `clearing` (the novelty reserve) — the same three quantities this function
+// reported before reading.js's Ground row grew from 3 cells to the full 3x3, so a holon's
+// prototype numbers are unchanged, just sourced from the richer shape.
 const prototypeOf = (doc, h) => {
   const grains = { Ground: 0, Figure: 0, Pattern: 0 };
   const terrains = {};
@@ -53,11 +58,11 @@ const prototypeOf = (doc, h) => {
     terrains[terrain] = (terrains[terrain] || 0) + 1;
     const info = terrainInfo(terrain);
     if (info) grains[info.grain]++;
-    const g = readingAt(doc, u)?.ground;
+    const g = readingAt(doc, u, { terrains: true })?.ground;
     if (g) {
-      groundPrior.Void += g.novelty?.mass || 0;
-      groundPrior.Field += g.bonds?.mass || 0;
-      groundPrior.Atmosphere += g.propositions?.mass || 0;
+      groundPrior.Void += g.void?.clearing || 0;
+      groundPrior.Field += g.field?.cultivating || 0;
+      groundPrior.Atmosphere += g.atmosphere?.cultivating || 0;
     }
   }
   const units = Math.max(1, h.units || (h.hi - h.lo));

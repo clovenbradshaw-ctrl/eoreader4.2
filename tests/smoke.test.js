@@ -23,9 +23,18 @@ test('perceiver: readingAt returns a reading with surprise at a cursor', () => {
   const doc = createParser().parse(TEXT);
   const r = readingAt(doc, 1);
   assert.ok(r, 'a reading is produced');
-  assert.equal(r.ground.novelty.terrain, 'Void');
-  assert.equal(r.ground.bonds.terrain, 'Field');
-  assert.equal(r.ground.propositions.terrain, 'Atmosphere');
+  assert.equal(r.ground, undefined, 'ground is opt-in (opts.terrains) — default reading omits it, the parity gate');
+});
+
+test('perceiver: readingAt({ terrains: true }) exposes the full Ground row (3 sites x 3 stances)', () => {
+  const doc = createParser().parse(TEXT);
+  const r = readingAt(doc, 1, { terrains: true });
+  assert.ok(r.ground, 'ground is present when opted in');
+  for (const site of ['void', 'field', 'atmosphere']) {
+    for (const stance of ['cultivating', 'clearing', 'tending']) {
+      assert.ok(Number.isFinite(r.ground[site][stance]), `${site}.${stance} is a real number`);
+    }
+  }
 });
 
 test('enactor/ground: groundSpans + supportVerdict grade an answer against spans', () => {
