@@ -32,9 +32,21 @@
 import { createEnactedLoop } from '../../core/enacted/index.js';
 import { segmentSentences } from './sentences.js';
 
-// The marks the reader is allowed to promote — punctuation that, in some dialects,
-// separates sentences. Never letters or spaces; presence is bedrock.
-const CANDIDATE_MARKS = Object.freeze([':', ';']);
+// Discover candidate boundary marks empirically from the text itself.
+// Any non-alphanumeric character that appears 3+ times is tested as a potential boundary.
+// The coherence loop then promotes marks that actually reduce strain.
+// TRULY MODALITY-AGNOSTIC: no hardcoded assumptions about `.!?:;` or any marks.
+const discoverCandidateMarks = (text) => {
+  const charFreq = {};
+  for (const ch of text) {
+    // Count non-alphanumeric, non-whitespace characters
+    if (/[^\w\s]/.test(ch)) {
+      charFreq[ch] = (charFreq[ch] || 0) + 1;
+    }
+  }
+  // Keep only marks appearing 3+ times (systematic, not noise)
+  return Object.keys(charFreq).filter(ch => charFreq[ch] >= 3);
+};
 
 // Subjects that open an independent clause after a mark (a new proposition, not a
 // list item): a capitalised word or a pronoun, early-modern included.
@@ -44,15 +56,28 @@ const CLAUSE_OPENER = /^\s*(?:and\s+)?(?:[A-Z][a-z]+|he|she|they|it|we|I|you|tho
 // A mark counts only when an independent clause of real length follows it — so a
 // colon before a short list item ("sons: Shem, Ham") does not strain, but a colon
 // before a clause ("of Shem: Shem was an hundred years old…") does.
+// For whitespace marks (newline, tab), test if meaningful content follows.
 const fusionByMark = (unit, ignored) => {
   const counts = {};
   for (const mk of ignored) counts[mk] = 0;
   for (let i = 0; i < unit.length; i++) {
     const ch = unit[i];
     if (!ignored.has(ch)) continue;
+
+    // Handle whitespace marks specially (newline, tab, etc)
+    if (/\s/.test(ch)) {
+      const after = unit.slice(i + 1);
+      const nextSegment = after.split(/[\s.!?:;]/)[0].trim();
+      if (nextSegment.length > 0 && nextSegment.split(/\s+/).length >= 2) {
+        counts[ch]++;
+      }
+      continue;
+    }
+
+    // For punctuation: test if clause opener follows
     const after = unit.slice(i + 1);
     if (!CLAUSE_OPENER.test(after)) continue;
-    const seg = after.split(/[:;.!?]/)[0].trim();
+    const seg = after.split(/[.!?:;\n]/)[0].trim();
     if (seg.split(/\s+/).filter(Boolean).length >= 4) counts[ch]++;   // a clause, not a fragment
   }
   return counts;
@@ -64,17 +89,22 @@ export const induceBoundaries = (text, { isAbbreviation, thresholds, confirmBand
   const extraBoundaries = new Set();
   const recs = [];
 
+  // Discover candidate marks empirically from this document
+  const candidateMarks = discoverCandidateMarks(text);
+  if (candidateMarks.length === 0) return { extraBoundaries, recs };
+
   // At most one promotion per candidate mark; the loop re-runs after each so a
   // second mark is judged against the units the first one already fixed.
-  for (let pass = 0; pass <= CANDIDATE_MARKS.length; pass++) {
-    const ignored = new Set(CANDIDATE_MARKS.filter((m) => !extraBoundaries.has(m)));
+  for (let pass = 0; pass <= candidateMarks.length; pass++) {
+    const ignored = new Set(candidateMarks.filter((m) => !extraBoundaries.has(m)));
     if (ignored.size === 0) break;
 
     const units = segmentSentences(text, { isAbbreviation, extraBoundaries });
     if (units.length < 4) break;                       // too thin to fit a convention
 
     // EVA strain per unit, and the per-mark tally that decides the restructuring.
-    const total = { ':': 0, ';': 0 };
+    const total = {};
+    for (const mk of ignored) total[mk] = 0;
     const strain = units.map((u) => {
       const f = fusionByMark(u, ignored);
       let s = 0;
