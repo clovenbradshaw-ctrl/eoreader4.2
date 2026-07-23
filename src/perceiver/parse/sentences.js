@@ -82,75 +82,16 @@ const isHeadingLine = (line, nextChar) => {
 // always cuts. Absent from any cased-script text, so this changes nothing there.
 const CJK_FINAL = /[。｡！？﹗﹖]/;
 
-// Predefined metalinguistic boundary markers that map to structural marks
-const PREDEFINED_MARKERS = {
-  'full stop': '.',
-  'period': '.',
-  'exclamation': '!',
-  'exclamation mark': '!',
-  'exclamation point': '!',
-  'question': '?',
-  'question mark': '?',
-  'semicolon': ';',
-  'colon': ':',
-  'newline': '\n',
-  'paragraph break': '\n\n',
-  'end of line': '\n',
-  'end of statement': ';',
-};
-
-// Detect repeated metalinguistic markers (e.g., "complete" used 5+ times as delimiter).
-// Returns a map of detected marker text → structural replacement.
-const detectMetalinguisticMarkers = (text) => {
-  const detected = new Map();
-  const words = text.match(/\b[a-z]+\b/gi) || [];
-  const freq = {};
-
-  // Count word frequencies
-  words.forEach(w => {
-    const lower = w.toLowerCase();
-    freq[lower] = (freq[lower] || 0) + 1;
-  });
-
-  // Look for words appearing 3+ times that could be boundary markers
-  // (heuristic: metalinguistic markers repeat frequently)
-  Object.entries(freq).forEach(([word, count]) => {
-    if (count >= 3 && word.length > 2) {
-      // Check if this word appears in delimiter-like positions
-      // (followed by content, or at line boundaries)
-      const pattern = new RegExp(`\\b${word}\\b`, 'gi');
-      const matches = [...text.matchAll(pattern)];
-      if (matches.length >= 3) {
-        // This word is repeated often enough to be a metalinguistic marker
-        // Map it to a period as the default structural boundary
-        detected.set(word.toLowerCase(), '.');
-      }
-    }
-  });
-
-  return detected;
-};
-
-// Convert explicit and detected markers to their structural equivalents.
+// Normalize metalinguistic markers (from eoPriors conventions) to structural equivalents.
+// markerPatterns is a Map of marker word → structural replacement (e.g., "done" → ".").
 // Ensure proper spacing so boundaries function correctly.
-const normalizeExplicitMarkers = (text) => {
+const normalizeMetalinguisticMarkers = (text, markerPatterns = new Map()) => {
   let result = text;
-
-  // Apply predefined markers first — these often come as phrases ("full stop")
-  for (const [marker, replacement] of Object.entries(PREDEFINED_MARKERS)) {
-    const pattern = new RegExp(`\\b${marker}\\b`, 'gi');
-    result = result.replace(pattern, replacement);
-  }
-
-  // Then detect and apply any metalinguistic markers in the original text
-  const detected = detectMetalinguisticMarkers(text);
-  for (const [marker, replacement] of detected.entries()) {
-    // Replace the marker word with its structural equivalent, ensuring spacing
-    // so the boundary is properly recognized by the segmenter
+  for (const [marker, replacement] of markerPatterns.entries()) {
+    // Replace the marker word with its structural equivalent, preserving spacing
     const pattern = new RegExp(`\\s+${marker}\\s+`, 'gi');
     result = result.replace(pattern, ` ${replacement} `);
   }
-
   return result;
 };
 
@@ -162,15 +103,17 @@ const normalizeExplicitMarkers = (text) => {
 //   - `:` (archaic text or code labels)
 //   - Any other discovered boundary via coherence strain
 // Empty by default; promoted by boundary-induction (parse/boundaries.js).
+// `markerPatterns` is a Map of metalinguistic markers (from eoPriors conventions).
 export const segmentSentences = (
   text,
-  { isAbbreviation = defaultIsAbbreviation, extraBoundaries = EMPTY, normalizeMarkers = true } = {},
+  { isAbbreviation = defaultIsAbbreviation, extraBoundaries = EMPTY, markerPatterns = new Map() } = {},
 ) => {
   let t = String(text || '').replace(/\r\n?/g, '\n');
 
-  // MODALITY-AGNOSTIC: Normalize explicit markers to structural equivalents
-  if (normalizeMarkers) {
-    t = normalizeExplicitMarkers(t);
+  // MODALITY-AGNOSTIC: Normalize metalinguistic markers to structural equivalents
+  // (markers come from eoPriors conventions, not hardcoded in engine)
+  if (markerPatterns.size > 0) {
+    t = normalizeMetalinguisticMarkers(t, markerPatterns);
   }
 
   if (!t.trim()) return [];
