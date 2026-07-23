@@ -340,30 +340,47 @@ export const readingAt = (doc, cursor, opts = {}) => {
     out.bridgeAxis = axis;       // [labelA, labelB] of the bridging pair, or null
   }
   // THE GROUND / TERRAIN channels (docs/ground-column §0) — OPT-IN so default
-  // reading stays byte-identical (the parity gate). The three prior channels
-  // this file maintains ARE the three Ground terrains of the cube: what the
-  // span was READ AGAINST, not what it asserts (representation.schema.json's
-  // Ground grain — "an ambient/prior condition, not asserted by it").
-  //   Existence × Void        the γ-mass reserve of entities already standing
-  //   Structure × Field       the standing bond field (what is connected)
-  //   Interpretation × Atmosphere  the belief field (what is taken to be the case)
-  // Exposed as amplitudes so a downstream fold (eoPriors) can carry the prior
-  // column as Ground-grain evidence instead of recomputing the γ-decay itself.
-  // `recurrence` reports COUNTS of what this span re-instances that already
-  // stood — the raw material for Pattern grain — but the grain contract holds:
-  // only the projector's condensation (emergence) may mint Pattern-grain
-  // holons; the reader just reports the counts.
+  // reading stays byte-identical (the parity gate). The prior this file
+  // maintains IS the Ground column — what the span was READ AGAINST, not what
+  // it asserts (representation.schema.json's Ground grain — "an ambient/prior
+  // condition, not asserted by it"). It has structure across BOTH cube axes
+  // of the Ground row: three SITES (one per EO domain) × three STANCES.
+  //
+  //   site        domain          the standing field
+  //   Void        Existence       entities that already stand (priorMass)
+  //   Field       Structure       bonds that already stand (priorBond)
+  //   Atmosphere  Interpretation  the belief field (priorProp)
+  //
+  //   stance      mode            the aspect of the prior it reads
+  //   Cultivating Generate        the ACCUMULATED γ-mass — what has been grown
+  //   Clearing    Differentiate   the RESERVE held for the unseen (the novelty
+  //                               / cold-start channel — a genuinely separate
+  //                               mechanism here, load-bearing for surprise)
+  //   Tending     Relate          the ACTIVE FRONT — how much of the standing
+  //                               field THIS span is relating to right now
+  //                               (elements it re-touches). Distinct from a
+  //                               Pattern holon: this is a per-span activity
+  //                               magnitude, not the cross-source condensation
+  //                               that only the projector (emergence) may mint.
+  //
+  // All nine are real, separable quantities already computed as locals here;
+  // exposing them lets a downstream fold (eoPriors) carry the whole Ground row
+  // instead of leaving six of its cells dark. The one baseline-not-computed
+  // value is the Field reserve (Structure has no dedicated novelty constant),
+  // which falls back to NOVELTY the way the figure reserve does — the weakest
+  // of the nine, flagged as such.
   if (opts.terrains) {
     let voidMass = 0; for (const v of priorMass.values()) voidMass += v;
     let atmosphereMass = 0; for (const v of priorProp.values()) atmosphereMass += v;
     const recurEntities = insAt.filter((id) => firstIns.has(id) && firstIns.get(id) < at).length;
     const recurBonds = relAt.filter((r) => priorBond.has(`${r.src}|${r.tgt}`)).length;
+    let recurProps = 0; for (const k of deposit.keys()) if (priorProp.has(k)) recurProps++;
     out.ground = {
-      void: round(voidMass),          // Existence — γ-mass of entities standing before this span
-      field: priorBond.size,          // Structure — bonds standing before this span
-      atmosphere: round(atmosphereMass), // Interpretation — γ-mass of the belief/proposition field
+      void:       { cultivating: round(voidMass),       clearing: round(figReserve),  tending: recurEntities },
+      field:      { cultivating: priorBond.size,        clearing: round(NOVELTY),     tending: recurBonds },
+      atmosphere: { cultivating: round(atmosphereMass), clearing: round(propReserve), tending: recurProps },
     };
-    out.recurrence = { entities: recurEntities, bonds: recurBonds };
+    out.recurrence = { entities: recurEntities, bonds: recurBonds, props: recurProps };
   }
   return out;
 };
