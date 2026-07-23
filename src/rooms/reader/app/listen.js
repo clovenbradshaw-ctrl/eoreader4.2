@@ -107,7 +107,7 @@ export const installListen = (appCtx) => {
         read: i <= readThrough, edited: !!w.edited, redacted: !!w.redacted, origText: w.origText ?? null,
         paraStart: tk.paraStart, sentenceStart: tk.sentenceStart, punct: tk.punct,
         ref: !!ref, refHead: !!(ref && ref.head), entId: ref?.entId ?? null, docId: ref?.docId ?? null, refLabel: ref?.label ?? null,
-        speaker, conf, acous, snr,
+        speaker, conf, acous, snr, repeatLoop: !!base.repeatLoop,
       };
     });
     const chapters = transcriptChapters(sn);
@@ -155,7 +155,7 @@ export const installListen = (appCtx) => {
       t0: w.start ?? null, t1: w.end ?? null, timeLabel: `${mmss(w.start || 0)}–${mmss(w.end || w.start || 0)}`,
       read: i <= readThrough,
       speaker: Number.isInteger(base.speaker) ? { idx: base.speaker, label: speakerLabelOf(s, base.speaker) } : null,
-      conf: num(base.conf, 3), acous: num(base.acous, 3), snr: num(base.snr, 1),
+      conf: num(base.conf, 3), acous: num(base.acous, 3), snr: num(base.snr, 1), repeatLoop: !!base.repeatLoop,
       segmentText: segText, segment, segmentT0: segment ? segment.t0 : null,
       chapter: ch ? { index: ch.index, title: ch.title, mmss: ch.startTime != null ? mmss(ch.startTime) : '' } : null,
       referent: ref ? { entId: ref.entId, docId: ref.docId, label: ref.label, props: refProps, mentions: refMentions } : null,

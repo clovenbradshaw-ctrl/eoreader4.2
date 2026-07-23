@@ -25,6 +25,17 @@
 //      decoded PCM directly. A word is loud-over-room-tone or it is not; the boundary is
 //      the field's OWN derived noise null (the Born rule, voidnull.js), never a chosen dB.
 //
+//   1b. detectRepetitionLoops — a small speech model's OTHER failure mode: not a
+//      mishearing of a word but the decoder getting stuck, re-emitting the same phrase
+//      over and over instead of advancing. Repeated TEXT alone cannot be told apart from
+//      a person genuinely repeating themselves, so this reads the repeat against the one
+//      thing a hallucinated loop cannot fake: its OWN timestamps — judged not against a
+//      chosen wpm ceiling but against this SAME recording's OTHER spans (createNoiseFloor
+//      again, fed word-rate instead of RMS energy): a decode loop paces its repeat faster,
+//      or steadier, than this speaker otherwise ever gets that many words out. Every
+//      repeat after the (possibly genuine) first is marked, never deleted — the record
+//      keeps what was emitted.
+//
 //   2. resolveTranscript — the reader reads the transcript into referents (its own
 //      admission), near-spelling variants of one name are found by the reader's own fuzzy
 //      matcher under mutual-nearest (so a genuinely distinct name is never swallowed), each
@@ -34,11 +45,11 @@
 //      Nothing is unwritten — the correction lands as data on the same append-only log,
 //      and the visible transcript (tokens, sentences, utterances) is reprojected to match.
 //
-// Pure, DOM-free, framework-free. acousticSignal reads a Float32 PCM buffer; the
-// resolution reads only the shape organs/in/audio.js emits (a doc with `log`, `tokens`,
-// `sentences`, `units`). Both are safe to call in Node — the tests drive them directly.
+// Pure, DOM-free, framework-free. acousticSignal reads a Float32 PCM buffer; detectRepetitionLoops
+// and the resolution read only the shape organs/in/audio.js emits (a doc with `log`, `tokens`,
+// `sentences`, `units`). All three are safe to call in Node — the tests drive them directly.
 
-import { createNoiseFloor } from '../../core/index.js';
+import { createNoiseFloor, MIN_SAMPLES } from '../../core/index.js';
 import { parseText, editWithin, fuzzCeiling } from '../../perceiver/parse/index.js';
 import { CONVERSATIONAL_CAP } from '../../turn/converse/index.js';
 
@@ -135,6 +146,128 @@ export const acousticSignal = (mono, SR, spans, { frameMs = 25, hopMs = 10, alph
   });
 };
 
+// ── 1b · repetition-loop detection — prior matches as the prior to fit against ──
+//
+// A small ASR model (whisper-base most of all) has a documented failure mode distinct
+// from mishearing a WORD: on a hard window — padding silence, cross-talk, an ambiguous
+// signal — the decoder can get stuck and re-emit the SAME phrase over and over instead
+// of advancing. Matching repeated TEXT alone cannot tell that apart from a person
+// genuinely repeating themselves ("no, no, no!", a chant, a stutter) — so this reads the
+// text against the one thing a hallucinated repeat cannot fake: its OWN timestamps.
+//
+// The witness is not a chosen words-per-minute ceiling — that would be exactly the
+// invented constant acousticSignal (§1) refuses to use for a noise floor. The PRIOR is
+// this transcript's OWN other spans: every other same-length run of words elsewhere in
+// the SAME recording is a sample of how this speaker, on this recording, actually paces
+// that many words. A candidate repeat is flagged only when it does not FIT that prior —
+//
+//   • its RATE beats what this recording's own other spans would produce by chance —
+//     the identical "background vs proposed structure" test acousticSignal runs on RMS
+//     energy (createNoiseFloor, log scale), run here on words/second instead; or
+//   • its CYCLE-TO-CYCLE spread is steadier than this recording's own spans have ever
+//     been for a run this long — a written cadence next to its own spoken baseline.
+//
+// Both read the SAME recording's prior, never a universal constant, so a naturally fast
+// or naturally even speaker is judged against their OWN rhythm, not against ours.
+const MAX_NGRAM_LEN = 10;   // the longest phrase checked as a repeating unit
+const MIN_REPEATS   = 3;    // fewer than this reads as ordinary emphasis, not a loop
+
+const wStart = (w) => (isNum(w?.start) ? w.start : null);
+const wEnd   = (w) => (isNum(w?.end) ? w.end : wStart(w));
+const stdev  = (xs) => { if (!xs.length) return 0; const m = xs.reduce((s, x) => s + x, 0) / xs.length; return Math.sqrt(xs.reduce((s, x) => s + (x - m) ** 2, 0) / xs.length); };
+
+// Every OTHER non-overlapping `len`-word window in the flat stream, outside the
+// candidate's own [skipFrom, skipTo) — this recording's prior for how long `len`
+// consecutive words take HERE. Durations only (seconds); a caller derives rate itself.
+const priorWindowDurations = (flat, len, skipFrom, skipTo) => {
+  const durs = [];
+  for (let j = 0; j + len <= flat.length; j += len) {
+    if (j < skipTo && j + len > skipFrom) continue;   // overlaps the candidate — not "prior"
+    const a = wStart(flat[j]), b = wEnd(flat[j + len - 1]);
+    if (a != null && b != null && b > a) durs.push(b - a);
+  }
+  return durs;
+};
+
+// Is the span behind [i, i+len*reps) in `flat` consistent with a PERSON saying this
+// phrase `reps` times — judged against how THIS transcript otherwise paces `len`-word
+// spans? False (never flag) when the recording carries no usable clock, or too little of
+// it elsewhere to know what normal even looks like here (createNoiseFloor's own cold-
+// start abstention — "assume nothing, veto nothing" runs here exactly as in acousticSignal).
+const spanFailsThePrior = (flat, i, len, reps) => {
+  const cycles = [];
+  for (let k = 0; k < reps; k++) {
+    const a = wStart(flat[i + k * len]), b = wEnd(flat[i + (k + 1) * len - 1]);
+    if (a == null || b == null || b < a) return false;
+    cycles.push(b - a);
+  }
+  const prior = priorWindowDurations(flat, len, i, i + len * reps);
+  if (prior.length < MIN_SAMPLES) return false;   // too little of the recording to know its own pace
+
+  // Signal 1 — a RATE this recording's own other spans would not produce by chance.
+  const priorRates = prior.map((d) => len / d);
+  const rateFloor = createNoiseFloor({ scale: 'log', alpha: 0.05 }).observeAll(priorRates).threshold();
+  const candRate = (len * reps) / cycles.reduce((s, d) => s + d, 0);
+  if (Number.isFinite(rateFloor) && candRate > rateFloor) return true;
+
+  // Signal 2 — a cadence steadier than this recording has ever naturally been for a span
+  // this long: the candidate's own cycle-to-cycle spread (std) next to the prior's spread,
+  // a ratio against the DOCUMENT's own measured variability, never an absolute number.
+  const priorSpread = stdev(prior), candSpread = stdev(cycles);
+  if (priorSpread > 0 && candSpread < priorSpread * 0.2) return true;
+
+  return false;
+};
+
+// Do the two blocks flat[a..a+len) and flat[b..b+len) carry the SAME normalized words?
+const sameBlock = (flat, a, b, len) => {
+  for (let k = 0; k < len; k++) if (flat[a + k].norm !== flat[b + k].norm) return false;
+  return true;
+};
+
+// detectRepetitionLoops(utterances) — walks the flat, time-ordered word stream (any
+// breath-group boundaries collapsed; a loop can straddle one as easily as sit inside
+// one) and finds every maximal run where the SAME normalized n-gram (1..MAX_NGRAM_LEN
+// words) repeats immediately at least MIN_REPEATS times AND the span fails to fit this
+// recording's OWN prior (spanFailsThePrior). Mutates the WORD OBJECTS in place —
+// every repeat after the first gets `.repeatLoop = true` (the first occurrence is left
+// unmarked: it may be the genuine utterance the decoder then seized on and looped). Runs
+// left-to-right and greedily consumes a detected run before continuing, so a run is never
+// re-split into the smaller pattern that sits inside it.
+//
+// Returns one record per run — { start, end, phrase, ngram, repeats, words } — for a
+// caller to surface as its own audit trail (organs/in/audio.js: an EVA per suspect word,
+// doc.audit.repetitionLoops for the run-level view). Inert — empty array, nothing
+// mutated — on a transcript with no such run, so a clean hearing is unaffected.
+export const detectRepetitionLoops = (utterances = []) => {
+  const flat = [];
+  for (const u of (utterances || [])) for (const w of (u.words || [])) flat.push(w);
+  const n = flat.length;
+  const runs = [];
+  let i = 0;
+  while (i < n) {
+    let hit = null;
+    const maxLen = Math.min(MAX_NGRAM_LEN, Math.floor((n - i) / MIN_REPEATS));
+    for (let len = 1; len <= maxLen; len++) {
+      let reps = 1;
+      while (i + (reps + 1) * len <= n && sameBlock(flat, i, i + reps * len, len)) reps++;
+      if (reps >= MIN_REPEATS && spanFailsThePrior(flat, i, len, reps)) { hit = { len, reps }; break; }
+    }
+    if (!hit) { i++; continue; }
+    const { len, reps } = hit;
+    const total = len * reps;
+    const phrase = flat.slice(i, i + len).map((w) => w.text).join(' ');
+    const suspect = flat.slice(i + len, i + total);   // every repeat but the first
+    suspect.forEach((w) => { w.repeatLoop = true; });
+    runs.push({
+      start: wStart(flat[i]) ?? 0, end: wEnd(flat[i + total - 1]) ?? 0,
+      phrase, ngram: len, repeats: reps, words: total,
+    });
+    i += total;
+  }
+  return runs;
+};
+
 // ── 2a · belief — every transcription is an assertion, held below text ──────────
 
 // The coupling `w` one heard assertion earns, in [0, cap] — the engine's belief currency,
@@ -154,6 +287,7 @@ export const hearingBelief = (t, cap = CONVERSATIONAL_CAP) => {
   else if (conf != null)             w = 0.85 * conf;                  // model alone — no truth-witness, extra doubt
   else                               w = 0.7;                          // unmeasured — a neutral heard prior
   if (t && t.signal === false) w = Math.min(w, 0.2);                   // the waveform's veto
+  if (t && t.repeatLoop) w = Math.min(w, 0.15);                        // the decode-loop veto
   return +(cap * clamp01(w)).toFixed(4);
 };
 
