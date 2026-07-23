@@ -12,6 +12,7 @@ export { wrapRedacting } from './redact-remote.js';
 export { generateOverStructure, continuityGate, propositionsOf, blindPrompt, blindCharge,
          makeStreamRestorer } from './blind-structure.js';
 export { POLARITY } from './polarity.js';
+export { GRADE, gradeOf, gradeProvenance, ledgerAllows } from './grade.js';
 export { streamPhrase, surfaceTokens, emitSurface } from './stream.js';
 // The one decode organ: a guarded phrase that returns the caller's fallback on any fault.
 export { speak } from './speak.js';

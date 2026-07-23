@@ -8,6 +8,7 @@
 
 import { CONTRADICTION_REFUSE_FLOOR } from '../factcheck/index.js';
 import { CONTACT_FLOOR } from './bind.js';
+import { GRADE, ledgerAllows } from '../../model/index.js';
 
 // How much of a grounded answer must be tied to a source before the coverage
 // veto flags it — a per-task prior, not one flat 0.5. A direct answer should be
@@ -235,6 +236,22 @@ export const VETOES = [
     test: ({ constraintErrors }) => (constraintErrors || []).some((e) => !e.gates),
     refuses: false,
     message: 'The reply does not fully match the form the question asked for.',
+  },
+  {
+    // The two-column ledger's publish rule (model/grade.js, Assembly 4 of
+    // docs/logic-gaps.md): CONSISTENT (⊬¬A — nothing contradicts it, but nothing
+    // witnesses it either) may corroborate a WITNESSED claim, never stand alone as
+    // the sole support for a published one. `gradedPropositions` is an OPT-IN field —
+    // a caller runs gradeProvenance(answer, source) itself and hands the graded list
+    // in; nothing in the existing pipeline populates it, so this stays inert (never
+    // fires) on every call site this release, byte-identical golden behavior.
+    id: 'consistent-only-publish',
+    test: ({ gradedPropositions }) =>
+      Array.isArray(gradedPropositions) && gradedPropositions.length > 0 &&
+      gradedPropositions.some((p) => (p.grade ?? p) === GRADE.CONSISTENT) &&
+      !ledgerAllows(gradedPropositions.map((p) => p.grade ?? p)),
+    refuses: true,
+    message: 'Every claim here is at best CONSISTENT — nothing contradicts it, but nothing witnesses it either; CONSISTENT alone may never be the sole support of a published claim.',
   },
   {
     id: 'low-coverage',
