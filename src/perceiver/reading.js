@@ -34,7 +34,7 @@
 // was read under (L2); the default Lens leaves output byte-identical (L4).
 
 import { CONVERSATIONAL_CAP } from '../turn/converse/index.js';
-import { surpriseAt, forwardDist, bridgeSurprise, noveltyAmplitude, terrainOf } from '../core/index.js';
+import { surpriseAt, forwardDist, bridgeSurprise, noveltyAmplitude } from '../core/index.js';
 import { resolveLens, lensId } from './lens.js';
 
 const NOVELTY = 1.0;   // the VOID prior (Existence × Ground): reserved prior mass for an
@@ -318,20 +318,6 @@ export const readingAt = (doc, cursor, opts = {}) => {
     // Tagged conversational warmth folded into the prior this turn (0 when the
     // expect door wasn't used). Separable, so the fold can subtract the echo.
     conversationalPrior: round(conversationalPrior),
-    // The cube's Ground column, exposed as first-class evidence for downstream folds.
-    // These are PRIOR masses, not span-local Figure events: Void is the live novelty
-    // reserve, Field is the structural bond prior, and Atmosphere is the proposition
-    // prior the Bayesian-surprise channel reads. Consumers can now type a holon by the
-    // ground it rested on, not only by the figures it happened to name.
-    ground: Object.freeze({
-      novelty: Object.freeze({ terrain: terrainOf('Existence', 'Ground'), mass: round(figReserve), probability: round(pNovel) }),
-      bonds: Object.freeze({ terrain: terrainOf('Structure', 'Ground'), mass: priorBond.size }),
-      propositions: Object.freeze({
-        terrain: terrainOf('Interpretation', 'Ground'),
-        mass: round([...priorProp.values()].reduce((a, b) => a + b, 0)),
-        axes: priorProp.size,
-      }),
-    }),
   };
   // p(next | profile) — the explicit forward distribution, OPT-IN so default reading stays
   // byte-identical (the parity gate). It is the object the generator draws from (Part II)
@@ -352,6 +338,49 @@ export const readingAt = (doc, cursor, opts = {}) => {
     const { bridge, axis } = bridgeSurprise(doc.log, at);
     out.bridge = round(bridge);
     out.bridgeAxis = axis;       // [labelA, labelB] of the bridging pair, or null
+  }
+  // THE GROUND / TERRAIN channels (docs/ground-column §0) — OPT-IN so default
+  // reading stays byte-identical (the parity gate). The prior this file
+  // maintains IS the Ground column — what the span was READ AGAINST, not what
+  // it asserts (representation.schema.json's Ground grain — "an ambient/prior
+  // condition, not asserted by it"). It has structure across BOTH cube axes of
+  // the Ground row: three SITES (one per EO domain) x three STANCES.
+  //
+  //   site        domain          the standing field
+  //   Void        Existence       entities that already stand (priorMass)
+  //   Field       Structure       bonds that already stand (priorBond)
+  //   Atmosphere  Interpretation  the belief field (priorProp)
+  //
+  //   stance      mode            the aspect of the prior it reads
+  //   cultivating Generate        the ACCUMULATED mass — what has been grown
+  //   clearing    Differentiate   the RESERVE held for the unseen (the novelty
+  //                               / cold-start channel — a genuinely separate
+  //                               mechanism here, load-bearing for surprise)
+  //   tending     Relate          the ACTIVE FRONT — how much of the standing
+  //                               field THIS span re-touches right now.
+  //                               Distinct from a Pattern holon: this is a
+  //                               per-span activity magnitude, not the
+  //                               cross-source condensation only the projector
+  //                               (emergence) may mint.
+  //
+  // All nine are real, separable quantities from locals already computed
+  // above (priorMass/priorBond/priorProp/figReserve/propReserve, this span's
+  // own insAt/relAt/deposit) — nothing here is a per-event confidence guess.
+  // The one baseline-not-computed value is the Field reserve (Structure has
+  // no dedicated novelty constant, unlike Void's figReserve and Atmosphere's
+  // propReserve): it falls back to the constant NOVELTY seed, the weakest of
+  // the nine, flagged as such rather than silently presented as measured.
+  if (opts.terrains) {
+    const recurEntities = insAt.filter((id) => firstIns.has(id) && firstIns.get(id) < at).length;
+    const recurBonds = relAt.filter((r) => priorBond.has(`${r.src}|${r.tgt}`)).length;
+    let recurProps = 0; for (const k of deposit.keys()) if (priorProp.has(k)) recurProps++;
+    let atmosphereMass = 0; for (const v of priorProp.values()) atmosphereMass += v;
+    out.ground = {
+      void:       { cultivating: round(total),          clearing: round(figReserve), tending: recurEntities },
+      field:      { cultivating: priorBond.size,         clearing: round(NOVELTY),    tending: recurBonds },
+      atmosphere: { cultivating: round(atmosphereMass),  clearing: round(propReserve), tending: recurProps },
+    };
+    out.recurrence = { entities: recurEntities, bonds: recurBonds, props: recurProps };
   }
   return out;
 };
