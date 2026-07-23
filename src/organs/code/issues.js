@@ -7,9 +7,15 @@
 // every judgment is made with everything it stands on already judged), and reads each
 // issue off the EO laws the codebase's own record violates:
 //
-//   no-order            the import graph has a strongly-connected component — the helix
-//                       cannot linearize it; no dependency order exists (Appendix B:
-//                       `dependency`, at module grain)
+//   cycle               the import graph has a strongly-connected component. This is
+//                       NOT a failure: the condensation of a graph by its SCCs is
+//                       ALWAYS a DAG (helix.js `condensation`) — order holds AT THE
+//                       SCC GRAIN, always; it only fails WITHIN one. refold.js is
+//                       tried first (does the cycle dissolve at declaration grain —
+//                       a file-boundary artifact?); what survives is routed through
+//                       coinduct.js coherenceOf, which distinguishes legitimate
+//                       mutual recursion (info) from a genuinely circular
+//                       justification with no external ground (refuses)
 //   dependency          a CON fired before the INS it bonds to — a use precedes its
 //                       declaration in the same scope-instance (TDZ; helix: CON < INS)
 //   void-binding        an import thread asks a module for a name it never exports —
@@ -33,6 +39,8 @@
 
 import { parseSign } from './eot.js';
 import { PY_BUILTINS } from './python.js';
+import { refoldCycle } from './refold.js';
+import { coherenceOf } from './coinduct.js';
 
 // ── severities ─────────────────────────────────────────────────────────────────
 const SEV = { error: 0, warn: 1, note: 2 };
@@ -293,13 +301,26 @@ export const findIssues = (events, order, opts = {}) => {
     add('medium', 'error', null, { line: d.line }, `EOT line did not parse: ${d.expected} — ${JSON.stringify(d.raw)}`);
   }
 
-  // 1 · no-order — the helix cannot linearize a cycle (reported before the walk,
-  // because the walk's premise fails exactly here)
+  // 1 · cycle — a module-grain SCC (reported before the walk, because the walk's
+  // premise touches it first). The condensation is ALWAYS a DAG (order.condensation,
+  // helix.js) — order holds AT THE SCC GRAIN; this is informational, not a failure,
+  // UNLESS refold.js can't dissolve it AND coinduct.js reads it as genuinely
+  // circular justification (no external ground) — that case refuses.
   for (const cycle of order.cycles) {
     const names = cycle.map((s) => models.get(s)?.path ?? s);
-    add('no-order', 'warn', models.get(cycle[0]), { sign: cycle[0] },
-      `no dependency order exists: ${names.join(' → ')} → ${names[0]} — the imports close a cycle`,
-      { members: cycle });
+    const refold = refoldCycle(events, cycle);
+    if (refold.resolved) continue;   // a file-boundary artifact — the cycle dissolves at declaration grain, nothing to report
+
+    const coherence = coherenceOf(events, refold.irreducibleCore);
+    if (coherence.verdict === 'coherent') {
+      add('cycle', 'info', models.get(cycle[0]), { sign: cycle[0] },
+        `order holds at SCC grain; ${cycle.length} module(s) are mutually dependent and fold as one unit: ${names.join(' → ')} → ${names[0]}`,
+        { members: cycle, irreducibleCore: refold.irreducibleCore });
+    } else {
+      add('cycle-incoherent', 'error', models.get(cycle[0]), { sign: cycle[0] },
+        `a genuinely circular justification survives at declaration grain, grounded in nothing outside itself: ${refold.irreducibleCore.join(' ↔ ')}`,
+        { members: cycle, irreducibleCore: refold.irreducibleCore, breach: coherence.breach });
+    }
   }
 
   // 2 · the walk — dependencies first
@@ -482,7 +503,7 @@ export const findIssues = (events, order, opts = {}) => {
 // so each `!eva` line carries the organ as agent and CITES the perceiver-door sign
 // it judges. The block re-parses through parseEOT with zero diagnostics.
 const VERDICT = {
-  'no-order': 'cyclic', dependency: 'premature', 'void-binding': 'unbound',
+  cycle: 'cyclic', 'cycle-incoherent': 'incoherent', dependency: 'premature', 'void-binding': 'unbound',
   fabrication: 'fabricated', unbound: 'unbound', 'contract-violation': 'refused',
   collision: 'collided', 'cycle-tdz': 'hazard', 'dead-entity': 'dead',
   dwell: 'dwelling', 'dead-export': 'unread', medium: 'unparsed',

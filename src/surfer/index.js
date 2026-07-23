@@ -85,6 +85,8 @@ export { OPS, RELTYPES, operatorProfiles, structuralActivations, structuralHoriz
 // Basis-agnostic — the same namer serves the structural (operator-code) and embedding
 // (cube-cell-key) bases alike, off the leading operator code either way.
 export { topDims, labelPattern, nameLens, nameDivergence } from './lens-naming.js';
+// What survives every lens — the symmetry/invariance measure across a lens family.
+export { stabilizerOf } from './stabilizer.js';
 // Label feedback (word → concept): grow specific link-types from the recurring links the
 // closed vocabulary leaves untyped, and MEASURE whether structure alone carves each one
 // (deriveNull over random same-size groups) — `structureGrows` is the empirical answer to

@@ -83,12 +83,36 @@ export const tarjanSCC = (nodes, edgesOf) => {
   return sccs;                                   // emitted dependencies-first
 };
 
+// ── the condensation — the graph of SCCs, always a DAG ───────────────────────────
+// condensationOf(sccs, edgesOf) → { nodes, edgesOf } where nodes are SCC INDICES
+// (0..sccs.length-1, dependencies-first, same order Tarjan emitted them) and
+// edgesOf(i) is the set of SCC indices scc[i] depends on, self-edges dropped. This
+// is the theorem the tier-1 finding rests on: collapse every strongly-connected
+// component to one node and what remains can never have a cycle — order fails only
+// WITHIN an scc, and always holds BETWEEN them.
+const condensationOf = (sccs, edgesOf) => {
+  const sccOf = new Map();
+  sccs.forEach((c, i) => { for (const m of c) sccOf.set(m, i); });
+  const nodes = sccs.map((_, i) => i);
+  const inter = new Map(nodes.map((i) => [i, new Set()]));
+  sccs.forEach((c, i) => {
+    for (const m of c) for (const n of edgesOf(m)) {
+      const j = sccOf.get(n);
+      if (j != null && j !== i) inter.get(i).add(j);
+    }
+  });
+  return { nodes, edgesOf: (i) => inter.get(i) ?? new Set() };
+};
+
 // ── the order ───────────────────────────────────────────────────────────────────
 // dependencyOrder(events) → {
-//   order    every module sign, dependencies first — the fold's walk
-//   sccs     the components, same order
-//   cycles   the components where NO order exists (size > 1, or a self-loop)
-//   inCycle  sign → its cycle (for the cross-cycle hazard checks)
+//   order        every module sign, dependencies first — the fold's walk
+//   sccs         the components, same order
+//   cycles       the components where NO order exists AT MODULE GRAIN (size > 1, or
+//                a self-loop) — the helix cannot linearize THESE, but see condensation
+//   inCycle      sign → its cycle (for the cross-cycle hazard checks)
+//   condensation the SCC graph — { nodes: sccIndex[], edgesOf: i => Set<i> } — a DAG,
+//                always (Tarjan's own theorem, made queryable rather than asserted)
 // }
 export const dependencyOrder = (events) => {
   const { nodes, edgesOf } = moduleGraphOf(events);
@@ -97,5 +121,6 @@ export const dependencyOrder = (events) => {
   const inCycle = new Map();
   for (const c of cycles) for (const m of c) inCycle.set(m, c);
   const order = sccs.flat();
-  return Object.freeze({ order, sccs, cycles, inCycle, edgesOf });
+  const condensation = condensationOf(sccs, edgesOf);
+  return Object.freeze({ order, sccs, cycles, inCycle, edgesOf, condensation });
 };
