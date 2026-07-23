@@ -95,10 +95,11 @@ const isHeadingLine = (line, nextChar) => {
 // always cuts. Absent from any cased-script text, so this changes nothing there.
 const CJK_FINAL = /[。｡！？﹗﹖]/;
 
-// `extraBoundaries` is a set of marks the reading has LEARNED to treat as sentence
-// ends for this document — beyond the `.!?` floor. It is empty by default (modern
-// prose), and promoted by the boundary-induction loop (parse/boundaries.js) when a
-// text uses `:`/`;` as sentence separators and meaning will not cohere otherwise.
+// `extraBoundaries` is a set of punctuation marks the reading has LEARNED to
+// treat as sentence ends for this document — beyond the `.!?` floor. It is
+// empty by default (modern prose), and promoted by the boundary-induction loop
+// (parse/boundaries.js) when a text uses a different mark as its sentence
+// separator and meaning will not cohere otherwise.
 export const segmentSentences = (
   text,
   { isAbbreviation = defaultIsAbbreviation, extraBoundaries = EMPTY } = {},
