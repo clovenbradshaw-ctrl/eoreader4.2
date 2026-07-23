@@ -84,3 +84,15 @@ test('holarchy: coarse/fine both derive their own k, not two hardcoded counts', 
   assert.equal(h.levels.length, h.coarse.holons.length);
   for (const level of h.levels) assert.ok(Array.isArray(level.children));
 });
+
+test('detectHolons: holon prototypes carry Ground-column prior, not only Figure cast', () => {
+  const doc = buildDoc();
+  doc.log.append({ op: 'CON', src: 'a1', tgt: 'a2', via: 'holds-with', sentIdx: 1 });
+  const r = detectHolons(doc, { maxK: 8 });
+  const later = r.holons.find((h) => h.lo > 0) || r.holons.at(-1);
+  assert.ok(later.prototype, 'a holon carries a Site-face prototype');
+  assert.ok(later.prototype.grains.Figure > 0, 'the original Figure-grain cast shadow remains');
+  assert.ok(later.prototype.groundPrior.Void > 0, 'the Void/NOVELTY prior channel is wired in');
+  assert.ok(later.prototype.groundPrior.Field > 0, 'the Field/bond prior channel is wired in');
+  assert.ok(later.prototype.groundPrior.Atmosphere > 0, 'the Atmosphere/proposition prior channel is wired in');
+});
