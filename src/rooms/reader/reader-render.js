@@ -220,8 +220,15 @@ export const detectStructure = (paras, blockGaps = []) => {
     }
   }
   // Shape-only families (titles / all-caps, no numbering) only as a last resort, strict — else a
-  // dictionary's example names or an anthology's titles would hallucinate a TOC.
-  if (!acc.length) acc = fams.filter((f) => f.kind === 'shape' && f.n >= 3 && f.coverage >= 0.6 && f.cov <= 0.55 && f.density <= 0.08);
+  // dictionary's example names or an anthology's titles would hallucinate a TOC. "Last resort"
+  // means no STRUCTURAL signal fired (numbered/marked/spaced) — a lone CANON family (just the
+  // trailing References/See also/External links) is real signal but not a substitute for a body
+  // table of contents, so it must not preempt shape: else every Wikipedia-shaped article, which
+  // always carries a canonical trailer, would lose its own Biography/Childhood/… body headings to
+  // the trailer alone.
+  if (!acc.some((f) => f.kind === 'num' || f.kind === 'decl' || f.kind === 'gap')) {
+    acc = acc.concat(fams.filter((f) => f.kind === 'shape' && f.n >= 3 && f.coverage >= 0.6 && f.cov <= 0.55 && f.density <= 0.08));
+  }
   if (!acc.length) return [];
   // Rank only the nesting numbered families (a "Part" enclosing "Chapter"s) for heading level. Markup
   // and decimal carry their own depth; a disjoint sibling frame and the spacing/canonical headings sit

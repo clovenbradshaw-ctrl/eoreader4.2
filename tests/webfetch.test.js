@@ -47,16 +47,19 @@ test('parseFeed reads Atom entries (link via href)', () => {
 });
 
 test('htmlToText strips tags and decodes entities', () => {
-  assert.equal(htmlToText('<h1>Title</h1><p>A &amp; B.</p><script>x()</script>'), 'Title\nA & B.');
+  assert.equal(htmlToText('<h1>Title</h1><p>A &amp; B.</p><script>x()</script>'), '# Title\nA & B.');
 });
 
 test('htmlToText keeps block structure — heading, paragraphs, and list items never weld together', () => {
   // The reader/surfer downstream depends on headings and list items landing on their own line
   // (perceiver/parse/sentences.js welds a heading onto the next sentence when they share one).
+  // A heading also carries its level as a markdown marker ("## History") — detectStructure's
+  // strongest structural signal — rather than flattening to a bare line indistinguishable from
+  // a paragraph (reader-render.js, the "Biography"/"Childhood" heading-detection fix).
   const html = '<article><h2>History</h2><p>First paragraph.</p>' +
     '<ul><li>Alpha</li><li>Beta</li></ul><p>Second paragraph.</p></article>';
   const lines = htmlToText(html).split('\n').filter(Boolean);
-  assert.deepEqual(lines, ['History', 'First paragraph.', 'Alpha', 'Beta', 'Second paragraph.']);
+  assert.deepEqual(lines, ['## History', 'First paragraph.', 'Alpha', 'Beta', 'Second paragraph.']);
 });
 
 test('htmlToText reads a table row by row instead of welding every cell into one line', () => {

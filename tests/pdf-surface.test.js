@@ -68,12 +68,13 @@ test('a too-large PDF is not persisted, but never throws the import', async () =
   assert.equal(src.pdfRef, undefined, 'nothing is stashed for an over-cap PDF');
 });
 
-// The routing in index.html openViewer — every source now opens on the Overview landing page;
-// the PDF surface (and every reading mode) is reachable from the mode row, and switching to it
-// still loads the PDF bytes lazily via setSourceMode → loadPdf.
-test('index.html openViewer routes each source open to the overview surface', () => {
+// The routing in index.html openViewer — every source now opens directly on the Reader (the
+// recorded text itself); Overview and the rest of the analysis surface (the PDF surface, and
+// every other reading mode) are reachable from the mode row, and switching to PDF still loads
+// the bytes lazily via setSourceMode → loadPdf.
+test('index.html openViewer routes each source open to the reader surface', () => {
   const html = readFileSync(join(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /const modes = \{ \.\.\.this\.state\.viewerModes, \[sn\]: 'overview' \}/, 'openViewer resets each source open to the overview landing');
+  assert.match(html, /const modes = \{ \.\.\.this\.state\.viewerModes, \[sn\]: 'reader' \}/, 'openViewer resets each source open to the reader landing');
   assert.match(html, /viewerIsOverview:\s*vMode === 'overview'/, 'the overview surface is a real viewer mode');
   assert.match(html, /viewerIsPdf:\s*vMode === 'pdf'/, 'the pdf surface remains a real viewer mode');
   assert.match(html, /if \(mode === 'pdf'\) this\.loadPdf\(sn\)/, 'switching to the pdf mode still loads the pdf lazily');

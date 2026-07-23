@@ -2126,12 +2126,13 @@ table{border-collapse:collapse;width:100%}
                   <!-- FOLD SUMMARY — the same real reading + grounding-link door every other
                        entity profile offers (see _foldSummaryVM); the graph overlay's own
                        compact inspector just never had this section wired in.
-                       has REQUIRES isAi — the deterministic telegram floor never renders here as
-                       if it were a composed reading (a912054's MVP-lede precedent). composing and
-                       the explicit ask are siblings of the AI block, not nested under has, so
-                       neither is stranded while a real draft hasn't landed yet. -->
+                       has means a reading exists (telegram or AI) — model-free by default. isAi
+                       gates ONLY the badge/grounding-span treatment, so an unbadged plain reading
+                       shows the moment the fold is read, and an optional model's draft upgrades it
+                       in place once it clears both firewalls (composing sits between the two). -->
                   <div style="margin-top:15px">
                     <sc-if value="{{ webProf.foldSummary.has }}">
+                      <sc-if value="{{ webProf.foldSummary.isAi }}">
                       <div class="eo-ai-summary">
                         <div class="eo-ai-badge">{{ webProf.foldSummary.badgeLabel }}<sc-if value="{{ webProf.foldSummary.hasGroundDot }}"><span class="dot" title="{{ webProf.foldSummary.groundLabel }}" style="background:{{ webProf.foldSummary.groundDot }}"></span></sc-if></div>
                         <sc-if value="{{ webProf.foldSummary.hasSpans }}">
@@ -2145,6 +2146,10 @@ table{border-collapse:collapse;width:100%}
                           <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.55;color:#2a2a32">{{ webProf.foldSummary.text }}</div>
                         </sc-if>
                       </div>
+                      </sc-if>
+                      <sc-if value="{{ !webProf.foldSummary.isAi }}">
+                        <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.55;color:#2a2a32">{{ webProf.foldSummary.text }}</div>
+                      </sc-if>
                     </sc-if>
                     <sc-if value="{{ webProf.foldSummary.composing }}">
                       <div style="border:1px solid #ded8fd;border-radius:11px;background:#fafafb;padding:11px 13px">
@@ -3081,15 +3086,41 @@ table{border-collapse:collapse;width:100%}
                   <sc-if value="{{ viewerIsAudio }}"><button onClick="{{ viewerModeListen }}" title="Listen — player, waveform + interactive transcript" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmListenFg }};background:{{ vmListenBg }}">Listen</button></sc-if>
                   <sc-if value="{{ viewer.isPdf }}"><button onClick="{{ viewerModePdf }}" title="The pages themselves — the document as a PDF" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmPdfFg }};background:{{ vmPdfBg }}">PDF</button></sc-if>
                   <sc-if value="{{ viewerCanPage }}"><button onClick="{{ viewerModePage }}" title="Render the real website" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmPageFg }};background:{{ vmPageBg }}">{{ vmPageLabel }}</button></sc-if>
-                  <button onClick="{{ viewerModeOverview }}" title="Source landing page — provenance, counts, ways in, findings, pins and synthesis" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmOverviewFg }};background:{{ vmOverviewBg }}">Overview</button>
                   <button onClick="{{ viewerModeReader }}" title="Read it as a clean book — toggle Links to reveal entities and cited passages" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
                   <button onClick="{{ viewerModeFacing }}" title="The document beside how the system read it" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmFacingFg }};background:{{ vmFacingBg }}">{{ vmFacingLabel }}</button>
-                  <button onClick="{{ viewerModeRaw }}" title="The raw text — every character, exactly as stored, line by line" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmRawFg }};background:{{ vmRawBg }}">Raw</button>
-                  <!-- Structure tab (byte-structure binvis surface) hidden — not useful enough to earn its
-                       place in the bar. Mount code (setStructureEl, mountBinvis) stays intact below in case
-                       it's worth resurfacing later; only the entrance is gone. -->
-                  <button onClick="{{ viewerModeGraph }}" title="This source's knowledge graph — the figures it names and the bonds among them. Click a node to open its profile." style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmGraphFg }};background:{{ vmGraphBg }}">Graph</button>
-                  <button onClick="{{ viewerModeEot }}" title="Every proposition this reading admitted, with its own thinking alongside" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmEotFg }};background:{{ vmEotBg }}">{{ vmEotLabel }} · {{ viewer.eotCount }}</button>
+                </span>
+                <!-- INSPECT — Overview, Raw, Graph, Metadata (EoT) and the Audit trail all used to be
+                     persistent tabs competing with Reader for the same row; they now sit one deliberate
+                     click away, off the primary reading path by default. Each item still rides the SAME
+                     viewer-mode state its surface already used (Structure/binvis stays hidden here too,
+                     unchanged from before — never earned its place). -->
+                <span style="position:relative">
+                  <button onClick="{{ toggleInspectMenu }}" title="Inspect — provenance, raw text, the knowledge graph, every admitted proposition, and the audit trail" style="display:flex;align-items:center;gap:4px;padding:4px 11px;border-radius:6px;font-size:11px;font-weight:600;color:{{ inspectFg }};background:{{ inspectBg }};border:1px solid {{ inspectBd }}" style-hover="filter:brightness(.97)">Inspect ▾</button>
+                  <sc-if value="{{ inspectMenuOpen }}">
+                    <div class="eo-scroll" style="position:absolute;left:0;top:calc(100% + 6px);z-index:35;background:#fff;border:1px solid #ececf0;border-radius:11px;box-shadow:0 14px 40px rgba(20,20,30,.16);padding:6px;width:260px;max-height:360px;overflow-y:auto;animation:eoFade .14s ease">
+                      <button onClick="{{ viewerModeOverview }}" style="display:block;width:100%;text-align:left;border-radius:8px;padding:7px 9px;font-size:12.5px;font-weight:600;color:#2a2a32;background:{{ inspectOverviewBg }}" style-hover="background:#f1eefe">
+                        Overview
+                        <div style="font-size:10.5px;font-weight:500;color:#8a8a95;margin-top:1px">Provenance, counts, ways in, findings, pins and synthesis</div>
+                      </button>
+                      <button onClick="{{ viewerModeRaw }}" style="display:block;width:100%;text-align:left;border-radius:8px;padding:7px 9px;font-size:12.5px;font-weight:600;color:#2a2a32;background:{{ inspectRawBg }}" style-hover="background:#f1eefe">
+                        Raw
+                        <div style="font-size:10.5px;font-weight:500;color:#8a8a95;margin-top:1px">Every character, exactly as stored, line by line</div>
+                      </button>
+                      <button onClick="{{ viewerModeGraph }}" style="display:block;width:100%;text-align:left;border-radius:8px;padding:7px 9px;font-size:12.5px;font-weight:600;color:#2a2a32;background:{{ inspectGraphBg }}" style-hover="background:#f1eefe">
+                        Graph
+                        <div style="font-size:10.5px;font-weight:500;color:#8a8a95;margin-top:1px">The figures this source names and the bonds among them</div>
+                      </button>
+                      <button onClick="{{ viewerModeEot }}" style="display:block;width:100%;text-align:left;border-radius:8px;padding:7px 9px;font-size:12.5px;font-weight:600;color:#2a2a32;background:{{ inspectEotBg }}" style-hover="background:#f1eefe">
+                        Metadata <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#a6a6ae">· {{ viewer.eotCount }}</span>
+                        <div style="font-size:10.5px;font-weight:500;color:#8a8a95;margin-top:1px">Every proposition this reading admitted, with its own thinking alongside</div>
+                      </button>
+                      <div style="height:1px;background:#ececf0;margin:5px 2px"></div>
+                      <button onClick="{{ inspectAudit }}" style="display:block;width:100%;text-align:left;border-radius:8px;padding:7px 9px;font-size:12.5px;font-weight:600;color:#2a2a32" style-hover="background:#f1eefe">
+                        Audit trail
+                        <div style="font-size:10.5px;font-weight:500;color:#8a8a95;margin-top:1px">Every claim traces to a passage, a stored source, and a hash-verified file</div>
+                      </button>
+                    </div>
+                  </sc-if>
                 </span>
                 <span style="flex:1"></span>
                 <sc-if value="{{ viewerIsReader }}">
@@ -3362,10 +3393,11 @@ table{border-collapse:collapse;width:100%}
                  mechanical telegram floor (summaryBadge() only badges via==='model'). -->
             <sc-if value="{{ viewer.showFoldSummary }}">
               <div style="flex:0 0 auto;border-bottom:1px solid #ececf0;padding:11px 20px">
-                <!-- has REQUIRES isAi (see _foldSummaryVM) — the deterministic telegram floor
-                     never renders here as if it were a composed reading; composing and the
-                     explicit ask are siblings, not nested under has. -->
+                <!-- has means a reading exists (telegram or AI) — model-free by default; isAi
+                     gates ONLY the badge/grounding-span treatment (see _foldSummaryVM). composing
+                     and the explicit ask are siblings, not nested under has. -->
                 <sc-if value="{{ viewer.foldSummary.has }}">
+                  <sc-if value="{{ viewer.foldSummary.isAi }}">
                   <div class="eo-ai-summary">
                     <div class="eo-ai-badge">{{ viewer.foldSummary.badgeLabel }}<sc-if value="{{ viewer.foldSummary.hasGroundDot }}"><span class="dot" title="{{ viewer.foldSummary.groundLabel }}" style="background:{{ viewer.foldSummary.groundDot }}"></span></sc-if></div>
                     <sc-if value="{{ viewer.foldSummary.hasSpans }}">
@@ -3379,6 +3411,10 @@ table{border-collapse:collapse;width:100%}
                       <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2a2a32">{{ viewer.foldSummary.text }}</div>
                     </sc-if>
                   </div>
+                  </sc-if>
+                  <sc-if value="{{ !viewer.foldSummary.isAi }}">
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2a2a32">{{ viewer.foldSummary.text }}</div>
+                  </sc-if>
                 </sc-if>
                 <!-- LOADING — the deterministic telegram is machinery, not prose (subject-verb- -->
                 <!-- object triples with no discourse glue); a skeleton stands in rather than -->
@@ -3479,9 +3515,11 @@ table{border-collapse:collapse;width:100%}
                     </sc-for>
                   </div>
                 </sc-if>
-                <!-- has REQUIRES isAi (see _foldSummaryVM) — never the telegram floor as if it
-                     were a composed reading; composing and the explicit ask are siblings. -->
+                <!-- has means a reading exists (telegram or AI) — model-free by default; isAi
+                     gates ONLY the badge/grounding-span treatment; composing and the explicit
+                     ask are siblings. -->
                 <sc-if value="{{ viewer.waveRange.has }}">
+                  <sc-if value="{{ viewer.waveRange.isAi }}">
                   <div class="eo-ai-summary">
                     <div class="eo-ai-badge">{{ viewer.waveRange.badgeLabel }}<sc-if value="{{ viewer.waveRange.hasGroundDot }}"><span class="dot" title="{{ viewer.waveRange.groundLabel }}" style="background:{{ viewer.waveRange.groundDot }}"></span></sc-if></div>
                     <sc-if value="{{ viewer.waveRange.hasSpans }}">
@@ -3495,6 +3533,10 @@ table{border-collapse:collapse;width:100%}
                       <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2a2a32">{{ viewer.waveRange.text }}</div>
                     </sc-if>
                   </div>
+                  </sc-if>
+                  <sc-if value="{{ !viewer.waveRange.isAi }}">
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2a2a32">{{ viewer.waveRange.text }}</div>
+                  </sc-if>
                 </sc-if>
                 <sc-if value="{{ viewer.waveRange.composing }}">
                   <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -4121,10 +4163,12 @@ table{border-collapse:collapse;width:100%}
               <!-- FOLD SUMMARY — a REAL reading of THIS figure (scope 'entity': the surf thread-
                    conditioned on it, coref-collapsed, gated referentially and against the record).
                    Independent of the topline above; never auto-fired (see _foldSummaryVM).
-                   has REQUIRES isAi — never the telegram floor as if it were a composed reading;
-                   composing and the explicit ask are siblings, not nested under has. -->
+                   has means a reading exists (telegram or AI) — model-free by default; isAi gates
+                   ONLY the badge/grounding-span treatment. composing and the explicit ask are
+                   siblings, not nested under has. -->
               <div style="margin-top:13px">
                 <sc-if value="{{ prof.foldSummary.has }}">
+                  <sc-if value="{{ prof.foldSummary.isAi }}">
                   <div class="eo-ai-summary">
                     <div class="eo-ai-badge">{{ prof.foldSummary.badgeLabel }}<sc-if value="{{ prof.foldSummary.hasGroundDot }}"><span class="dot" title="{{ prof.foldSummary.groundLabel }}" style="background:{{ prof.foldSummary.groundDot }}"></span></sc-if></div>
                     <sc-if value="{{ prof.foldSummary.hasSpans }}">
@@ -4138,6 +4182,10 @@ table{border-collapse:collapse;width:100%}
                       <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2a2a32">{{ prof.foldSummary.text }}</div>
                     </sc-if>
                   </div>
+                  </sc-if>
+                  <sc-if value="{{ !prof.foldSummary.isAi }}">
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2a2a32">{{ prof.foldSummary.text }}</div>
+                  </sc-if>
                 </sc-if>
                 <sc-if value="{{ prof.foldSummary.composing }}">
                   <div style="border:1px solid #ded8fd;border-radius:11px;background:#fafafb;padding:11px 13px">
@@ -5395,7 +5443,7 @@ class Component extends DCLogic {
       // A turning point clicked open in the waveform of surprise: the surprising sentence held up
       // in a modal (line, Δbelief/pull, the EO operations that fired), with a jump into the reader.
       surpriseModal: null,
-      modelOpen: false, topicMenu: null, exportMenuOpen: false, transcriptMenuOpen: false,
+      modelOpen: false, topicMenu: null, exportMenuOpen: false, transcriptMenuOpen: false, inspectMenuOpen: false,
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
       wsMenuOpen: false, wsRenameId: null,
       // Source explorer (the Sources tab is a Drive): explorerFolder is the folder currently
@@ -5422,7 +5470,7 @@ class Component extends DCLogic {
       // Ask surface: where the next question lands — 'follow' (a child quest under the current
       // topic) or 'new' (a fresh top-level quest); and the per-answer "Download audit" menu.
       askScope: 'follow', askAuditMenuOpen: false,
-      entitySel: null, entityMode: this._pref('eo_entmode', true), webGraphFor: null, webGraphTick: 0,
+      entitySel: null, entityMode: this._pref('eo_entmode', false), webGraphFor: null, webGraphTick: 0,
       webEntQuery: '',   // the graph panel's entity/node filter — narrows the toggle list live
       // The entity explorer PIVOTS to the source open in the stage: when a source is in front
       // it shows that source's figures, not the whole topic's. entScopeAll escapes back to the
@@ -6734,7 +6782,7 @@ class Component extends DCLogic {
     // own "Sources N" badge promises this topic's sources but the Drive opens on a stale "All
     // sources" (or another topic's) view instead.
     const enteringRegister = tab === 'register' && this.state.tab !== 'register';
-    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}), ...(enteringRegister ? { explorerBucket: 'topic', explorerFolder: null, explorerSel: null, explorerShowAll: false } : {}) };
+    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, inspectMenuOpen: false, tocOpen: false, listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}), ...(enteringRegister ? { explorerBucket: 'topic', explorerFolder: null, explorerSel: null, explorerShowAll: false } : {}) };
     // Jumping straight to a root screen (the bottom tabs, or any of the "Ask about this topic" /
     // "View findings" style CTAs that land on the same five ids) is a deliberate reset of the
     // mobile view stack, not one more hop to chain onto — Back from a fresh root should never
@@ -7645,12 +7693,13 @@ class Component extends DCLogic {
     // reader cache is otherwise held for the life of the tab (prefs apply live, no rebuild).
     delete this._readerCache[sn];
     const tabs = this.state.viewerTabs.includes(sn) ? this.state.viewerTabs : [...this.state.viewerTabs, sn];
-    // OVERVIEW (the source landing page — provenance, characters, the waveform of surprise, ways in)
-    // is the entry surface for every source open. Even if this source tab was already sitting in a
-    // deeper mode (Reader, Native, Search-adjacent exploration, PDF, Listen, EoT), a fresh open from
-    // the library/graph/citation brings the user back to the Overview first; explicit reading modes
-    // remain one click away on the mode row and persist only while the user stays in that source.
-    const modes = { ...this.state.viewerModes, [sn]: 'overview' };
+    // READER (the recorded text itself) is the entry surface for every source open. Even if this
+    // source tab was already sitting in a deeper mode (Native, Search-adjacent exploration, PDF,
+    // Listen, EoT), a fresh open from the library/graph/citation brings the user back to the plain
+    // reading first — meaning is disclosed through the same text via the left nav and the meaning
+    // rail, never a separate landing page; Overview and the rest of the analysis surface stay one
+    // click away in the Inspect drawer and persist only while the user stays in that source.
+    const modes = { ...this.state.viewerModes, [sn]: 'reader' };
     const focus = { ...this.state.viewerFocus }; if (focusText) focus[sn] = focusText; else delete focus[sn];
     // On mobile there's no tab strip — a source opens as its own full screen, so push whatever
     // screen is currently showing onto the view stack (_mPushCurrent) before navigating away,
@@ -7671,7 +7720,7 @@ class Component extends DCLogic {
     // previously only cleared this on a topic switch; a same-topic source change leaked it too.
     const entityScopePatch = (this.state.entitySel && this.state.entitySel.docId !== sn) ? { entitySel: null } : {};
     // Open the source AS A TAB in the main stage and make it the active tab.
-    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, readerProgress: 0, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...mobilePatch, ...entityScopePatch });
+    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, readerProgress: 0, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, inspectMenuOpen: false, ...mobilePatch, ...entityScopePatch });
     if (modes[sn] === 'native') this.loadPage(sn);
     if (modes[sn] === 'pdf') this.loadPdf(sn);
     // Overview (this open's mode, always) is the picture's own first showing — rehydrate it from
@@ -7713,7 +7762,7 @@ class Component extends DCLogic {
       const top = this._mStack[this._mStack.length - 1];
       if (top && top.tab === sn && top.mode != null) top.mode = mode;
     }
-    this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false });
+    this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, inspectMenuOpen: false });
     if (mode === 'native') this.loadPage(sn);
     if (mode === 'pdf') this.loadPdf(sn);
     if (mode === 'overview') this.loadImage(sn);
@@ -8162,6 +8211,12 @@ class Component extends DCLogic {
   }
   toggleExportMenu() { this.setState({ exportMenuOpen: !this.state.exportMenuOpen }); }
   toggleTranscriptMenu() { const v = !this.state.transcriptMenuOpen; this.setState({ transcriptMenuOpen: v, listenTocOpen: false, listenVoicesOpen: false, listenRedactOpen: false }); }
+  // INSPECT — the drawer that holds Overview/Raw/Graph/Metadata + the Audit trail, off the primary
+  // reading path by default (docs: the P0 "everything that used to dominate the experience belongs
+  // under a single Inspect drawer"). Selecting an item rides the SAME viewer-mode state those
+  // surfaces already used — only the entrance changed, from a persistent tab to a deliberate click.
+  toggleInspectMenu() { const v = !this.state.inspectMenuOpen; this.setState({ inspectMenuOpen: v, transcriptMenuOpen: false }); }
+  openInspectAudit() { this.setState({ inspectMenuOpen: false }); this.openMonologue(); }
   // Download the active audio source's transcript in one of the export formats (subtitles, JSON,
   // the elegant by-speaker read, the process trace) — built by the engine (transcript-export.js).
   exportTranscriptAs(id) {
@@ -9287,12 +9342,13 @@ class Component extends DCLogic {
     // still-modelless floor is a compose in flight, worth a "composing…" note.
     const composing = !!(rec && rec.modelless && app.optionalModel && app.optionalModel());
     const spans = badge.isAi ? this._groundedSpans(rec, sn) : [];
-    // has requires isAi (the MVP lede precedent — never show the deterministic telegram floor
-    // as if it were a composed reading): a badge-less card whose header reads "FOLD SUMMARY"
-    // is a claim of a finished summary, which the mechanical floor isn't. Until a model-voiced
-    // draft clears both firewalls, the card shows only the composing state or the explicit ask.
+    // has means "there is a reading to show" — the deterministic telegram floor counts (it is
+    // always computed the moment foldSummary() is called, model or none). isAi is the separate,
+    // narrower flag that gates the ✨ badge/grounding-span treatment; a floor reading renders
+    // plainly, unbadged, rather than vanishing until an optional model's draft clears both
+    // firewalls (see the still-correct foldPeekTelegram precedent this restores parity with).
     return {
-      show: true, has: badge.isAi, text: badge.isAi ? rec.text : '', composing,
+      show: true, has: !!rec, text: rec ? rec.text : '', composing,
       isAi: badge.isAi, badgeLabel: badge.badgeLabel || '',
       hasGroundDot: !!badge.hasGroundDot, groundDot: badge.groundDot || '', groundLabel: badge.groundLabel || '',
       spans, hasSpans: spans.length > 0,
@@ -9334,9 +9390,9 @@ class Component extends DCLogic {
       clear: () => this.clearWaveSelect(sn),
       hasEntities: entities.length > 0, entities,
       generate: () => this.generateRangeSummary(sn),
-      // has requires isAi — see _foldSummaryVM; the range card never shows the telegram floor
-      // as if it were a composed reading either.
-      has: badge.isAi, text: badge.isAi ? rec.text : '', composing: !!(rec && rec.modelless && app.optionalModel && app.optionalModel()),
+      // has means "there is a reading" (telegram or AI) — see _foldSummaryVM; isAi separately
+      // gates the badge/span treatment so the range card matches the fold-summary card's parity.
+      has: !!rec, text: rec ? rec.text : '', composing: !!(rec && rec.modelless && app.optionalModel && app.optionalModel()),
       isAi: badge.isAi, badgeLabel: badge.badgeLabel || '',
       hasGroundDot: !!badge.hasGroundDot, groundDot: badge.groundDot || '', groundLabel: badge.groundLabel || '',
       ...(() => { const spans = badge.isAi ? this._groundedSpans(rec, sn) : [];
@@ -10299,7 +10355,7 @@ class Component extends DCLogic {
       const figures = ents.filter((e) => e.grain !== 'setting' && e.grain !== 'kind');
       entityCount = figures.length;
       topEntities = figures.slice()
-        .map((e) => ({ e, score: (e.sourceCount || 1) * 100 + (e.mentions || 0) }))
+        .map((e) => ({ e, score: (e.sourceCount || 1) * 100 + (e.mentions || 0) + (e.titleScore || 0) }))
         .sort((a, b) => b.score - a.score)
         .slice(0, 12)
         .map(({ e }) => ({
@@ -13535,7 +13591,7 @@ class Component extends DCLogic {
     if (activeSn) {
       const s = app.sourceBySn(activeSn);
       if (s) {
-        vMode = st.viewerModes[activeSn] || 'overview';
+        vMode = st.viewerModes[activeSn] || 'reader';
         // 'text' (the old Document tab) is now the Reader with links on — fold any saved value in.
         if (vMode === 'text') vMode = 'reader';
         // The Structure tab (byte-structure binvis surface) is hidden — not useful enough to earn
@@ -14155,6 +14211,18 @@ class Component extends DCLogic {
       vmStructureFg: vMode === 'structure' ? '#1B1B22' : '#8A8A95', vmStructureBg: vMode === 'structure' ? '#fff' : 'transparent',
       vmGraphFg: vMode === 'graph' ? '#1B1B22' : '#8A8A95', vmGraphBg: vMode === 'graph' ? '#fff' : 'transparent',
       vmEotFg: vMode === 'eot' ? '#1B1B22' : '#8A8A95', vmEotBg: vMode === 'eot' ? '#fff' : 'transparent',
+      // INSPECT drawer — Overview/Raw/Graph/Metadata + the Audit trail, tucked behind one button.
+      // The button itself reads as active whenever the open mode is one Inspect owns, so leaving it
+      // open doesn't look like the reading was lost.
+      inspectMenuOpen: !!st.inspectMenuOpen, toggleInspectMenu: () => this.toggleInspectMenu(),
+      inspectFg: (st.inspectMenuOpen || ['overview', 'raw', 'graph', 'eot'].includes(vMode)) ? '#1B1B22' : '#8A8A95',
+      inspectBg: (st.inspectMenuOpen || ['overview', 'raw', 'graph', 'eot'].includes(vMode)) ? '#fff' : 'transparent',
+      inspectBd: st.inspectMenuOpen ? '#ded8fd' : 'transparent',
+      inspectOverviewBg: vMode === 'overview' ? '#f1eefe' : 'transparent',
+      inspectRawBg: vMode === 'raw' ? '#f1eefe' : 'transparent',
+      inspectGraphBg: vMode === 'graph' ? '#f1eefe' : 'transparent',
+      inspectEotBg: vMode === 'eot' ? '#f1eefe' : 'transparent',
+      inspectAudit: () => this.openInspectAudit(),
       // Listen surface — the interactive transcript refs + edit/redaction actions
       setListenAudio: (el) => this.setListenAudio(el),
       setListenTranscript: (el) => this.setListenTranscript(el),
