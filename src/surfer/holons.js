@@ -30,10 +30,53 @@
 //               → finer scenes, and a flat spectrum abstains to one reading. `holarchy` nests
 //               levels by re-deriving k locally within each coarse holon's span.
 
-import { vonNeumann, projectGraph, segmentGroups, segmentSwitches } from '../core/index.js';
+import { vonNeumann, projectGraph, segmentGroups, segmentSwitches, terrainInfo } from '../core/index.js';
+import { readingAt } from '../perceiver/index.js';
+import { siteTerrainAt } from './terrain.js';
 
 const round = (x) => Math.round(x * 1e4) / 1e4;
 const dot = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; };
+
+// prototypeOf — the holon's Site-face shadow across the grain dimension. The original
+// detector's prototype was only its cast: real, but 100% Figure-grain. This adds the two
+// missing readings over the same units:
+//   • terrainMix: the locus terrain that actually landed at each unit (Figure/Pattern/Ground)
+//   • groundPrior: reading.js's Ground channels (Void/Field/Atmosphere) accumulated as
+//     the prior the holon rested on before its figures became legible.
+// No embeddings, no lexical shortcuts — only the event log and readingAt's prior channels.
+// readingAt needs { terrains: true } to compute reading.ground at all (opt-in, parity gate —
+// see reading.js); groundPrior reads each site's `cultivating` (accumulated mass) except Void,
+// which reads `clearing` (the novelty reserve) — the same three quantities this function
+// reported before reading.js's Ground row grew from 3 cells to the full 3x3, so a holon's
+// prototype numbers are unchanged, just sourced from the richer shape.
+const prototypeOf = (doc, h) => {
+  const grains = { Ground: 0, Figure: 0, Pattern: 0 };
+  const terrains = {};
+  const groundPrior = { Void: 0, Field: 0, Atmosphere: 0 };
+  for (let u = h.lo; u < h.hi; u++) {
+    const terrain = siteTerrainAt(doc, u);
+    terrains[terrain] = (terrains[terrain] || 0) + 1;
+    const info = terrainInfo(terrain);
+    if (info) grains[info.grain]++;
+    const g = readingAt(doc, u, { terrains: true })?.ground;
+    if (g) {
+      groundPrior.Void += g.void?.clearing || 0;
+      groundPrior.Field += g.field?.cultivating || 0;
+      groundPrior.Atmosphere += g.atmosphere?.cultivating || 0;
+    }
+  }
+  const units = Math.max(1, h.units || (h.hi - h.lo));
+  const roundAvg = (x) => round(x / units);
+  return Object.freeze({
+    grains: Object.freeze(grains),
+    terrains: Object.freeze(terrains),
+    groundPrior: Object.freeze({
+      Void: roundAvg(groundPrior.Void),
+      Field: roundAvg(groundPrior.Field),
+      Atmosphere: roundAvg(groundPrior.Atmosphere),
+    }),
+  });
+};
 
 // Build the per-unit cast activations over the top-K figures, and the figures' index. A
 // `range` restricts BOTH the top-figure basis and the activations to a span — so a local
@@ -130,6 +173,7 @@ export const detectHolons = (doc, { maxK = 8, minRun = 3, alpha = 0.05, topFigur
     idx: n, lens: r.lens, lo: r.lo, hi: r.hi, units: r.hi - r.lo,
     mass: round(lenses[r.lens]?.weight ?? 0),
     cast: castOf(r.lens),
+    prototype: null, // filled below: Site-face grain + Ground-column prior shadow
     closure: 0,   // filled below
   }));
   // closure (autopoiesis made measurable) — LOCAL coherence, not a global mass share. A
@@ -145,6 +189,7 @@ export const detectHolons = (doc, { maxK = 8, minRun = 3, alpha = 0.05, topFigur
       if (tot > 0) { s += (dot(a, lenses[h.lens].lens) ** 2) / tot; m++; }
     }
     h.closure = round(m ? s / m : 0);
+    h.prototype = prototypeOf(doc, h);
   });
 
   return Object.freeze({

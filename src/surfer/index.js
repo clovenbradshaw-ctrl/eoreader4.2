@@ -85,6 +85,8 @@ export { OPS, RELTYPES, operatorProfiles, structuralActivations, structuralHoriz
 // Basis-agnostic — the same namer serves the structural (operator-code) and embedding
 // (cube-cell-key) bases alike, off the leading operator code either way.
 export { topDims, labelPattern, nameLens, nameDivergence } from './lens-naming.js';
+// What survives every lens — the symmetry/invariance measure across a lens family.
+export { stabilizerOf } from './stabilizer.js';
 // Label feedback (word → concept): grow specific link-types from the recurring links the
 // closed vocabulary leaves untyped, and MEASURE whether structure alone carves each one
 // (deriveNull over random same-size groups) — `structureGrows` is the empirical answer to
@@ -147,6 +149,8 @@ export { createReader, interpret, curiousSurf } from './reader.js';
 
 // (seam healing) re-exported so the module stays behind the entrance
 export { retreads } from './salience.js';
+// Recurring Kinds — detected, not asserted (Born-rule density clustering over entity activations).
+export { detectKinds } from './kinds.js';
 
 // Answer a question AS THE RECORD HOLDS IT from inside one figure's fold — a mechanically bounded
 // projection of the figure's own claims (never roleplay), gated by referential containment, that

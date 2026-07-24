@@ -128,12 +128,12 @@ test('helix: modules order dependencies-first; cycles are found with their membe
   assert.equal(r.order.cycles.length, 0);
 
   const c = readCodebase([
-    { path: 'p.js', text: `import { q } from './q.js'; export const p = 1;\n` },
-    { path: 'q.js', text: `import { p } from './p.js'; export const q = 2;\n` },
+    { path: 'p.js', text: `import { q } from './q.js'; export function p() { return q(); }\n` },
+    { path: 'q.js', text: `import { p } from './p.js'; export function q() { return p(); }\n` },
   ]);
   assert.equal(c.order.cycles.length, 1);
   assert.deepEqual([...c.order.cycles[0]].sort(), ['mod:p', 'mod:q']);
-  assert.equal(of(c, 'no-order').length, 1, 'a cycle is a finding: no dependency order exists');
+  assert.equal(of(c, 'cycle').length + of(c, 'cycle-incoherent').length, 1, 'a cycle is a finding, reported at SCC grain');
 });
 
 test('helix: the nine operators keep their one surviving order', () => {

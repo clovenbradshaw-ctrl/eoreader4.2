@@ -262,6 +262,7 @@ export const induceBoundaries = (text, { isAbbreviation, thresholds, confirmBand
   // does not change pass to pass, only which of its members are still `ignored`
   // (not yet promoted) does.
   const candidateMarks = discoverCandidates(text);
+  if (candidateMarks.length === 0) return { extraBoundaries, recs };
 
   // At most one promotion per candidate mark; the loop re-runs after each so a
   // second mark is judged against the units the first one already fixed.

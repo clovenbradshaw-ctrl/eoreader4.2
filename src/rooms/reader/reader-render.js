@@ -75,6 +75,11 @@ const titleish = (s) => { s = norm(s); return s.length >= 2 && s.length <= 52 &&
 // wiki page, and a journal article.
 const SECTION_WORD = /^(chapter|letter|part|book|canto|section|volume|stave|act|scene|epilogue|prologue|appendix|appendices)$/i;
 const CANON_HEAD = /^(abstract|introduction|background|related work|prior work|methods?|methodology|materials and methods|experiments?|results|evaluation|analysis|discussion|conclusions?|future work|references|bibliography|acknowledge?ments?|appendix|appendices|notes|see also|external links|further reading|summary|overview|preface|foreword|epilogue|prologue|glossary|index|contents)(\s+[a-z0-9.]{1,12})?[.:]?$/i;
+// The subset of CANON_HEAD that names BACK matter — apparatus that only ever trails a document
+// (references, an appendix, a "See also" list). Distinct from FRONT-matter canonical terms
+// (Abstract, Introduction, Overview, Preface, …), which legitimately open a document and must
+// never be mistaken for "everything from here on is trailing matter."
+const BACKMATTER_HEAD = /^(references|bibliography|acknowledge?ments?|appendix|appendices|notes|see also|external links|further reading|glossary|index)(\s+[a-z0-9.]{1,12})?[.:]?$/i;
 
 // Classify a short line by FORM → {fam,kind,level,val,label} | null. The family key carries the lead
 // word + numeral position so "Chapter I" groups apart from a caption that merely mentions "Chapter I".
@@ -167,8 +172,19 @@ export const detectStructure = (paras, blockGaps = []) => {
     else if (short(s) && gapSignal && (blockGaps[i] || minGap) > minGap) cand.push({ fam: 'GAP', kind: 'gap', level: 1, label: s, i });
     else if (f && f.kind === 'shape') cand.push({ ...f, i });
   });
+  // A back-matter trailer's own CONTENT — a "See also" list entry, a citation, an "External links"
+  // description — is often itself short and title-cased ("The Ada Lovelace Institute.") and would
+  // otherwise dilute the shape family's density enough to block real body headings (Biography,
+  // Childhood, …) from ever being admitted. References/See also/External links/Notes/etc. always
+  // TRAIL an article (unlike front-matter canon — Abstract/Introduction/Overview — which OPENS
+  // one), so once the first back-matter heading is seen, nothing after it can be a body heading —
+  // drop SHAPE/GAP candidates (the weak, noise-prone kinds) from that point on. num/decl/canon are
+  // untouched: a numbered/declared family has its own sequence+density admission guard already,
+  // and canon detection must never depend on this at all.
+  const firstBackAt = cand.reduce((m, c) => (c.kind === 'canon' && BACKMATTER_HEAD.test(c.label) && c.i < m) ? c.i : m, Infinity);
+  const trimmed = isFinite(firstBackAt) ? cand.filter((c) => (c.kind !== 'shape' && c.kind !== 'gap') || c.i < firstBackAt) : cand;
   const byFam = new Map();
-  cand.forEach((c) => { if (!byFam.has(c.fam)) byFam.set(c.fam, []); byFam.get(c.fam).push(c); });
+  trimmed.forEach((c) => { if (!byFam.has(c.fam)) byFam.set(c.fam, []); byFam.get(c.fam).push(c); });
   const fams = [];
   for (const [fam, M] of byFam) {
     const idxs = M.map((c) => c.i), n = idxs.length;

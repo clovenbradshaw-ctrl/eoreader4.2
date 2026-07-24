@@ -100,6 +100,8 @@ export const buildApi = (appCtx) => {
     optionalModel: appCtx.optionalModel, readerCoreStatus: appCtx.readerCoreStatus, synthesisEnabled: appCtx.synthesisEnabled, synthesisMode: appCtx.synthesisMode,
     // projections for the surface
     answerSegments: appCtx.answerSegments, viewerParas: appCtx.viewerParas, readerLink: appCtx.readerLink, transcriptEntityRuns: appCtx.transcriptEntityRuns, entities: appCtx.entities, entityProfile: appCtx.entityProfile, entityWiki: appCtx.entityWiki, tieredData: appCtx.tieredData, solarMeaningData: appCtx.solarMeaningData, topicTieredData: appCtx.topicTieredData,
+    // the Reader's Meaning nav — lenses/stance at a position, kinds over a document
+    surfAt: appCtx.surfAt, surfAtFraction: appCtx.surfAtFraction, kindsOf: appCtx.kindsOf,
     // the Network surface (src/wiki/network-article.js) — the topic's sources linked by what
     // they corroborate; networkOf unpacks one composite (parentSn) source's own children
     networkTieredData: appCtx.networkTieredData, networkOf: appCtx.networkOf,

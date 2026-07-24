@@ -42,6 +42,7 @@
 import { redactEot, restore, assertNoNameLeak, EOT_LEGEND } from '../weave/write/index.js';
 import { eotDoc } from '../organs/ingest/index.js';
 import { projectGraph, propositionOfEdge } from '../core/index.js';
+import { POLARITY } from './polarity.js';
 
 // ── the charge — a REASONER over structure, not the prosifier redact.js ships ──────────────────
 // redact.js's EOT carrier tells the model to turn the reading into speech. This tells it to REASON
@@ -111,71 +112,129 @@ export const makeStreamRestorer = (table) => {
 // sharpest signal. Built off projectGraph's SIG/CON edges via the core's own propositionOfEdge, so
 // this reads the same relation currency the edge-grounding veto does (factcheck/correspond.js).
 const normLabel = (s) => String(s ?? '').trim().toLowerCase();
-export const propositionsOf = (doc) => {
+// propositionsOf(doc, { closure, universe }) — `closure: 'open'` (default) is the
+// original behavior: an unread base is simply absent from the map, byte-identical to
+// the pre-trichotomy reading. `closure: 'declared'` additionally materializes every
+// base in the caller-supplied `universe` that this doc did NOT read, with
+// `pol: POLARITY.NULL` — the third state (¬⊢A), never inferred, only ever declared.
+export const propositionsOf = (doc, { closure = 'open', universe = null } = {}) => {
   const out = new Map();
-  if (!doc?.log) return out;
+  if (!doc?.log) {
+    if (closure === 'declared') for (const base of universe || []) out.set(base, nullProposition(base));
+    return out;
+  }
   let graph;
-  try { graph = projectGraph(doc.log, {}); } catch { return out; }
-  const has = (id) => graph.entities?.has?.(id);
-  const labelOf = (id) => graph.entities?.get?.(id)?.label ?? String(id);
-  for (const e of graph.edges || []) {
+  try { graph = projectGraph(doc.log, {}); } catch { graph = null; }
+  const has = (id) => graph?.entities?.has?.(id);
+  const labelOf = (id) => graph?.entities?.get?.(id)?.label ?? String(id);
+  for (const e of graph?.edges || []) {
     const p = propositionOfEdge(e);
     const sub = labelOf(p.substrate);
     const dif = has(p.differentia) ? labelOf(p.differentia) : String(p.differentia);   // a type/literal rides as itself
-    const pol = p.polarity === '-' ? '-' : '+';
+    const pol = p.polarity === '-' ? POLARITY.NEG : POLARITY.POS;
     const base = `${normLabel(sub)} ⟩ ${normLabel(p.relation)} ⟩ ${normLabel(dif)}`;
     if (!out.has(base)) out.set(base, { sub, rel: p.relation, dif, pol });
+  }
+  if (closure === 'declared') {
+    for (const base of universe || []) if (!out.has(base)) out.set(base, nullProposition(base));
   }
   return out;
 };
 
+// a declared-but-unread base: no sub/rel/dif is known beyond the base string itself
+// (the universe is a list of base keys, not full triples), so those ride null and the
+// polarity carries the whole signal — ¬⊢A, no reading either way.
+const nullProposition = (base) => ({ sub: null, rel: null, dif: null, pol: POLARITY.NULL, base });
+
 // ── the propositional continuity gate ─────────────────────────────────────────────────────────────
-// continuityGate(before, after, { mode, requireTotal }) → the return-path check.
+// continuityGate(before, after, { scope, requireTotal }) → the return-path check.
 //
 //   before  the propositions of the INPUT structure (a doc or a prebuilt Map)
 //   after   the propositions of the RESTORED output (a doc or a Map)
 //
-// The four ways the after-reading can stand to the before-reading, per base proposition:
-//   preserved     same base, same pole — a relation the model kept faithfully
-//   contradicted  same base, OPPOSITE pole — the model flipped a bond's sign ("A calls B" → "A does
-//                 NOT call B"). A blind reasoner has no ground to overturn a given bond; this is a
-//                 hard fail in EITHER mode, and it REFUSES.
-//   introduced    a base only the after-reading has — a NEW relation among real referents. In a
-//                 CLOSED task (audit / "what does this imply") the model was to read, not add, so a
-//                 new bond is a FABRICATION and it refuses. In an OPEN task (generation / "propose a
-//                 fix") a new bond is the DELIVERABLE — surfaced as a PROPOSAL, never refused.
-//   dropped       a base only the before-reading has — EROSION. Soft: a reading may legitimately
-//                 narrow. Flagged, and a hard fail only under `requireTotal`.
+// TWO DIFFERENT LOGICAL COMMITMENTS were living under one `mode` flag; `scope` names
+// them and asks a different QUESTION of the same two readings:
 //
-// `mode` defaults to 'closed' (the conservative reading). The gate never edits the answer; it
-// returns the verdict and a non-refusing `fired` list for the surfacing layer (mirror of
-// factcheck/propositions.js auditPropositions), refusing ONLY on contradiction / closed-fabrication.
-export const continuityGate = (before, after, { mode = 'closed', requireTotal = false } = {}) => {
+//   scope: 'derivability'  — a ⊢ question: is every relation in `after` DERIVABLE from
+//                            the tape in `before`? Closed-world / negation-as-failure.
+//                            An addition nothing derives is UNGROUNDED, and refuses.
+//   scope: 'truth'         — a ⊨ question: is `after` merely CONSISTENT with `before`?
+//                            Open-world. An addition is a PROPOSAL — the deliverable of
+//                            a generation task — and never refuses.
+//
+// The verdict table, per base proposition:
+//   preserved     same base, same pole — a relation the model kept faithfully
+//   contradicted  same base, OPPOSITE pole — the model flipped a bond's sign. No scope
+//                 gives a blind reasoner ground to overturn a given bond: hard fail,
+//                 BOTH scopes, always refuses.
+//   witnessed     the base was POLARITY.NULL in `before` (declared-closure: no reading
+//                 either way) and now carries +/- in `after` — a genuine new witness,
+//                 not a fabrication; never refuses.
+//   ungrounded    a base only `after` has, scope='derivability' — nothing in the given
+//                 tape derives it. Refuses.
+//   proposal      a base only `after` has, scope='truth' — the deliverable. Never refuses.
+//   eroded        a base only `before` has — EROSION. Soft; a hard fail only under
+//                 `requireTotal`.
+//
+// Migration: the old `mode` param ('closed'|'open') is accepted for one release, mapped
+// 'closed'→'derivability', 'open'→'truth', and logged as a deprecation via this file's
+// `logEvent` — the SAME channel core/log.js callers already emit through. During this
+// release an ungrounded verdict ALSO appears under the old id `proposition-fabricated`
+// in `fired` (alongside the new `proposition-ungrounded`), so a downstream consumer
+// still keying on `fabricated` does not silently break.
+const logEvent = (name, detail) => {
+  try {
+    if (typeof globalThis !== 'undefined' && typeof globalThis.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') {
+      globalThis.dispatchEvent(new CustomEvent(name, { detail }));
+      return;
+    }
+  } catch { /* no DOM-like event target — fall through */ }
+  try { console.warn?.(`[${name}]`, detail); } catch { /* no console — silent */ }
+};
+
+export const continuityGate = (before, after, opts = {}) => {
+  let { scope, mode, requireTotal = false } = opts;
+  if (!scope) {
+    if (mode === 'closed' || mode === 'open') {
+      scope = mode === 'closed' ? 'derivability' : 'truth';
+      logEvent('deprecation', {
+        module: 'model/blind-structure.js', fn: 'continuityGate',
+        message: `continuityGate({ mode: '${mode}' }) is deprecated — pass { scope: '${scope}' } instead. ` +
+          `'mode' is honored for this release only.`,
+      });
+    } else {
+      scope = 'derivability';
+    }
+  }
+
   const B = before instanceof Map ? before : propositionsOf(before);
   const A = after  instanceof Map ? after  : propositionsOf(after);
 
   const preserved = [];
   const contradicted = [];
   const introduced = [];
+  const witnessed = [];
   const dropped = [];
 
   for (const [base, a] of A) {
     const b = B.get(base);
     if (!b) { introduced.push(a); continue; }
+    if (b.pol === POLARITY.NULL && a.pol !== POLARITY.NULL) { witnessed.push({ base, was: b, now: a }); continue; }
     if (b.pol !== a.pol) contradicted.push({ base, was: b, now: a });
     else preserved.push(a);
   }
-  for (const [base, b] of B) if (!A.has(base)) dropped.push(b);
+  for (const [base, b] of B) if (!A.has(base) && b.pol !== POLARITY.NULL) dropped.push(b);
 
-  const fabricated = mode === 'closed' && introduced.length > 0;
-  const proposals = mode === 'open' ? introduced : [];
-  const refuses = contradicted.length > 0 || fabricated || (requireTotal && dropped.length > 0);
+  const ungrounded = scope === 'derivability' && introduced.length > 0;
+  const proposals = scope === 'truth' ? introduced : [];
+  const refuses = contradicted.length > 0 || ungrounded || (requireTotal && dropped.length > 0);
 
   const verdict = contradicted.length ? 'contradicted'
-    : fabricated ? 'fabricated'
+    : ungrounded ? 'ungrounded'
     : (requireTotal && dropped.length) ? 'eroded'
-    : introduced.length ? (mode === 'open' ? 'proposed' : 'fabricated')
+    : introduced.length ? (scope === 'truth' ? 'proposal' : 'ungrounded')
     : dropped.length ? 'narrowed'
+    : witnessed.length ? 'witnessed'
     : 'continuous';
 
   const rel = (r) => `${r.sub ?? r.now?.sub} ${r.rel ?? r.now?.rel} ${r.dif ?? r.now?.dif}`.trim();
@@ -183,16 +242,23 @@ export const continuityGate = (before, after, { mode = 'closed', requireTotal = 
   if (contradicted.length) fired.push({ id: 'proposition-contradicted', refuses: true,
     message: `the blind reasoner flipped ${contradicted.length} bond(s) it was given`,
     relations: contradicted.map((c) => `${rel(c.was)}  (given)  ↮  ${rel(c.now)}  (returned)`) });
-  if (fabricated) fired.push({ id: 'proposition-fabricated', refuses: true,
-    message: `the blind reasoner asserted ${introduced.length} relation(s) among referents it could not see`,
-    relations: introduced.map(rel) });
+  if (ungrounded) {
+    fired.push({ id: 'proposition-ungrounded', refuses: true,
+      message: `the blind reasoner asserted ${introduced.length} relation(s) among referents it could not see, and nothing in the given tape derives them`,
+      relations: introduced.map(rel) });
+    // back-compat alias, one release only — see the migration note above.
+    fired.push({ id: 'proposition-fabricated', refuses: true,
+      message: `the blind reasoner asserted ${introduced.length} relation(s) among referents it could not see`,
+      relations: introduced.map(rel) });
+  }
 
   return Object.freeze({
-    ok: !refuses, refuses, verdict, mode,
-    preserved, contradicted, introduced, dropped, proposals,
+    ok: !refuses, refuses, verdict, scope, mode: opts.mode,
+    preserved, contradicted, introduced, witnessed, dropped, proposals,
     counts: {
       preserved: preserved.length, contradicted: contradicted.length,
-      introduced: introduced.length, dropped: dropped.length, proposals: proposals.length,
+      introduced: introduced.length, witnessed: witnessed.length,
+      dropped: dropped.length, proposals: proposals.length,
     },
     fired,
   });

@@ -134,6 +134,26 @@ test('detectStructure: a Wikipedia-style extract finds sentence-case heads by th
   assert.ok(m.sections.some((s) => s.label === 'Photosynthetic membranes and organelles'), 'a sentence-case head is caught');
 });
 
+test('detectStructure: a Wikipedia-shaped article keeps its own body headings beside the canonical trailer', () => {
+  // The reported bug: "See also"/"References"/"External links" (CANON_HEAD) were recognized, but a
+  // real article's own body headings (Biography, Childhood, …) were flattened — because ANY admitted
+  // canonical family used to preempt the shape-based last resort outright (`if (!acc.length)`), even
+  // though a lone trailer is real signal but not a substitute for a body table of contents. Uniform
+  // single-blank-line spacing throughout (no gap signal — exsectionformat=plain conventions aren't
+  // assumed) means shape is the ONLY path left for the body heads once canon is found.
+  const heads = ['Biography', 'Childhood', 'The Analytical Engine', 'Legacy'];
+  const body = heads.map((h) => `${h}\n\n${bodyRun(10)}`).join('\n\n')
+    // The trailer's own CONTENT is often itself short and title-cased ("The Ada Lovelace
+    // Institute.") — it must not dilute the body-heading shape family enough to block admission.
+    + '\n\nSee also\n\nList of pioneers in computer science.\n\nWomen in computing.'
+    + '\n\nReferences\n\nCitation one.\n\nCitation two.\n\nCitation three.'
+    + '\n\nExternal links\n\nAda Lovelace at Wikimedia Commons.\n\nThe Ada Lovelace Institute.';
+  const m = readerModel({ text: `Ada Lovelace was an English mathematician.\n\n${body}`, title: 'Ada Lovelace' });
+  const labels = m.sections.map((s) => s.label);
+  for (const h of heads) assert.ok(labels.includes(h), `"${h}" is detected — got ${JSON.stringify(labels)}`);
+  for (const c of ['See also', 'References', 'External links']) assert.ok(labels.includes(c), `canonical "${c}" still detected too`);
+});
+
 test('detectStructure: an inline multi-line table of contents is not double-counted', () => {
   // A printed contents (a "CONTENTS" head + one chapter per line) duplicates every heading. Left in,
   // the doubled family trips the density guard and NO structure is found; it must be stripped.
