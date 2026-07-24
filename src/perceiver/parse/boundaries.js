@@ -35,12 +35,22 @@ import { segmentSentences } from './sentences.js';
 // Discover candidate boundary marks empirically from the text itself.
 // Any non-alphanumeric character that appears 3+ times is tested as a potential boundary.
 // The coherence loop then promotes marks that actually reduce strain.
-// TRULY MODALITY-AGNOSTIC: no hardcoded assumptions about `.!?:;` or any marks.
+// TRULY MODALITY-AGNOSTIC: no hardcoded assumptions about `.!?:;` or any marks — EXCEPT the
+// comma, which is excluded on the same existence-floor logic the rest of this file argues
+// from, not as a hardcoded prose rule: a comma marks a clause-internal join in every
+// convention this loop targets (KJV's colon, code's semicolon, list labels' colon), never a
+// unit's end, so promoting it is never a coherence fix, only miscalibration. Any ordinary
+// narrative prose with recurring named subjects/pronouns (Marlow, he, I, they, …) manufactures
+// exactly the "independent clause after the mark" signal `fusionByMark` reads as fusion —
+// confirmed on Heart of Darkness, where 272 commas fused (each an ordinary "…, and Marlow
+// said…"-shaped clause) and the comma was promoted, nearly doubling the sentence count
+// (2277 -> 4960) and shattering every sentence containing a subordinate clause.
+const NEVER_A_BOUNDARY = new Set([',']);
 const discoverCandidateMarks = (text) => {
   const charFreq = {};
   for (const ch of text) {
     // Count non-alphanumeric, non-whitespace characters
-    if (/[^\w\s]/.test(ch)) {
+    if (/[^\w\s]/.test(ch) && !NEVER_A_BOUNDARY.has(ch)) {
       charFreq[ch] = (charFreq[ch] || 0) + 1;
     }
   }
