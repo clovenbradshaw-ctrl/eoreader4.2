@@ -95,14 +95,11 @@ const normalizeMetalinguisticMarkers = (text, markerPatterns = new Map()) => {
   return result;
 };
 
-// `extraBoundaries` is a set of marks the reading has LEARNED to treat as sentence
-// ends for this document. Can include:
-//   - `.!?` (prose marks, backward-compat)
-//   - `;` (code statement ends)
-//   - `\n` (code line breaks)
-//   - `:` (archaic text or code labels)
-//   - Any other discovered boundary via coherence strain
-// Empty by default; promoted by boundary-induction (parse/boundaries.js).
+// `extraBoundaries` is a set of punctuation marks the reading has LEARNED to treat
+// as sentence ends for this document — beyond the `.!?` floor. Can include:
+//   - `;` / `:` (archaic text, or other conventions discoverCandidates finds)
+//   - Any other discovered boundary via coherence strain (parse/boundaries.js)
+// Empty by default (modern prose).
 // `markerPatterns` is a Map of metalinguistic markers (from eoPriors conventions).
 export const segmentSentences = (
   text,
