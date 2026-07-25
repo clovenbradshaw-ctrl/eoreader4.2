@@ -46,11 +46,12 @@ export const entityInventory = (profile, { maxClaims = 4, maxRelations = 3, ment
   const mentions = (profile?.mentions || []);
   const nMentions = mentionCount != null ? mentionCount : mentions.length;
 
+  const _meanConf = defs.reduce((s, d) => s + (d.confidence ?? 1), 0) / Math.max(1, defs.length);
   const claims = refineClaims(defs).slice(0, maxClaims).map((d) => ({
     subject: label, value: d.value, cite: cite(d.witnesses?.length ? d.witnesses : [d.idx]),
     count: d.count || 1, polarity: d.polarity, modality: d.modality,
     // footing pulled: a hedged, single-witness, low-confidence property is not yet standing.
-    unsettled: d.modality && d.modality !== 'realis' && (d.count || 1) < 2 && (d.confidence ?? 1) < 0.5,
+    unsettled: (d.modality === 'irrealis' || d.modality === 'epistemic') && (d.count || 1) < 2 && (d.confidence ?? 1) < _meanConf,
   }));
 
   // incident bonds — but only the algebra-TYPED ones (kinship/role/social: sister, captain, wife).
@@ -59,7 +60,7 @@ export const entityInventory = (profile, { maxClaims = 4, maxRelations = 3, ment
   // sister); an untyped one is dropped rather than phrased on shaky footing.
   const relations = rels.filter((r) => r.type).slice(0, maxRelations).map((r) => ({
     subject: r.srcLabel, via: cleanVia(r.via), object: r.tgtLabel,
-    cite: cite([r.idx]), polarity: r.polarity === '−' ? '−' : '+', kinship: true,
+    cite: cite([r.idx]),     polarity: r.polarity === '−' ? '−' : r.polarity === '0' ? '0' : '+', kinship: true,
   })).filter((r) => r.subject && r.object && r.via);
 
   const facts = [];
@@ -87,7 +88,7 @@ export const sourceInventory = (reading, { maxClaims = 4, maxRelations = 2 } = {
   }));
   const relations = (reading?.relations || []).slice(0, maxRelations).map((r) => ({
     subject: r.subject, via: cleanVia(r.via), object: r.object,
-    cite: cite(r.cite), polarity: r.polarity === '−' ? '−' : '+', kinship: !!r.kinship,
+    cite: cite(r.cite),     polarity: r.polarity === '−' ? '−' : r.polarity === '0' ? '0' : '+', kinship: !!r.kinship,
   })).filter((r) => r.subject && r.object && r.via);
 
   const m = reading?.metadata || {};

@@ -127,7 +127,9 @@ const importantBullets = async (profile, { model = null, signal = null } = {}) =
 const surpriseScore = (d, topWords) => {
   let s = 0;
   if (d.polarity === '−') s += 3;                                   // a reversal of expectation
-  if (d.modality && d.modality !== 'realis') s += 1.5;             // stated on hedged / possible footing
+  else if (d.polarity === '0') s += 1.5;                            // neutral / held open — less surprising than a reversal
+  if (d.modality === 'epistemic') s += 1.5;                         // stated on hedged / possible footing
+  else if (d.modality === 'irrealis') s += 0.75;                    // irrealis — less surprising than epistemic
   const w = words(d.value);
   s += Math.min(w.length, 8) * 0.22;                              // a fuller phrase is a more specific detail
   const cnt = d.count || 1;

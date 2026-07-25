@@ -275,6 +275,7 @@ const readerConfidenceOf = (claim, sent) => {
     : claim.marker === 'cause-link' ? 0.65
     : claim.warrant === 'mechanism-cue' ? 0.5 : 0.6;
   if (claim.modality === 'epistemic') c *= 0.85;                 // a hedged claim, read as such
+  if (claim.modality === 'irrealis') c *= 0.92;                  // irrealis (conditional/wish) — less certain than realis
   const npLen = (claim.causeQualifiers.length + claim.effectQualifiers.length);
   if (npLen >= 4) c *= 0.9;                                       // a long NP is a harder read
   return Math.round(c * 1000) / 1000;

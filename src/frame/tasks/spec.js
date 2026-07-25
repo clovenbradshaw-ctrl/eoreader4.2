@@ -112,12 +112,27 @@ const DROP_SECOND = new Set([
   'this', 'that', 'these', 'those', 'some', 'any', 'all', 'each', 'every',
 ]);
 
-// Musical artifact nouns route to the MUSIC output organ; everything else renders as
-// text. This is a MODALITY router (which sense to render in), NOT a structural guide —
-// the structure of a melody is still learned, not shipped. New output organs add their
-// noun set here as they land (image: sketch/diagram; etc.).
-const MUSIC_KINDS = /\b(melody|melodies|tune|song|jingle|riff|theme|anthem|hymn|march|lullaby|ballad|motif)\b/i;
-export const organForKind = (kind = '') => (MUSIC_KINDS.test(String(kind)) ? 'music' : 'text');
+// The artifact-kind vocabulary that routes to each output organ. A kind whose leaf word
+// matches an organ's vocabulary renders through that organ; everything else renders as
+// text. The structure of a melody is still learned, not shipped — this only selects the
+// output sense. New output organs add their vocabulary here as they land (image: sketch/diagram; etc.).
+const ORGAN_VOCABULARY = Object.freeze({
+  music: Object.freeze({ melody: true, melodies: true, tune: true, song: true, jingle: true,
+    riff: true, theme: true, anthem: true, hymn: true, march: true,
+    lullaby: true, ballad: true, motif: true }),
+});
+export const organForKind = (kind = '') => {
+  const word = String(kind).toLowerCase();
+  for (const [organ, vocab] of Object.entries(ORGAN_VOCABULARY)) {
+    if (vocab[word]) return organ;
+  }
+  return 'text';
+};
+
+const ARC_SETTINGS = Object.freeze({
+  music: { format: 'notes', size: 24, organ: 'music' },
+  text: {},
+});
 
 // artifactKindOf(request) → the artifact noun the request names, open-vocabulary. Peels
 // the imperative, article, and length words, then takes the head noun (one or two words)
@@ -196,23 +211,26 @@ const T = (kind, format, size, note, sections, organ = 'text', source = 'builtin
   Object.freeze({ kind, format, size, organ, note, sections, source });
 
 // genericArc(organ) → the universal arc, sized and named for the output organ. The
-// roles read naturally per modality (a melody opens with a motif and lands on a cadence),
+// roles read naturally per organ (a melody opens with a motif and lands on a cadence),
 // but the SHAPE is the same three moves — this is a floor, not a guide.
-const genericArc = (organ = 'text') => {
-  const music = organ === 'music';
+const genericArc = ({ format = 'prose', size = 512, organ = 'text' } = {}) => {
+  const notes = format === 'notes';
   return T(
-    'generic', music ? 'notes' : 'prose', music ? 24 : 512,
+    'generic', format, size,
     'the universal arc — open, develop, close (the offline floor; specific shapes are learned)',
     [
-      { role: music ? 'opening motif' : 'opening', share: 1.0, dir: { act: 'open' } },
+      { role: notes ? 'opening motif' : 'opening', share: 1.0, dir: { act: 'open' } },
       { role: 'development', share: 1.6, dir: { act: 'develop', detail: 'extend and deepen' } },
-      { role: music ? 'cadence' : 'close', share: 1.0, dir: { act: 'close', detail: 'draw together; introduce nothing new' } },
+      { role: notes ? 'cadence' : 'close', share: 1.0, dir: { act: 'close', detail: 'draw together; introduce nothing new' } },
     ],
     organ, 'fallback',
   );
 };
 
-export const GENERIC_SHAPES = Object.freeze({ text: genericArc('text'), music: genericArc('music') });
+export const GENERIC_SHAPES = Object.freeze({
+  text: genericArc(),
+  music: genericArc({ format: 'notes', size: 24, organ: 'music' }),
+});
 
 // The degenerate shape: no artifact named, a single grounded leaf — byte-identical to
 // one small-model call (the runner's degenerate graph).
@@ -274,7 +292,7 @@ export const createTaskSpec = ({ request = '', library = null, length = null } =
 
   const template =
     kind === 'answer' ? ANSWER_SHAPE
-    : (library && library.learned(kind)) || genericArc(organForKind(kind));
+    : (library && library.learned(kind)) || genericArc(ARC_SETTINGS[organForKind(kind)] || {});
 
   // The OUTPUT ORGAN governs the budget math: its native unit, its single-reach ceiling
   // (a paragraph for text, a phrase for music), its floor, and its context width. The
@@ -516,7 +534,7 @@ const plausibleRole = (r) => {
 // act by its position in the arc (first → open, last → close, middle → develop), so a
 // learned shape is modality-neutral like the shipped arc. Size/organ inherit from `base`
 // (the arc floor for the kind's organ) so a derived shape is sized like the floor.
-export const deriveSpecFromDefinition = (kind, text, base = genericArc(organForKind(kind))) => {
+export const deriveSpecFromDefinition = (kind, text, base = genericArc(ARC_SETTINGS[organForKind(kind)] || {})) => {
   const t = String(text || '');
   if (!t.trim()) return null;
 
@@ -593,7 +611,7 @@ export const createSpecLibrary = ({ seed = {}, onLearn = null } = {}) => {
     return t;
   };
   return {
-    get: (kind) => learned.get(kind) || genericArc(organForKind(kind)),
+    get: (kind) => learned.get(kind) || genericArc(ARC_SETTINGS[organForKind(kind)] || {}),
     learned: (kind) => learned.get(kind) || null,
     has: (kind) => learned.has(kind),
     kinds: () => [...learned.keys()],

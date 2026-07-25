@@ -67,7 +67,8 @@ export const installIngest = (appCtx) => {
     // reading — attach it directly, exactly as a local upload does (app/picture.js). Everything
     // else (pdf/webpage/ocr/text) lands from its extracted text and re-parses in the background,
     // so the source appears at once without a long parse blocking it.
-    const structured = ['table', 'json', 'binary', 'music', 'subtitle'].includes(got.meta?.modality) && got.meta?.doc;
+    const doc = got.meta?.doc;
+    const structured = doc && (doc.sentences || doc.rows || doc.keys || doc.notes || doc.blocks);
     const src = appCtx.addSource({
       title: got.title || title, url: norm, text: got.text, kind: got.meta?.modality || 'file',
       ...(structured ? { doc: got.meta.doc } : { defer: true }), topicId,

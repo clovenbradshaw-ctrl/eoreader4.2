@@ -37,7 +37,7 @@ export const classifyAbsence = (edges, from, to) => {
     return Object.freeze({ type: ABSENCE.NOT_LOOKED, from, to, claims: Object.freeze([]),
       note: `No reading in the corpus examines ${from}→${to}. The corpus is silent — this is NOT a null result.` });
   }
-  const positive = e.claims.filter((c) => c.polarity === '+');
+  const positive = e.claims.filter((c) => c.polarity === '+' || c.polarity === '0');
   const nulls = e.claims.filter((c) => c.polarity === '−');
   if (positive.length) {
     return Object.freeze({ type: ABSENCE.HAS_CLAIM, from, to,
@@ -67,7 +67,7 @@ export const absenceCensus = (edges, nodes) => {
     // surfacing separately from a bare positive when a reader asks "did anyone find no effect?"
     if (cls.type === ABSENCE.HAS_CLAIM) {
       const e = edges.find((x) => x.from === a && x.to === b);
-      const anyNull = e.claims.some((c) => c.polarity === '−');
+      const anyNull = e.claims.some((c) => c.polarity === '−' || c.polarity === '0');
       out.push(anyNull ? cls : Object.freeze({ ...cls, noNullFound: true }));
     } else {
       out.push(cls);

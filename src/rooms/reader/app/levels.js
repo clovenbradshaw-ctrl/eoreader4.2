@@ -79,10 +79,10 @@ export const installLevels = (appCtx) => {
     if (!src) return null;
     const base = appCtx.docFor(src);
     const modality = base?.modality || null;
-    if (!modality || modality === 'text') return base;                       // prose: the base is the reading
+    if (!base || 'sentences' in base) return base;                          // prose: the base is the reading
     // A clip still WAITING for its words shows the live partial; a video already WATCHED (its picture
     // read as motion + born entities, motion.js) shows that reading — it is not waiting on anything.
-    if ((modality === 'audio' || modality === 'video') && !base?.transcribed && !base?.watched) return livePartialDocFor(src);
+    if ((base?.timings || base?._asr) && !base?.transcribed && !base?.watched) return livePartialDocFor(src);
     return nlDocFor(src);
   };
 
@@ -127,9 +127,10 @@ export const installLevels = (appCtx) => {
   const BASE_NOUN = { image: 'Regions', table: 'Cells', json: 'Nodes', binary: 'Runs', music: 'Notes' };
   const baseNounOf = (src) => {
     const base = appCtx.docFor(src);
-    const modality = base?.modality || null;
-    if (modality === 'audio' || modality === 'video') return base?.transcribed ? 'Words' : 'Segments';
-    return (modality && BASE_NOUN[modality]) || 'Entities';
+    if (!base) return 'Entities';
+    if (base.timings || base._asr) return base?.transcribed ? 'Words' : 'Segments';
+    if (base.modality && BASE_NOUN[base.modality]) return BASE_NOUN[base.modality];
+    return 'Entities';
   };
   const sourceBaseNoun = (sn) => baseNounOf(appCtx.sourceBySn(sn));
   // The holonic levels a source offers, meaning-first. A distinct base level exists only
@@ -139,15 +140,14 @@ export const installLevels = (appCtx) => {
     const src = appCtx.sourceBySn(sn);
     if (!src) return [];
     const base = appCtx.docFor(src);
-    const modality = base?.modality || null;
     const hasText = !!String(src.text || '').trim();
     // A prose reading (parseText tags its doc `text`) IS the natural-language level — one level.
     // A genuine non-prose organ (audio/image/table/…) has a distinct base of raw spans beneath it.
-    if (modality && modality !== 'text' && hasText) {
+    if (hasText && base && !('sentences' in base)) {
       const spanLabel = baseNounOf(src);
       return [
         { level: 'referent', label: 'Referents', hint: 'the figures the content names' },
-        { level: 'span', label: spanLabel, hint: `the ${modality}'s raw ${spanLabel.toLowerCase()}` },
+        { level: 'span', label: spanLabel, hint: `the raw ${spanLabel.toLowerCase()}` },
       ];
     }
     return [{ level: 'referent', label: 'Referents', hint: 'the figures the text names' }];
@@ -213,7 +213,7 @@ export const installLevels = (appCtx) => {
     // words instantiate (its fold). Present for every entity; `isAgent` is the honest gate a
     // surface reads to decide whether to show a voice at all — a place or a platform reads
     // false and carries no quotes. Text-only (a non-prose organ's referent has no quotes).
-    const persp = (doc.modality === 'text' || !doc.modality) ? perspectiveOf(doc, [entId]) : null;
+    const persp = !doc?.timings ? perspectiveOf(doc, [entId]) : null;
     // The attribution NEST inside the figure's own voice — whom THEY are relaying. A figure does
     // not only assert; it wraps other voices (a report, a citation, a quoted person), and the
     // reader wants to see the Russian nest-doll: the shells the figure's words open, and the

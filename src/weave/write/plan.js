@@ -129,7 +129,7 @@ export const stopToCell = (stop, ctx) => {
   // shadowing the subject. A firm negation stays FIRM (the "not-" rides on the edge
   // label, a real claim of absence), not a hedge.
   const shadowed = (graph.voids || []).some(v => rep(v.node) === subjId);
-  const hedged = pick.modality && pick.modality !== 'realis';
+  const hedged = pick.modality === 'epistemic' || pick.modality === 'irrealis';
   const res = shadowed || hedged ? 'void' : 'firm';
 
   return Object.freeze({

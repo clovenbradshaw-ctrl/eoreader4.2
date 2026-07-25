@@ -19,7 +19,7 @@ export { frameSpan, isBanner }     from './frame.js';
 export { extractMetadata, splitFields } from './metadata.js';
 export { argumentSpanSeg, positionElements, argumentSpansHold,
          SVO_EXTRACTOR, SVO_CONFIDENCE } from './proposition.js';
-export { nameTokens, isSubsequence, clusterAnchors, distinctReferentCount, epithetReducedHead } from './name-variants.js';
+export { nameTokens, softSubsequence as isSubsequence, clusterAnchors, distinctReferentCount, epithetReducedHead } from './name-variants.js';
 export { TITLE_WORDS } from './entities.js';
 export { discoverUncasedReferents, discoverUncasedRelations } from './uncased.js';
 export { discoverUnnamedReferents, admitUnnamedReferents, unnamedReferentId,

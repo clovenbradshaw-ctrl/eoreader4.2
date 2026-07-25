@@ -27,21 +27,39 @@ import { attachReading } from './read.js';
 // operator's own Interpretation row. ω (the decal) is the object position; the Site-face cell
 // follows from the site domain and the grain ω names.
 const GRAIN_OF = { '+': 'Figure', '*': 'Pattern', '−': 'Ground' };
+const GRAIN_CHARS = { Figure: '+', Pattern: '*', Ground: '−' };
+// Each operator fixes a DOMAIN (Existence/Structure/Interpretation) from the Act
+// face. The GRAIN (Ground/Figure/Pattern — the Object axis) is NOT fixed by the
+// operator: it is the grain of the TARGET the operator lands on — what the event
+// is ABOUT. The defaults below are the most common grain (Figure for events on
+// discrete entities, Pattern for structural/synthetic events), but a caller may
+// override by passing an explicit grain to siteOf(), which is what the text-pipeline
+// reader does when it classifies what kind of thing was read (the Site face's
+// Domain × Object completes from the clause's content terrain).
 const OP_SITE = Object.freeze({
-  INS: { domain: 'Existence',      omega: '+' },   // an entity → Entity
-  SIG: { domain: 'Existence',      omega: '+' },   // a re-designation of an entity → Entity
-  DEF: { domain: 'Existence',      omega: '+' },   // a value on an entity's slot → Entity
-  NUL: { domain: 'Existence',      omega: '+' },   // an absence at an entity's slot → Entity
-  CON: { domain: 'Structure',      omega: '+' },   // a link → Link
-  SEG: { domain: 'Structure',      omega: '*' },   // a partition → Network
-  SYN: { domain: 'Structure',      omega: '*' },   // a derived whole / identity → Network
-  EVA: { domain: 'Interpretation', omega: '+' },   // a judgment → Lens
-  REC: { domain: 'Interpretation', omega: '*' },   // a reframe → Paradigm
+  INS: { domain: 'Existence',      omega: '+' },   // an entity → Entity (default Figure)
+  SIG: { domain: 'Existence',      omega: '+' },   // a re-designation → Entity (default Figure)
+  DEF: { domain: 'Existence',      omega: '+' },   // a value on a slot → Entity (default Figure)
+  NUL: { domain: 'Existence',      omega: '+' },   // an absence → Entity (default Figure)
+  CON: { domain: 'Structure',      omega: '+' },   // a link → Link (default Figure)
+  SEG: { domain: 'Structure',      omega: '*' },   // a partition → Network (default Pattern)
+  SYN: { domain: 'Structure',      omega: '*' },   // a whole/identity → Network (default Pattern)
+  EVA: { domain: 'Interpretation', omega: '+' },   // a judgment → Lens (default Figure)
+  REC: { domain: 'Interpretation', omega: '*' },   // a reframe → Paradigm (default Pattern)
 });
-const siteOf = (op) => {
+// siteOf(op, grain?) → { site, omega }. When grain is provided (as a character '+',
+// '*', '−' or name 'Figure'/'Pattern'/'Ground'), it overrides the operator's default
+// omega — allowing the caller to classify the event at a different position on the
+// Object axis. This is how the text-pipeline reader pins a clause about ambient
+// conditions as Ground (Void/Field/Atmosphere) instead of the operator's default Figure.
+const siteOf = (op, grain) => {
   const s = OP_SITE[op];
   if (!s) return { site: null, omega: null };
-  return { site: terrainOf(s.domain, GRAIN_OF[s.omega]), omega: s.omega };
+  const g = grain
+    ? (GRAIN_CHARS[grain] ?? (grain === '+' || grain === '*' || grain === '−' ? grain : null))
+    : null;
+  const omega = g || s.omega;
+  return { site: terrainOf(s.domain, GRAIN_OF[omega]), omega };
 };
 
 // ── Lexical helpers ───────────────────────────────────────────────────────────

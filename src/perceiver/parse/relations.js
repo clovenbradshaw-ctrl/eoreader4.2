@@ -27,7 +27,18 @@ const defIsSpeech      = (w) => DEF_C.isAttributionVerb(w);   // said/asked/… 
 const defIsModifier    = (w) => DEF_C.isModifier(w);     // adverbs/intensifiers to step over
 const defIsConjunction = (w) => DEF_C.isConjunction(w);  // learn-only: taught, never assumed
 
-const SUBJECT_PRONOUN = new Set(['He', 'She', 'They', 'We', 'It', 'I', 'You']);
+// English and Basque subject pronouns. Basque third-person (hark, berak) and first-
+// person (ni, gu, nik, guk) pronouns are capitalised clause-initially and function
+// as subjects. The ABSOLUTE set (hark, haiek, ni, gu) are ERGATIVE-Absolutive subjects;
+// berak/beratek carry emphatic or demonstrative force. Nik/guk are ergative first-
+// person used in NOR-NORK agreement. All are seeded here so the clause-initial
+// pronoun resolver (leadingSubject) can push through the capitalised-name scan.
+const SUBJECT_PRONOUN = new Set([
+  'He', 'She', 'They', 'We', 'It', 'I', 'You',
+  'Hark', 'Haiek', 'Bera', 'Berak', 'Berek', 'Beratek',
+  'Ni', 'Nik', 'Gu', 'Guk', 'Zu', 'Zuk', 'Zuek',
+  'Honek', 'Horrek', 'Hauek',
+]);
 
 // Relative pronouns opening a clause whose subject is the ANTECEDENT, not the running subject
 // ("…a jazz player who refuses to speak" — the player refuses, not the narrator). Under the total
@@ -133,7 +144,7 @@ const NOT_HEAD = new Set([
 // the negation as a modifier (dropping it) or mistook the contraction for the verb
 // ("-> understand : couldn't"). Small closed sets; a later pass can move them to the
 // conventions ledger, the home for language-specific lists.
-const NEGATION        = new Set(['not', 'never', 'cannot']);
+const NEGATION        = new Set(['not', 'never', 'cannot', 'ez']);
 const MODAL_EPISTEMIC = new Set(['could', 'would', 'might', 'may']);
 const MODAL_DEONTIC   = new Set(['must', 'should', 'shall', 'ought']);
 const MODAL_IRREALIS  = new Set(['will', 'can']);
@@ -148,14 +159,38 @@ const DO_SUPPORT      = new Set(['do', 'does', 'did']); // dummy aux in "didn't 
 // default (positive · realis), so a plain bond's event is unchanged and only the
 // marked cases carry the extra channel.
 const polmod = (head) => ({
-  ...(head.polarity === '−' ? { polarity: '−' } : {}),
-  ...(head.modality && head.modality !== 'realis' ? { modality: head.modality } : {}),
+  ...(head.polarity === '−' ? { polarity: '−' } : head.polarity === '0' ? { polarity: '0' } : {}),
+  ...(head.modality === 'irrealis' || head.modality === 'epistemic' ? { modality: head.modality } : {}),
 });
 
 const KIN_NOUNS = Object.freeze([
   'father', 'mother', 'sister', 'brother', 'son', 'daughter', 'wife', 'husband', 'parents',
   'uncle', 'aunt', 'cousin', 'nephew', 'niece', 'grandfather', 'grandmother', 'friend', 'master',
   'servant', 'boss', 'chief', 'partner', 'neighbour', 'neighbor', 'colleague', 'lover', 'fiance', 'fiancee',
+  // Basque kinship terms — the family roles that anchor the novel's social structure.
+  'aita',           // father
+  'ama',            // mother
+  'seme',           // son
+  'alaba',          // daughter
+  'anaia',          // brother (of a male)
+  'arreba',         // sister (of a male)
+  'ahizpa',         // sister (of a female)
+  'senar',          // husband
+  'emazte',         // wife
+  'guraso',         // parents
+  'aitona',         // grandfather
+  'amona',          // grandmother
+  'osaba',          // uncle
+  'izeba',          // aunt
+  'lehengusu',      // cousin
+  'lagun',          // friend / companion
+  'adiskide',       // friend
+  'jaun',           // master / lord
+  'andre',          // mistress / lady
+  'morroi',         // servant
+  'nagusi',         // boss / master
+  'langile',        // worker
+  'bikot',          // partner / couple
 ]);
 export { KIN_NOUNS };
 const KIN = `(?:${KIN_NOUNS.join('|')})`;
@@ -199,7 +234,7 @@ const leadingSubject = (sentence, admission, coref, sentIdx = 0) => {
   // ("…, and he turned" → "he turned"), so a clause-head subject pronoun is as
   // often lower- as upper-case. The capitalised-only match dropped every split-off
   // pronoun subject — the half of Move 1 that was never wired to the clause splitter.
-  const pn = rest.match(/^\s*(he|she|they|we|it|i|you)\b/i);
+  const pn = rest.match(/^\s*(he|she|they|we|it|i|you|hark|haiek|bera|berak|ni|nik|gu|guk|zu|zuk|zuek|honek|horrek)\b/i);
   if (pn) {
     const pron = pn[1].toLowerCase();
     const start = lead + (pn[0].length - pn[1].length); // the pronoun's offset past the lead
@@ -289,7 +324,59 @@ const coupling = (subj) =>
 // object spans back into the sentence (the logged argument-span SEG, §3). The
 // existing fields (verb, rest, copular) are unchanged, so the edge-grounding
 // veto's reuse of this scan is unaffected.
-export const headVerb = (text, { isCopula = defIsCopula, isModifier = defIsModifier } = {}) => {
+export const headVerb = (text, { isCopula = defIsCopula, isModifier = defIsModifier, direction = 'ltr' } = {}) => {
+  // ── Right-to-left scan (SOV languages: Basque, Japanese, Turkish) ──────────
+  // Walk from the END of the text backward, stepping over modifiers and
+  // auxiliaries in reverse order. The first verb-like token found is the main
+  // verb. The "rest" is the text BEFORE the verb, which in SOV order contains
+  // the objects. `restStart` and `at` remain forward offsets into the original
+  // text so the caller's object-scan offset arithmetic is unchanged.
+  if (direction === 'rtl') {
+    let base = text.replace(/[\s,]+$/, '');
+    let tailConsumed = text.length - base.length;         // trailing whitespace
+    let polarity = '+', modality = 'realis';
+    const setModality = (w) => {
+      if (MODAL_EPISTEMIC.has(w) || HEDGE_VERB.has(w)) modality = 'epistemic';
+      else if (MODAL_DEONTIC.has(w)) modality = 'deontic';
+      else if (MODAL_IRREALIS.has(w)) modality = 'irrealis';
+    };
+    const stepOver = () => {
+      // Strip the LAST word from base, consuming trailing whitespace
+      const m = base.match(/\s+([\p{L}\p{M}'’]+)$/u);
+      if (!m) { base = ''; tailConsumed = text.length; return; }
+      tailConsumed += m[0].length;
+      base = base.slice(0, m.index);
+    };
+    for (let guard = 0; guard < 12; guard++) {
+      const m = base.match(/([\p{L}\p{M}'’]+)$/u);
+      if (!m) return null;
+      const w = m[1].toLowerCase();
+      const verbEnd = base.length;                        // end of verb token in `base`
+      const verbStart = m.index;                          // start of verb token in `base`
+      // at = forward offset of verb start in `text`
+      const at = verbStart;
+      // restStart = forward offset of first char after verb in `text`
+      const restStart = verbEnd + (text.length - base.length - tailConsumed);
+      // rest = text before verb (contains subject/objects in SOV order)
+      const rest = text.slice(0, verbStart).replace(/[\s,]+$/, '');
+      // Walk backward stepping over modifiers and negation
+      // Negative contraction at END: "ez dut" — "dut" is aux, "ez" is negation BEFORE it
+      if (NEGATION.has(w)) { polarity = '−'; stepOver(); continue; }
+      if (MODALS.has(w))   { setModality(w);  stepOver(); continue; }
+      if (isCopula(w)) {
+        // For SOV the copula is at clause end; there is no progressive to skip
+        return { verb: w, rest, copular: true, at, restStart, polarity, modality };
+      }
+      if (isModifier(w)) { stepOver(); continue; }
+      if (w === 'ez') { polarity = '−'; stepOver(); continue; }   // Basque negation
+      if (NOT_HEAD.has(w)) return null;
+      if (HEDGE_VERB.has(w)) modality = 'epistemic';
+      return { verb: w, rest, copular: false, at, restStart, polarity, modality };
+    }
+    return null;
+  }
+
+  // ── Left-to-right scan (SVO/VSO languages: English, Romance, Chinese) ─────
   let rest = text.replace(/^[\s,]+/, '');
   let consumed = text.length - rest.length;             // chars of `text` walked past
   let polarity = '+';                                   // captured as we step over the aux run
@@ -297,7 +384,7 @@ export const headVerb = (text, { isCopula = defIsCopula, isModifier = defIsModif
   const setModality = (w) => {
     if (MODAL_EPISTEMIC.has(w) || HEDGE_VERB.has(w)) modality = 'epistemic';
     else if (MODAL_DEONTIC.has(w)) modality = 'deontic';
-    else if (MODAL_IRREALIS.has(w) && modality === 'realis') modality = 'irrealis';
+    else if (MODAL_IRREALIS.has(w)) modality = 'irrealis';
   };
   const stepOver = (m) => {
     const sliced  = rest.slice(m[0].length);

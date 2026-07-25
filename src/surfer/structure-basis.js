@@ -71,7 +71,7 @@ export const structuralActivations = (doc, { relations = false } = {}) => {
     if (i == null || i < 0 || i >= acts.length) continue;
     if (e.op in OP_IDX) acts[i][OP_IDX[e.op]] += 1;
     if (relations && e.relType && (e.relType in RT_IDX)) acts[i][RT_IDX[e.relType]] += 1;
-    if (e.polarity === '−' || e.polarity === '-') pol[i] -= 1; else if (e.polarity) pol[i] += 1;
+    if (e.polarity === '−' || e.polarity === '-') pol[i] -= 1; else if (e.polarity && e.polarity !== '0') pol[i] += 1;
   }
   return { dims, activations: acts, signs: pol.map(p => (p < 0 ? -1 : 1)) };
 };

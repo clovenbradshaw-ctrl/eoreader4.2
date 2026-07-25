@@ -331,7 +331,7 @@ export const acousticSummary = ({ title = 'Audio', analysis, holons, mediaKind =
   const L = [];
   L.push(`# ${title}`);
   L.push('');
-  const kindWord = mediaKind === 'video' ? 'A video clip' : 'An audio clip';
+  const kindWord = 'An audio recording';
   L.push(`${kindWord} of **${clock(a.duration || 0)}** (${(a.duration || 0).toFixed(1)}s), decoded to mono ${(a.sampleRate || 0).toLocaleString()} Hz — read here as sound before a word of it is transcribed.`);
   L.push('');
   L.push('## What the waveform is');

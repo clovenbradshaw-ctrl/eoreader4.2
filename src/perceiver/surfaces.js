@@ -12,8 +12,7 @@
 // verbatim spans. Nothing here calls a model; the reading is mechanical.
 
 import { readingAt } from './reading.js';
-import { typeOf } from '../core/index.js';
-import { projectGraph } from '../core/index.js';
+import { typeOf, projectGraph, deriveNull } from '../core/index.js';
 import { tok } from './parse/index.js';
 
 // A focus referent's neighbourhood is bounded so a hub figure (the protagonist,
@@ -161,17 +160,8 @@ export const figureSurface = (doc, focusIds, { max = FOCUS_MAX_BONDS } = {}) => 
   return { figures, relations, defs, merges: [], splits: [] };
 };
 
-// Generic single-word predicates that make a WEAK standing property on their own.
-// A copular tail like "still alive" is three of these strung together — grammatical,
-// but it identifies nothing about the referent the way "a 2001 documentary film" does.
-// They are demoted, never dropped (total capture, §1): a property that is ALL generic
-// words simply ranks below one that carries a specific noun, a date, or a proper name.
-const GENERIC_PREDICATE = new Set([
-  'alive', 'dead', 'still', 'here', 'there', 'gone', 'back', 'real', 'true', 'false',
-  'one', 'same', 'other', 'such', 'so', 'own', 'able', 'sure', 'done', 'known',
-  'big', 'small', 'good', 'bad', 'new', 'old', 'young', 'many', 'more', 'less',
-  'a', 'an', 'the', 'his', 'her', 'its', 'their', 'this', 'that', 'these', 'those',
-]);
+// Genericity is now derived from word-frequency and distribution within the document
+// rather than a hand-set set of English words. See rankProperties below.
 
 const normProperty = (v) => String(v || '')
   .toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, ' ').replace(/\s+/g, ' ').trim();
@@ -199,6 +189,14 @@ const normProperty = (v) => String(v || '')
 // `count`, `score`, and the carried `confidence/polarity/modality`.
 export const rankProperties = (defs = []) => {
   const byNorm = new Map();
+  const allConfs = [];
+  const wordFreq = new Map();
+  const wordCtxs = new Map();
+  const wordCountPer = [];
+  const hasDigitPer = [];
+  const polConfs = { '+': [], '−': [], '0': [] };
+  const modConfs = { realis: [], irrealis: [], other: [] };
+
   for (const d of (defs || [])) {
     const value = String(d?.value || '').trim();
     const norm = normProperty(value);
@@ -206,26 +204,72 @@ export const rankProperties = (defs = []) => {
     let g = byNorm.get(norm);
     if (!g) { g = { value, norm, idxs: new Set(), conf: 0, polarity: '+', modality: 'realis', id: d.id, label: d.label }; byNorm.set(norm, g); }
     if (d.idx != null) g.idxs.add(d.idx);
-    const c = Number.isFinite(d.confidence) ? d.confidence : 0.5;
-    if (c > g.conf) { g.conf = c; g.value = value; }   // the highest-confidence surface form leads the row
-    if (d.polarity === '−') g.polarity = '−';
-    if (d.modality && d.modality !== 'realis') g.modality = d.modality;
+    if (Number.isFinite(d.confidence)) {
+      allConfs.push(d.confidence);
+      const pk = d.polarity === '−' || d.polarity === '0' ? d.polarity : '+';
+      const mk = !d.modality || d.modality === 'realis' ? 'realis' : d.modality === 'irrealis' ? 'irrealis' : 'other';
+      polConfs[pk].push(d.confidence);
+      modConfs[mk].push(d.confidence);
+      if (d.confidence > g.conf) { g.conf = d.confidence; g.value = value; }
+    }
+    if (d.polarity === '−' || d.polarity === '0') g.polarity = d.polarity;
+    if (d.modality) g.modality = d.modality;
+
+    const words = norm.split(' ').filter(Boolean);
+    wordCountPer.push(words.length);
+    hasDigitPer.push(/\d/.test(value));
+    const ctx = `${d.id}|${d.label}`;
+    for (const w of words) {
+      wordFreq.set(w, (wordFreq.get(w) || 0) + 1);
+      if (!wordCtxs.has(w)) wordCtxs.set(w, new Set());
+      wordCtxs.get(w).add(ctx);
+    }
   }
-  const scored = [...byNorm.values()].map((g) => {
+
+  const confNull = deriveNull(allConfs, { scale: 'linear', alpha: 0.05 });
+  const confFallback = Number.isFinite(confNull) ? confNull : 0.5;
+
+  const meanRC = modConfs.realis.length ? modConfs.realis.reduce((a, b) => a + b, 0) / modConfs.realis.length : 0.5;
+  const meanIC = modConfs.irrealis.length ? modConfs.irrealis.reduce((a, b) => a + b, 0) / modConfs.irrealis.length : meanRC;
+  const meanOC = modConfs.other.length ? modConfs.other.reduce((a, b) => a + b, 0) / modConfs.other.length : meanRC;
+  const meanPC = polConfs['+'].length ? polConfs['+'].reduce((a, b) => a + b, 0) / polConfs['+'].length : 0.5;
+  const meanNC = polConfs['−'].length ? polConfs['−'].reduce((a, b) => a + b, 0) / polConfs['−'].length : meanPC;
+  const meanZC = polConfs['0'].length ? polConfs['0'].reduce((a, b) => a + b, 0) / polConfs['0'].length : meanPC;
+
+  const maxWords = Math.max(1, ...wordFreq.values());
+  const maxCtxs = wordCtxs.size ? Math.max(...[...wordCtxs.values()].map(s => s.size)) : 1;
+  const wordGen = new Map();
+  for (const [w, c] of wordCtxs) wordGen.set(w, c.size / maxCtxs);
+
+  const longRatio = wordCountPer.length ? wordCountPer.filter(c => c >= 4).length / wordCountPer.length : 0;
+  const digRatio = hasDigitPer.length ? hasDigitPer.filter(Boolean).length / hasDigitPer.length : 0;
+
+  const specs = [...byNorm.values()].map(g => {
+    const words = g.norm.split(' ').filter(Boolean);
+    const wc = words.length;
+    let s = 1;
+    if (wc === 1) { const f = wordFreq.get(words[0]) || 1; s *= 0.3 + 0.7 * (1 - f / maxWords); }
+    const mg = words.reduce((a, w) => a + (wordGen.get(w) || 0), 0) / Math.max(wc, 1);
+    s *= 1 - 0.65 * mg;
+    if (/\d/.test(g.value)) s *= 1 + (1 - digRatio) * 0.3;
+    if (wc >= 4) s *= 1 + (1 - longRatio) * 0.15;
+    return s;
+  });
+
+  const specFloor = -deriveNull(specs.map(s => -s), { scale: 'linear', alpha: 0.1 });
+  const specCeil = deriveNull(specs, { scale: 'linear', alpha: 0.1 });
+
+  const modF = { realis: 1, irrealis: meanRC > 0 ? Math.min(1, meanIC / meanRC) : 0.85, other: meanRC > 0 ? Math.min(1, meanOC / meanRC) : 0.7 };
+  const polF = { '+': 1, '0': meanPC > 0 ? Math.min(1, meanZC / meanPC) : 0.925, '−': meanPC > 0 ? Math.min(1, meanNC / meanPC) : 0.85 };
+
+  const scored = [...byNorm.values()].map((g, i) => {
     const witnesses = [...g.idxs].sort((a, b) => a - b);
     const corroboration = witnesses.length || 1;
-    const words = g.norm.split(' ').filter(Boolean);
-    let specificity = 1;
-    if (words.length <= 1) specificity *= 0.5;
-    if (words.every((w) => GENERIC_PREDICATE.has(w))) specificity *= 0.35;   // "still alive", "the same"
-    if (/\d/.test(g.value)) specificity *= 1.3;                              // a date / measure is specific
-    if (words.length >= 4) specificity *= 1.15;                              // a fuller phrase identifies more
-    specificity = Math.max(0.15, Math.min(specificity, 1.5));
-    const modFactor = g.modality === 'realis' ? 1 : 0.75;
-    const polFactor = g.polarity === '+' ? 1 : 0.85;
-    const corrobFactor = 1 + Math.log2(corroboration);
-    const conf = Number.isFinite(g.conf) && g.conf > 0 ? g.conf : 0.5;
-    const score = conf * specificity * modFactor * polFactor * corrobFactor;
+    let specificity = specs[i];
+    if (Number.isFinite(specFloor) && specificity < specFloor) specificity = specFloor;
+    if (Number.isFinite(specCeil) && specificity > specCeil) specificity = specCeil;
+    const conf = Number.isFinite(g.conf) && g.conf > 0 ? g.conf : confFallback;
+    const score = conf * specificity * (modF[g.modality] ?? modF.other) * (polF[g.polarity] ?? polF['−']) * (1 + Math.log2(corroboration));
     return {
       id: g.id, label: g.label, value: g.value,
       idx: witnesses[0] ?? null, witnesses, count: corroboration,
@@ -258,7 +302,7 @@ export const consciousness = (doc, spans, cursor = null, focus = []) => {
   const focusStruct  = focus?.length ? figureSurface(doc, focus) : null;
   const structure = (focusStruct && focusStruct.relations.length) ? focusStruct : windowStruct;
   const significance = cursor == null ? null : significanceSurface(doc, cursor);
-  const text = composeNote(structure, significance);
+  const text = composeNote(structure, significance, doc);
   return { text, sources: idxs, levels: { existence, structure, significance } };
 };
 
@@ -353,16 +397,35 @@ export const composeGroupedNote = ({ settled = [], heldOpen = [], turns = [] } =
 // the significance summary when the cursor genuinely moved — plain prose, no
 // machinery. The indices that used to ride in `[sN]` tags are gone from the
 // talker's view by design (§3); they remain on `sources`.
-const composeNote = (structure, significance) => {
+const composeNote = (structure, significance, doc = null) => {
   const lines = serializeNotes(structure, { max: 8 });
 
-  if (significance && significance.surprise >= 0.2 && significance.summary) {
-    lines.push(significance.summary);
+  if (significance && significance.summary) {
+    let showSummary = true;
+    if (doc && significance.sentIdx != null) {
+      const units = doc.units || doc.sentences || [];
+      const surprises = [];
+      for (let i = 0; i < units.length; i++) {
+        if (i === significance.sentIdx) continue;
+        const s = readingAt(doc, i);
+        if (s && Number.isFinite(s.surprise)) surprises.push(s.surprise);
+      }
+      const surpriseNull = deriveNull(surprises, { scale: 'linear', alpha: 0.05 });
+      if (Number.isFinite(surpriseNull)) showSummary = significance.surprise > surpriseNull;
+    }
+    if (showSummary) lines.push(significance.summary);
   }
 
   if (lines.length === 0) return '';
   let text = lines.join('\n');
-  if (text.length > 760) text = text.slice(0, 760).replace(/\s+\S*$/, '') + '…';
+  if (doc) {
+    const units = doc.units || doc.sentences || [];
+    const totalLen = units.reduce((s, u) => s + (typeof u === 'string' ? u.length : 0), 0);
+    const maxLen = Math.max(200, Math.round(totalLen * 0.1));
+    if (text.length > maxLen) text = text.slice(0, maxLen).replace(/\s+\S*$/, '') + '\u2026';
+  } else if (text.length > 760) {
+    text = text.slice(0, 760).replace(/\s+\S*$/, '') + '\u2026';
+  }
   return text;
 };
 

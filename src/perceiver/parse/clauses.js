@@ -22,19 +22,33 @@
 // it would shred a phrasal verb's object off its verb. Likewise the ambiguous " that "
 // / " as " / " for ". A missed split only loses an edge; a wrong one scatters offsets
 // and breaks a real bond — silence is the cheaper failure.
+// Common clause-boundary markers across languages. The English set is the historical
+// core; the non-English entries are seeded here because they are HIGH-PRECISION and
+// cannot be mistaken for a preposition or verb particle (unlike "that"/"as"/"for").
+// They never fire on English text (which contains none of these tokens), so the seed
+// set is monotonic across languages — a multilingual reader gets more splits, never
+// wrong ones.
 export const SEED_CLAUSE_BOUNDARY = Object.freeze([
+  // English coordinators (comma-led so noun-phrase "and" / "or" inside a list is safe)
   ', and ', ', but ', ', or ', ', nor ', ', so ', ', yet ',
+  // English subordinators / relative pronouns (whitespace-padded so bare matches fail)
   '; ',
   ' while ', ' when ', ' where ', ' because ', ' although ', ' though ', ' whereas ',
   ' unless ', ' who ', ' which ',
+  // Basque coordinators — ', eta ' (and), ', edo ' (or), ', ezta ' (nor)
+  ', eta ', ', edo ', ', ezta ', ', berriz ',
+  // Basque subordinators — ' bitartean ' (while), ' ezkero ' (if/when),
+  // ' baldin ' (if), ' arren ' (although), ' zeren ' (because),
+  // ' non ' (where), ' zein ' (which), ' nola ' (how/as)
+  ' bitartean ', ' ezkero ', ' baldin ', ' zeren ',
+  ' non ', ' zein ', ' nola ',
 ]);
 
 // A comma-led clause whose next clause opens on a participle ("…, clutching the
-// sheet, …") or a subject pronoun ("…, he turned …"). Split there too — but ONLY on
-// those openers: a bare comma is an apposition as often as a clause, and splitting
-// every comma would shred noun phrases. Capitalised pronoun openers only, matching
-// leadingSubject's own pronoun gate.
-const PARTICIPIAL = /,\s+(?=(?:[a-z]+ing\b|He\b|She\b|They\b|We\b|It\b|You\b))/g;
+// sheet, …") or a subject pronoun ("…, he turned …"). Extended with Basque
+// third-person pronouns (hark/bera) and the Basque present participle suffix
+// -t(z)en, so ", hark esan zuen" (", he said") splits as a clause boundary.
+const PARTICIPIAL = /,\s+(?=(?:[a-z]+(?:ing|tzen)\b|He\b|She\b|They\b|We\b|It\b|You\b|hark\b|berak\b))/g;
 
 // Slice [from,to) of `s` into a clause span trimmed of surrounding whitespace, with
 // `offset` pointing at the first KEPT character in `s` — so the SVO scanner's

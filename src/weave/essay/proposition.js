@@ -111,13 +111,15 @@ export const surfaceAgrees = (prop, surface) => {
     ...(prop.quantities || []).map((q) => q.value),
     ...(prop.time != null ? [+prop.time] : []),
   ]);
-  if (surface.modality === 'text' || typeof surface === 'string') {
-    const text = typeof surface === 'string' ? surface : surface.text;
-    return numbersIn(text).every((n) => allowed.has(n.value));
+  if (typeof surface === 'string') {
+    return numbersIn(surface).every((n) => allowed.has(n.value));
   }
-  if (surface.modality === 'chart') {
+  if (Array.isArray(surface.data)) {
     return (surface.data || []).every((d) => allowed.has(+d.value));
   }
-  if (surface.modality === 'pullquote') return true; // verbatim of the claim by construction
-  return true; // a divider asserts nothing
+  if ('spanRefs' in surface) return true;
+  if ('text' in surface) {
+    return numbersIn(surface.text).every((n) => allowed.has(n.value));
+  }
+  return true;
 };

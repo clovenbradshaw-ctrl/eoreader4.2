@@ -173,9 +173,13 @@ export const proposeWarrant = (verb, context = '') => {
 // not the effect. '−' = null asserted; '+' = effect asserted.
 export const readPolarity = (context = '') => (hasAny(context, NULL_CUES) ? '−' : '+');
 
-// Read modality: 'epistemic' when the claim is hedged, else 'realis'. Rides alongside
-// the stance; never changes it.
-export const readModality = (context = '') => (hasAny(context, HEDGE_CUES) ? 'epistemic' : 'realis');
+// Read modality: 'epistemic' when the claim is hedged, 'irrealis' when conditional/wish,
+// else 'realis'. Rides alongside the stance; never changes it.
+export const readModality = (context = '') => {
+  if (hasAny(context, HEDGE_CUES)) return 'epistemic';
+  if (hasAny(context, ['will', 'can', 'would', 'could', 'might'])) return 'irrealis';
+  return 'realis';
+};
 
 export const isCausalVerb = (v) => ESSENTIAL_VERBS.has(String(v || '').toLowerCase());
 export const isAssociationVerb = (v) => ASSOCIATION_VERBS.has(String(v || '').toLowerCase());

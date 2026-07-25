@@ -32,7 +32,7 @@ export const reconcile = (essay, { thesisFloor = 0.1 } = {}) => {
       const check = validateSurface(s.surface, s.commitments);
       if (!check.ok) findings.push({ kind: 'surface-mismatch', sectionId: s.id, detail: { violations: check.violations } });
     }
-    if (s.seam && s.seam.modality !== 'divider' && s.seam.modality !== 'text') {
+    if (s.seam && (Array.isArray(s.seam.data) || 'spanRefs' in s.seam)) {
       const check = validateSurface(s.seam, allCommitments);
       if (!check.ok) findings.push({ kind: 'surface-mismatch', sectionId: s.id, detail: { seam: true, violations: check.violations } });
     }

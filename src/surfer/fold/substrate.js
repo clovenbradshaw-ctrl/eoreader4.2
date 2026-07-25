@@ -65,7 +65,7 @@ export const buildSubstrate = ({ structure, significance = null, surf = null, re
     s: { id: r.src.id, label: r.src.label },
     p: { via: r.via, plain: plainRel(r.via) },
     o: { id: r.tgt.id, label: r.tgt.label },
-    polarity: r.polarity === '−' ? '−' : '+',
+    polarity: r.polarity === '−' ? '−' : r.polarity === '0' ? '0' : '+',
     band: 'firm',
     heldBy: null,
   }));

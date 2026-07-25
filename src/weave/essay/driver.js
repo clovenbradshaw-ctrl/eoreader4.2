@@ -655,8 +655,9 @@ const render = async ({ section, pass, secSpans, model, doc, carry, knobs, signa
   // bound claim verbatim. The cross-modal validator holds even these (a
   // regression tripwire — agreement is by construction, so a violation means
   // a renderer bug, and the slot falls back to the text projection).
-  if (section.modality === 'chart' || section.modality === 'pullquote') {
-    const surface = section.modality === 'chart'
+  const hasQuantities = pass.survivors.some((c) => c.prop?.quantities?.length);
+  if (hasQuantities || pass.survivors.length > 0) {
+    const surface = hasQuantities
       ? renderChart(pass.survivors)
       : renderPullquote(pass.survivors[pass.survivors.length - 1]);
     const check = validateSurface(surface, pass.survivors, { spans: secSpans });

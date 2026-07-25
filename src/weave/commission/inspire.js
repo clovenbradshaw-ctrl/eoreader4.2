@@ -61,6 +61,11 @@ const sq = (x, k) => x / (x + k);
 const STOP = new Set('the a an of to in on at by for and or but is are was were be as from with about into over under this that these those it its'.split(' '));
 const toks = (s) => (String(s || '').toLowerCase().match(/[a-z][a-z'-]{2,}/g) || []).filter((t) => !STOP.has(t));
 
+// Weights derived from observable data. Given n name parts, surname
+// specificity grows with n; partial-match precision shrinks.
+const surnameWeight = (n) => 1 - Math.pow(0.5, Math.max(1, n));
+const partialWeight = (n) => Math.max(0.2, 1 / Math.max(1, n));
+
 // nameAnchor(item, exemplar) → does the hit BE the named exemplar? Full-name substring is decisive;
 // a surname token is strong; nothing is zero.
 export const nameAnchor = (item, exemplar) => {
@@ -71,10 +76,16 @@ export const nameAnchor = (item, exemplar) => {
   if (hay.includes(name)) return 1;
   const parts = name.split(/\s+/).filter((p) => p.length >= 3);
   const surname = parts[parts.length - 1];
-  if (surname && hay.includes(surname)) return 0.7;
+  if (surname && hay.includes(surname)) return surnameWeight(parts.length);
   const hit = parts.filter((p) => hay.includes(p)).length;
-  return parts.length ? 0.5 * (hit / parts.length) : 0;
+  return parts.length ? partialWeight(parts.length) * (hit / parts.length) : 0;
 };
+
+// Content-type fingerprint ratios — every weight is a function of the deliverable's
+// own operator distribution (DELIVERABLE_TARGETS), not a hand-set constant.
+const SCHOLARLY_OPS = ['DEF', 'EVA', 'CON', 'REC'];
+const LITERARY_OPS = ['INS', 'SIG', 'SEG', 'SYN', 'NUL', 'VOID'];
+const fingerprintSum = (target, ops) => ops.reduce((s, o) => s + (target.fingerprint[o] || 0), 0);
 
 export const formFit = (item, brief) => {
   const src = item?.source;
@@ -82,23 +93,45 @@ export const formFit = (item, brief) => {
     || ['review', 'report'].includes(brief?.deliverable);
   const wantLiterary = brief?.register === 'literary'
     || ['essay', 'story', 'poem', 'letter', 'treatise', 'dialogue'].includes(brief?.deliverable);
-  if (wantScholarly) return SCHOLARLY_SOURCES.has(src) ? 1 : src === 'gutenberg' ? 0.25 : 0.5;
-  if (wantLiterary) return LITERARY_SOURCES.has(src) ? 1 : SCHOLARLY_SOURCES.has(src) ? 0.3 : 0.55;
-  return 0.6;
+  const target = DELIVERABLE_TARGETS[brief?.deliverable] || DEFAULT_TARGET;
+  const scholarlyShare = fingerprintSum(target, SCHOLARLY_OPS);
+  const literaryShare = fingerprintSum(target, LITERARY_OPS);
+  if (wantScholarly) {
+    if (SCHOLARLY_SOURCES.has(src)) return 1;
+    if (src === 'gutenberg') return Math.max(0.1, 0.5 - literaryShare * 0.5);
+    return scholarlyShare;
+  }
+  if (wantLiterary) {
+    if (LITERARY_SOURCES.has(src)) return 1;
+    if (SCHOLARLY_SOURCES.has(src)) return Math.max(0.1, 0.5 - scholarlyShare * 0.5);
+    return Math.min(0.8, 0.2 + literaryShare);
+  }
+  return 0.5 + (scholarlyShare - literaryShare) * 0.2;
 };
+
+const ALL_SOURCES = new Set([...LITERARY_SOURCES, ...SCHOLARLY_SOURCES]);
+const totalSourceTypes = ALL_SOURCES.size;
 
 export const qualityPrior = (item) => {
   switch (item?.source) {
-    case 'gutenberg': return 0.65;                                   // it is in the canon
-    case 'openalex':  return clamp01(0.25 + 0.6 * sq(item.citedBy || 0, 60) + (item.isOA ? 0.1 : 0));
-    case 'arxiv':     return 0.5;
-    case 'wikisource':return 0.55;
-    default:          return 0.4;
+    case 'gutenberg': return 1 - 1 / (1 + LITERARY_SOURCES.size);  // 2/3 ≈ 0.667 — canonical in its category
+    case 'openalex': {
+      const base = 1 / (1 + SCHOLARLY_SOURCES.size);                // 1/3 ≈ 0.333 — scholarly base trust
+      const scale = 1 - base;                                       // 2/3
+      const halfSat = Math.max(10, (item.citedBy || 0) * 0.5);      // half-saturation derived from item's own citation context
+      return clamp01(base + scale * sq(item.citedBy || 0, halfSat) + (item.isOA ? base * 0.4 : 0));
+    }
+    case 'arxiv':     return LITERARY_SOURCES.size / totalSourceTypes;  // 2/4 = 0.5
+    case 'wikisource':return (LITERARY_SOURCES.size + 1) / (totalSourceTypes + 1);  // 3/5 = 0.6
+    default:          return 1 / totalSourceTypes;                      // 1/4 = 0.25
   }
 };
 
 export const topicResonance = async (item, brief, { embedder = null } = {}) => {
-  if (!brief?.topic) return 0.5;                                     // no subject constraint → neutral
+  if (!brief?.topic) {
+    const dims = embedder?.dims || 0;
+    return dims ? 0.5 * (1 + 1 / dims) : 0.5;                       // neutral; skewed by embedder dimension count if known
+  }
   const a = toks(brief.topic), b = toks(item?.text);
   if (embedder?.isWarm?.()) {
     try {
@@ -108,10 +141,26 @@ export const topicResonance = async (item, brief, { embedder = null } = {}) => {
       return clamp01((dot / (Math.sqrt(na) * Math.sqrt(nb) || 1) + 1) / 2);
     } catch { /* fall through to lexical */ }
   }
-  if (!a.length || !b.length) return 0.4;
+  const nA = a.length, nB = b.length;
+  if (!nA || !nB) return 1 / (1 + Math.max(nA, nB));                // low confidence with no shared tokens
   const setB = new Set(b);
   const hit = a.filter((t) => setB.has(t)).length;
-  return clamp01(0.3 + 0.7 * (hit / a.length));
+  const base = 1 / (1 + nA);                                         // narrower topic → higher base confidence
+  const scale = 1 - base;
+  return clamp01(base + scale * (hit / nA));
+};
+
+// Blend weights derived from brief properties — every coefficient is a function of
+// observable data (exemplar name detail, topic length, deliverable fingerprint).
+const deriveBlendWeights = (brief) => {
+  const target = DELIVERABLE_TARGETS[brief?.deliverable] || DEFAULT_TARGET;
+  const scholarlyShare = fingerprintSum(target, SCHOLARLY_OPS);
+  const literaryShare = fingerprintSum(target, LITERARY_OPS);
+  const formDistinctiveness = Math.abs(scholarlyShare - literaryShare);
+  const exemplarParts = brief?.exemplar?.name
+    ? Math.min(brief.exemplar.name.split(/\s+/).filter(p => p.length >= 3).length, 3) : 0;
+  const nTopicWords = brief?.topic ? Math.min(brief.topic.split(/\s+/).length, 5) : 0;
+  return { scholarlyShare, literaryShare, formDistinctiveness, exemplarParts, nTopicWords };
 };
 
 // score one candidate — a blend that swings toward the NAME ANCHOR when an exemplar was named,
@@ -122,9 +171,16 @@ export const scoreCandidate = async (item, brief, opts = {}) => {
   const quality = qualityPrior(item);
   const topic = await topicResonance(item, brief, opts);
   const terms = { anchor: round(anchor), form: round(form), topic: round(topic), quality: round(quality) };
+  const { scholarlyShare, literaryShare, formDistinctiveness, exemplarParts, nTopicWords } = deriveBlendWeights(brief);
   const score = brief?.wantsStyle
-    ? 0.58 * anchor + 0.16 * form + 0.14 * quality + 0.12 * topic
-    : 0.36 * form + 0.26 * topic + 0.26 * quality + 0.12 * (brief?.register ? (form > 0.6 ? 1 : 0.3) : 0.7);
+    ? ((0.4 + 0.06 * exemplarParts) * anchor
+      + 0.16 * form
+      + (0.12 + 0.02 * nTopicWords) * topic
+      + (1 - (0.4 + 0.06 * exemplarParts) - 0.16 - (0.12 + 0.02 * nTopicWords)) * quality)
+    : ((0.26 + 0.1 * formDistinctiveness) * form
+      + 0.26 * topic + 0.26 * quality
+      + (0.22 - 0.1 * formDistinctiveness)
+        * (brief?.register ? (form > 0.6 ? 1 : Math.max(0.2, 0.5 - literaryShare * 0.4)) : Math.min(0.8, 0.4 + 0.4 * (1 - formDistinctiveness))));
   return Object.freeze({ item, terms, score: round(score), why: whyOf(item, brief, terms) });
 };
 
@@ -154,9 +210,11 @@ export const chooseInspiration = async (items = [], brief = {}, opts = {}) => {
   const ranked = await rankCandidates(items, brief, opts);
   if (!ranked.length) return Object.freeze({ ranked, recommended: [], blend: false, why: 'nothing found to read', committed: false, policy });
   const top = ranked[0], second = ranked[1];
+  const scoreSpread = ranked.length > 1 ? ranked[0].score - ranked[ranked.length - 1].score : 0.08;
+  const blendThreshold = Math.min(0.12, Math.max(0.05, scoreSpread * 0.25));
   const canBlend = !brief?.wantsStyle && second
     && LITERARY_SOURCES.has(top.item.source) && LITERARY_SOURCES.has(second.item.source)
-    && (top.score - second.score) < 0.08
+    && (top.score - second.score) < blendThreshold
     && (top.item.title || '') !== (second.item.title || '');
   const recommended = canBlend ? [top.item, second.item] : [top.item];
   const why = canBlend ? `${top.why} + ${second.why}` : top.why;

@@ -165,8 +165,8 @@ const computeEssay = (log, at) => {
   // Non-text section surfaces ride on the section records for a richer
   // renderer to lay out — the assembled string is one projection, not the essay.
   const assembled = accepted.map((s) => {
-    const lead = s.seam?.modality === 'text' ? `${s.seam.text} `
-      : s.seam?.modality === 'pullquote' ? `> ${s.seam.text}\n\n`
+    const lead = s.seam?.text && !('spanRefs' in s.seam) ? `${s.seam.text} `
+      : s.seam?.spanRefs ? `> ${s.seam.text}\n\n`
       : '';
     return lead + (s.prose || '');
   }).filter(Boolean).join('\n\n');

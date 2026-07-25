@@ -28,12 +28,60 @@
 export const nameTokens = (label) =>
   String(label || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
 
-// `a` is an order-preserving subsequence of `b` (every token of `a` appears in `b`,
-// left to right). Reflexive-free at the call sites (we never compare a key to itself).
+import { fuzzCeiling, editWithin } from './fuzzy.js';
+
+// Folio orthographic normalization: u/v, i/j, y/i, double consonants, trailing e
+const normFolio = (s) => String(s || '').toLowerCase()
+  .replace(/u/g, 'v')
+  .replace(/j/g, 'i')
+  .replace(/y/g, 'i')
+  .replace(/(.)\1+/g, '$1')
+  .replace(/e\b/g, '');
+
+// Non-boolean soft token similarity score in [0, 1]
+export const softTokenSim = (t1, t2) => {
+  if (!t1 || !t2) return 0;
+  const a = String(t1).toLowerCase(), b = String(t2).toLowerCase();
+  if (a === b) return 1.0;
+
+  // 1. Folio orthographic equivalence: u/v, i/j, y/i, double consonants, trailing e
+  const na = normFolio(a), nb = normFolio(b);
+  if (na === nb && na.length >= 2) return 0.95;
+
+  const sa = a.replace(/[^a-z]/g, ''), sb = b.replace(/[^a-z]/g, '');
+
+  // 2. Prefix / Abbreviation: minimum 3 chars, and short form must be >= 40% of long form
+  if (sa.length >= 3 && sb.length > sa.length && (sa.length / sb.length) >= 0.4 && sb.startsWith(sa)) return 0.9;
+  if (sb.length >= 3 && sa.length > sb.length && (sb.length / sa.length) >= 0.4 && sa.startsWith(sb)) return 0.9;
+
+  // 3. Edit distance: ONLY for longer tokens (>= 6 chars) to prevent false friends (fame/game, bed/beach)
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen >= 6) {
+    const ceiling = fuzzCeiling(maxLen);
+    if (ceiling > 0) {
+      const d = editWithin(a, b, ceiling);
+      if (d <= ceiling) return Math.max(0.7, 1.0 - (d / maxLen));
+    }
+  }
+  return 0.0;
+};
+
+// `a` is an exact order-preserving subsequence of `b` (every token of `a` appears in `b` exactly)
 export const isSubsequence = (a, b) => {
-  if (a.length > b.length) return false;
+  if (!a || !b || a.length > b.length) return false;
   let i = 0;
   for (const w of b) { if (i < a.length && a[i] === w) i++; if (i === a.length) break; }
+  return i === a.length;
+};
+
+// Soft token subsequence containment score for non-standardized orthography (descent pass)
+export const softSubsequence = (a, b, threshold = 0.75) => {
+  if (!a || !b || a.length > b.length) return false;
+  let i = 0;
+  for (const w of b) {
+    if (i < a.length && softTokenSim(a[i], w) >= threshold) i++;
+    if (i === a.length) break;
+  }
   return i === a.length;
 };
 
@@ -86,6 +134,17 @@ export const epithetReducedHead = (tokens, { isEpithet, epithetHead } = {}) => {
 //   · exactly one maximal → A folds into it (chain upward to the top).
 //   · zero → A is a chain head (its own anchor).
 //   · two or more incomparable maximal → ABSTAIN (A is its own anchor; the null).
+// isPrefixAbbreviation(aTokens, bTokens) → true when A's sole token is a case-insensitive
+// PREFIX of B's first token and A has no other tokens — handles Folio speech prefixes like
+// "Post" ⊏ "Posthumus Leonatus". Only one-directional (short → long), never merges two
+// complete names. Pure, no tables, no string patterns beyond prefix equality.
+const isPrefixAbbreviation = (a, b) => {
+  if (!a || !b || a.length > 1 || b.length < 1) return false;
+  const short = String(a[0] || '').replace(/[^a-z]/g, '');
+  const longFirst = String(b[0] || '').toLowerCase();
+  return short.length >= 2 && longFirst.startsWith(short);
+};
+
 export const clusterAnchors = (labels, { isEpithet, epithetHead } = {}) => {
   const uniqLabels = [...new Set((labels || []).filter(Boolean).map(String))];
   // Dedup to token-keys; keep the first-seen label as each key's representative.
@@ -103,10 +162,20 @@ export const clusterAnchors = (labels, { isEpithet, epithetHead } = {}) => {
   const parent = new Map();
   for (const a of keys) {
     if (!tokOf.get(a).length) { parent.set(a, null); continue; }
-    const supers = keys.filter(b => b !== a && isSubsequence(tokOf.get(a), tokOf.get(b)));
+    // Primary Pass: Exact containment (high precision)
+    let supers = keys.filter(b => b !== a && isSubsequence(tokOf.get(a), tokOf.get(b)));
+    // Descent Pass: When exact containment fails, descend to soft orthographic/prefix matching
+    if (!supers.length) {
+      supers = keys.filter(b => b !== a && softSubsequence(tokOf.get(a), tokOf.get(b)));
+    }
+    // Prefix abbreviation fallback for single-token speech prefixes
+    if (!supers.length && tokOf.get(a).length === 1) {
+      const prefixSupers = keys.filter(b => b !== a && tokOf.get(b).length > 1 && isPrefixAbbreviation(tokOf.get(a), tokOf.get(b)));
+      if (prefixSupers.length === 1) { parent.set(a, prefixSupers[0]); continue; }
+    }
     if (!supers.length) { parent.set(a, null); continue; }
     const maximal = supers.filter(s =>
-      !supers.some(t => t !== s && isSubsequence(tokOf.get(s), tokOf.get(t))));
+      !supers.some(t => t !== s && (isSubsequence(tokOf.get(s), tokOf.get(t)) || softSubsequence(tokOf.get(s), tokOf.get(t)))));
     parent.set(a, maximal.length === 1 ? maximal[0] : null);   // one → fold; else abstain
   }
 

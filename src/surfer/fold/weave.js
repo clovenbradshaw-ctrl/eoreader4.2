@@ -303,7 +303,7 @@ export const relationGraph = (doc) => {
     if (!sid || !tid) continue;
     if (!nodes.has(sid)) nodes.set(sid, { id: sid, label: r.src.label ?? sid });
     if (!nodes.has(tid)) nodes.set(tid, { id: tid, label: r.tgt.label ?? tid });
-    edges.push({ src: sid, tgt: tid, pol: r.polarity === '−' ? '−' : '+', via: r.via ?? null, idx: r.idx ?? null });
+    edges.push({ src: sid, tgt: tid, pol: r.polarity === '−' ? '−' : r.polarity === '0' ? '0' : '+', via: r.via ?? null, idx: r.idx ?? null });
   }
   return { nodes, edges };
 };

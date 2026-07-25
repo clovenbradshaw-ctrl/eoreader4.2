@@ -11,6 +11,7 @@ import { readIngest } from '../../../organs/ingest/index.js';
 import { emitEot } from '../../../organs/ingest/index.js';
 import { nowIso, nowMs, domainOf, shaShort, bytesOf } from './util.js';
 import { buildSourceExport } from '../source-export.js';
+import { looksLikeXml, looksLikeHtml, looksLikeMarkdown } from '../doc-kind.js';
 
 export const installRegistry = (appCtx) => {
   const { emit, logIt, state } = appCtx;
@@ -18,13 +19,21 @@ export const installRegistry = (appCtx) => {
   const sourceBySn = (id) => state.sources.find((s) => s.sn === id);
 
   const metadataValue = (...vals) => vals.map((v) => String(v ?? '').replace(/\s+/g, ' ').trim()).find(Boolean) || '';
-  const sourceContentType = (kind) => {
+  const sourceContentType = ({ kind, doc = null, text = '', language = '' } = {}) => {
+    if (doc) {
+      if ('data' in doc) return 'JSON';
+      if (Array.isArray(doc.records)) return 'Dataset';
+      if (doc.timings) return doc.watched ? 'Video' : 'Audio';
+      if (doc.width != null) return 'Image';
+      if (doc.pages) return 'PDF';
+    }
+    if (language) return 'Code';
+    if (looksLikeXml(text)) return 'XML';
+    if (looksLikeHtml(text)) return 'Webpage';
+    if (looksLikeMarkdown(text)) return 'Markdown';
     const k = String(kind || '').toLowerCase();
-    return k === 'pdf' ? 'PDF' : k === 'web' || k === 'html' ? 'Webpage' : k === 'audio' ? 'Audio'
-      : k === 'video' ? 'Video' : k === 'image' ? 'Image' : k === 'table' ? 'Dataset'
-        : k === 'json' ? 'JSON' : k === 'music' ? 'Music/score' : k === 'subtitle' ? 'Captions'
-          : k === 'markdown' ? 'Markdown' : k === 'code' ? 'Code'
-            : k === 'text' ? 'Plain text/notes' : k === 'file' ? 'File' : k || 'Document';
+    return k === 'music' ? 'Music/score' : k === 'subtitle' ? 'Captions'
+      : k === 'file' ? 'File' : k || 'Document';
   };
   const inferSourceMetadata = ({ title, url = null, kind = 'web', record = null, doc = null } = {}, src = null) => {
     const md = { ...(doc?.metadata || {}), ...(record?.metadata || {}) };
@@ -35,7 +44,7 @@ export const installRegistry = (appCtx) => {
       author: metadataValue(md.author, md.creator, md.artist, md.composer, md.director, record?.byline, record?.author, src?.creator, src?.author),
       documentCreationDate: metadataValue(md.created, md.creation_date, md.creationDate, md['creation date'], md.produced, md.generated, md.dateCreated),
       contentCreationDate: metadataValue(md.date, md.published, md.publication_date, md.publicationDate, record?.published, web.published, src?.published),
-      contentType: metadataValue(md.type, md.content_type, md.contentType, sourceContentType(kind || src?.kind)),
+      contentType: metadataValue(md.type, md.content_type, md.contentType, sourceContentType({ kind: kind || src?.kind, doc, text: src?.text || '', language: src?.language || '' })),
       lastRevised: metadataValue(md.updated, md.modified, md.revised, md.lastModified, md.last_revised, md['last revised'], record?.updated, web.updated),
       extraction: { at: now, source: 'best-effort ingest metadata' },
     };

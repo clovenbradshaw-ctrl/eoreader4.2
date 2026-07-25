@@ -50,6 +50,21 @@ export const SEED_SPEECH = Object.freeze([
   'thinks', 'wondered', 'murmured', 'repeated', 'insisted', 'remarked',
   'observed', 'screamed', 'begged', 'urged', 'warned', 'promised', 'admitted',
   'confessed', 'announced', 'wrote', 'writes',
+  // Basque speech/attribution verbs — the most common dialogue carriers in the
+  // Garoa novel and Basque prose generally. Present/finite stems (esan = say/said)
+  // cover the synthetic and periphrastic forms the head-verb scan reaches.
+  'esan',          // said / say
+  'dio', 'zion',   // says/said to him/her (NOR-NORI-NORK)
+  'galdetu',       // asked
+  'erantzun',      // replied / answered
+  'deitu',         // called
+  'oihu',          // shouted
+  'deadar',        // cried out
+  'agindu',        // ordered
+  'mintzatu',      // spoke
+  'aitortu',       // confessed / admitted
+  'adierazi',      // indicated / expressed
+  'erakutsi',      // showed
 ]);
 
 // The REPORT and SOURCE-NOUN registers are LEARN-ONLY — NO seed. A report verb (a claim handed
@@ -77,6 +92,19 @@ export const SEED_ABBREVIATIONS = Object.freeze([
 // through as a relation verb; here it is named.)
 export const SEED_COPULA = Object.freeze([
   'is', 'am', 'are', 'was', 'were', 'be', 'been', 'being',
+  // Basque copula / existential verbs. The synthetic present (da/dira) and past
+  // (zan/zen/ziran) cover "is/was" across person and number. The stative-locative
+  // (dago/zegoan = is/was located) and the "have" auxiliaries (dute/zuten = they
+  // have/had) serve as copula-like linkers in periphrastic constructions. The
+  // relational "is-to" forms (zaio/zitzaion) appear in dative constructions.
+  // Every token here is a VERB-FINAL head the head-verb scanner reaches; listing
+  // them here keeps them from emitting false CON edges.
+  'da', 'dira',
+  'zan', 'zen', 'ziran',
+  'dago', 'zegoan',
+  'dute', 'zuten',
+  'zaio', 'zitzaion',
+  'daki', 'zekien',
 ]);
 
 // The skip-list: adverbs, intensifiers, and auxiliaries that sit before the head
@@ -309,6 +337,7 @@ const SEEDS = {
   'starter': SEED_STARTER,
   'demonym': SEED_DEMONYM,
   'calendar': SEED_CALENDAR,
+  'word-order': ['SVO'],
 };
 
 // The pre-baked strain-history a prior carries: a seed is not an axiom, it is a
@@ -523,6 +552,23 @@ export const createConventions = ({ seeds = true, inherit = null, induce = null,
     originOf: (kind, v) => entryOf(kind, v)?.origin ?? null,
     strainOf: (kind, v) => entryOf(kind, v)?.strain ?? 0,
     supportOf: (kind, v) => entryOf(kind, v)?.support ?? 0,
+    // ── Word-order register ─────────────────────────────────────────────────────
+    // The expected order of subject (S), verb (V), and object (O) in a declarative
+    // clause. A seeded prior (SVO for English) that the document can defeat: the
+    // pipeline EVA's word order per clause and revisions when the text contradicts it.
+    // Used by the head-verb scanner to decide whether to scan left→right (SVO/VSO) or
+    // right→left (SOV) for the main verb. Read by the realizer to arrange figures
+    // when writing EO back into surface syntax.
+    getWordOrder: () => {
+      for (const o of ['SVO', 'SOV', 'VSO', 'VOS', 'OVS', 'OSV']) {
+        const e = entryOf('word-order', o);
+        if (e && !e.defeated) return o;
+      }
+      return 'SVO';                                // default prior
+    },
+    isWordOrder: (o) => has('word-order', o),
+    learnWordOrder: (order, weight = 1) => learn('word-order', order, weight),
+
     // Type a relation predicate to its closed-vocab bucket (move 3), or null when it
     // is outside the table — additive, never a drop. Speech is read live from the
     // attribution register so a learned speech verb types as `speech` too.

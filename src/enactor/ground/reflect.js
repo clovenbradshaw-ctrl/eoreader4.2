@@ -73,19 +73,19 @@ const witnessTableOf = (doc) => {
   return { byRel, attrs, figures: new Set(label.values()) };
 };
 
-// The SENSE a document was read through — the organ's modality mapped onto the five doors
-// of the world (docs/multimodal-eot-foundation.md; the proposal's "doors, plural"). `modality` is
-// the organ label (image, audio, table); `sense` is the channel it stands for. Two origins
-// through ONE sense (paper twice) corroborate; through TWO senses (paper and tape) is a
-// stronger, cross-modal thing — a fact two independent channels of the world both hold.
-const SENSE_OF_MODALITY = {
-  text: 'text', pdf: 'text', ocr: 'text', docling: 'text', webpage: 'text', warc: 'text', document: 'text',
-  image: 'sight', scene: 'sight', video: 'sight',
-  audio: 'hearing', acoustic: 'hearing', hear: 'hearing', music: 'hearing', frequency: 'hearing',
-  table: 'tabular',
-  json: 'structural', code: 'structural', codon: 'structural',
+// The SENSE a document was read through — the organ's structure mapped onto the five doors
+// of the world (docs/multimodal-eot-foundation.md; the proposal's "doors, plural"). The sense
+// is the channel the document's structural features stand for. Two origins through ONE sense
+// (paper twice) corroborate; through TWO senses (paper and tape) is a stronger, cross-modal
+// thing — a fact two independent channels of the world both hold.
+export const senseOfModality = (doc) => {
+  if (!doc) return 'text';
+  if (doc.timings || doc._asr || doc.segments || doc.waveform) return 'hearing';
+  if (doc.width != null || doc.regions || doc.scenes) return 'sight';
+  if (Array.isArray(doc.records) || doc.cells) return 'tabular';
+  if ('data' in doc || doc.nodes) return 'structural';
+  return 'text';
 };
-export const senseOfModality = (modality) => SENSE_OF_MODALITY[String(modality ?? '').toLowerCase()] || 'text';
 
 // Where a composite sentence came from — the source document + its object, the provenance
 // axis the composite keeps per unit. A single document is its own source.
@@ -128,8 +128,8 @@ const witnessesOf = (doc, sentences, hits) => {
     spanIdx.add(h.sentIdx);
     const src = sourceOf(doc, h.sentIdx);
     const root = rootDocId(doc, src.docId);
-    const rootModality = doc?.modalityByDoc?.[root] ?? src.doc?.modality;
-    const sense = senseOfModality(rootModality);
+    const rootDoc = doc?.modalityByDoc?.[root] ? src.doc : doc;
+    const sense = senseOfModality(rootDoc);
     senses.add(sense);
     if (!byRoot.has(root)) {
       byRoot.set(root, {

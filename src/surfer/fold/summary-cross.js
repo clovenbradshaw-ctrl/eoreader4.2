@@ -148,7 +148,7 @@ export const crossSourceSummaryFold = (entries, {
       for (const r of fs.relations) {
         relations.push({
           subject: safeLabel(r.src.label, g), verb: String(r.via || 'linked-to').replace(/-/g, ' '),
-          object: safeLabel(r.tgt.label, g), polarity: r.polarity === '−' ? '−' : '+',
+          object: safeLabel(r.tgt.label, g), polarity: r.polarity === '−' ? '−' : r.polarity === '0' ? '0' : '+',
           idx: r.idx ?? null, title,
         });
       }

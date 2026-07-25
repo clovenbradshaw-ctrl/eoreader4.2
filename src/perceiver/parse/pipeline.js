@@ -35,7 +35,7 @@ import { readUncasedGrain } from './grain.js';
 import { induceAdpositions } from './adpositions.js';
 import { buildReferents }       from '../referents/index.js';
 import { tok }                  from './tokenize.js';
-import { createConventions, induceAttributions, induceCalendar, BOUNDARY } from '../../core/conventions/index.js';
+import { createConventions, induceLiteracy, induceAttributions, induceCalendar, BOUNDARY } from '../../core/conventions/index.js';
 
 // A pronoun-resolved descriptor owner ("his sister") is taken only when the prior
 // field's top candidate outweighs the runner-up by this ratio — an unambiguous
@@ -169,7 +169,7 @@ export const createParser = ({
     // perfect segmentation, only local company. Built only when slot induction is asked for.
     const induceStream = induceSlots
       ? String(text || '').split(/[.!?;:]+/).flatMap((seg) =>
-          [...(seg.toLowerCase().match(/[a-zà-öø-ÿ]+(?:['’][a-zà-öø-ÿ]+)?/g) || []), BOUNDARY])
+          [...(seg.toLowerCase().match(/[\p{L}]+(?:['’][\p{L}]+)?/gu) || []), BOUNDARY])
       : null;
     const conventions = createConventions(
       induceStream ? { ...conventionsOpts, induce: induceStream } : conventionsOpts);
@@ -241,6 +241,19 @@ export const createParser = ({
     // text marks SPEECH (attribution verbs against quotation) AND how it RELAYS claims (the
     // report verbs and source nouns of the attribution nest, "the study found that …"). All
     // become REC entries in the ledger, written into the log, biasing every later sentence.
+    // The literacy induction runs first, discovering copula/speech/preposition/modifier/starter
+    // from DISTRIBUTIONAL patterns — the same seed-free mechanism that builds sediment at
+    // bootstrap. It works for any language: the copula is whatever word sits between a subject
+    // and a re-description; the speech verb is whatever sits beside a quotation mark and a name.
+    // Feeding the results into the ledger here means the relation parser reads FROM the document's
+    // own induced word classes, not from English seeds — the reader learns Basque from Basque.
+    // Gated behind induceSlots because literacy induction is a full-text frequency pass
+    // (heavy for large documents); the slot field also needs the induce stream anyway.
+    if (induceSlots) {
+      const literacy = induceLiteracy(text);
+      for (const [kind, entries] of Object.entries(literacy))
+        for (const { token, weight } of entries) conventions.learn(kind, token, weight || 1);
+    }
     induceAttributions(conventions, sentences); induceCalendar(conventions, sentences);   // + this document's own dated months (induce.js)
 
     // Structural frame: the head and tail OUTSIDE the body the banners bracket (the

@@ -548,7 +548,7 @@ export const motionSummary = ({ title = 'Video', analysis, shots, tracks = [], e
   const L = [];
   L.push(`# ${title}`);
   L.push('');
-  const kindWord = mediaKind === 'video' ? 'A video clip' : 'A frame sequence';
+  const kindWord = 'A motion sequence';
   L.push(`${kindWord} of **${clock(a.duration || 0)}** (${(a.duration || 0).toFixed(1)}s), read at **${a.fps || 0} fps** on a ${a.width || 0}×${a.height || 0} luminance grid — the picture read as motion before a word of its audio is transcribed.`);
   L.push('');
   L.push('## What the picture is doing');

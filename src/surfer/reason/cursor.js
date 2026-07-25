@@ -96,7 +96,7 @@ export const readGraph = (log, cursor = IDENTITY) => {
       bonds.push({
         src: e.src, dst: e.tgt ?? e.dst, via: String(e.via || 'rel'), door: e.prov?.door ?? 'perceiver',
         canWitness: canWitness(e.prov ?? null), sentIdx: e.sentIdx ?? null, seq: e.seq,
-        ...(e.polarity === '−' ? { polarity: '−' } : {}),
+        ...(e.polarity === '−' || e.polarity === '0' ? { polarity: e.polarity } : {}),
         ...(e.scope != null ? { scope: e.scope } : {}),
       });
     }
@@ -247,7 +247,7 @@ export const contradictionsIn = (graph) => {
   for (const b of graph.bonds) {
     const k = `${b.src}|${b.via}|${b.dst}`;
     if (!byKey.has(k)) byKey.set(k, new Set());
-    byKey.get(k).add(b.polarity === '−' ? '−' : '+');
+    byKey.get(k).add(b.polarity === '−' ? '−' : b.polarity === '0' ? '0' : '+');
   }
   const out = [];
   for (const [key, pols] of byKey) {
@@ -272,7 +272,7 @@ export const possible = (log, specs, { scope = '◇', enactment = 'suppose' } = 
 };
 
 export const necessary = (log, spec, opts = {}) => {
-  const negated = { ...spec, polarity: spec.polarity === '−' ? '+' : '−' };
+  const negated = { ...spec, polarity: spec.polarity === '−' ? '+' : spec.polarity === '0' ? '0' : '−' };
   const p = possible(log, [negated], { scope: opts.scope || '□', enactment: opts.enactment });
   return Object.freeze({
     necessary: !p.possible,

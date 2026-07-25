@@ -107,7 +107,7 @@ export const inferSignificance = (doc, { structure = null, maxPerKind = 12 } = {
   }
   let nContra = 0, nCorrob = 0;
   for (const group of byBond.values()) {
-    const pos = group.filter((r) => r.polarity !== '−');
+    const pos = group.filter((r) => r.polarity !== '−' && r.polarity !== '0');
     const neg = group.filter((r) => r.polarity === '−');
     const r0 = group[0];
     if (pos.length && neg.length && nContra < maxPerKind) {

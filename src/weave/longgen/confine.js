@@ -31,16 +31,23 @@ const REGISTER = Object.freeze({
   VOID: 'hedged',         // hold the absence open
 });
 
-// How far up the entropy the draw may reach, by operator — the openness the phase then
-// scales. A move that MINTS or RESTRUCTURES is a genuine content choice (open wide); a move
-// that HOLDS or SEGMENTS asserts almost nothing (stay near the forced grammar).
-const OPENNESS = Object.freeze({
-  INS: 1.0, REC: 1.0, DEF: 0.8, EVA: 0.8, CON: 0.7, SIG: 0.7, SYN: 0.6, SEG: 0.4, NUL: 0.3, VOID: 0.5,
-});
+// Derive per-operator openness from the document's own operator distribution:
+// an operator's openness = 1 - (its frequency rank / total operators). The most frequent
+// operator gets the lowest openness (least revision needed); the least frequent gets the highest.
+export function deriveOpenness(operatorCounts) {
+  const sorted = Object.entries(operatorCounts).sort((a, b) => b[1] - a[1]);
+  const total = sorted.length || 1;
+  return Object.fromEntries(sorted.map(([op], rank) => [op, 1 - (rank / total)]));
+}
 
-// The phase scales the openness: the develop body is where content is chosen; the open and
-// the land are more constrained (term-setting and closing are near-formulaic).
-const PHASE_OPENNESS = Object.freeze({ open: 0.8, develop: 1.0, land: 0.7 });
+// Derive phase openness from the distribution of phase lengths (sentence counts per phase):
+// openness = 1 - (phase_length / max_phase_length). The shortest phase has the most openness
+// (most revision or content-choosing room); the longest has the least.
+export function derivePhaseOpenness(phaseLengths) {
+  const entries = Object.entries(phaseLengths);
+  const maxLen = entries.length ? Math.max(...entries.map(([, l]) => l)) : 1;
+  return Object.fromEntries(entries.map(([p, len]) => [p, 1 - (len / maxLen)]));
+}
 
 const figureOf = (span) => {
   const t = String(span?.text || '').replace(/\s+/g, ' ').trim();
@@ -55,7 +62,7 @@ const figureOf = (span) => {
 //   openness     the entropy reach the address permits (operator × phase)
 //   floor        the void flags — ALWAYS on, the one level no address relaxes
 //   address      the EO coordinate, for the record (operator, site terrain, stance)
-export const holonicConfinement = ({ proposition = {}, phase = null } = {}) => {
+export const holonicConfinement = ({ proposition = {}, phase = null, operatorCounts = null, phaseLengths = null } = {}) => {
   const move = String(proposition.move || 'CON').toUpperCase();
   // Nothing established about how-definitely → VOID: an uncharacterized proposition is
   // confined to hedge (register 'hedged', forbidClose) rather than permitted to assert
@@ -68,7 +75,11 @@ export const holonicConfinement = ({ proposition = {}, phase = null } = {}) => {
   const forbidClose = band === 'void' || move === 'VOID' || move === 'NUL';
 
   const figures = (proposition.spans || []).map(figureOf).filter(Boolean);
-  const openness = (OPENNESS[move] ?? 0.7) * (PHASE_OPENNESS[phase] ?? 1.0);
+  const opennessMap = operatorCounts ? deriveOpenness(operatorCounts) : {};
+  const phaseMap = phaseLengths ? derivePhaseOpenness(phaseLengths) : {};
+  const opOpenness = opennessMap[move] ?? (Object.values(opennessMap).reduce((s, v) => s + v, 0) / Math.max(1, Object.keys(opennessMap).length) || 0.7);
+  const phOpenness = phaseMap[phase] ?? (Object.values(phaseMap).reduce((s, v) => s + v, 0) / Math.max(1, Object.keys(phaseMap).length) || 1.0);
+  const openness = opOpenness * phOpenness;
 
   return Object.freeze({
     move,

@@ -107,7 +107,7 @@ export const installPicture = (appCtx) => {
       // entities + shots), mark that there is nothing to transcribe, and keep the bytes for playback
       // and a reload re-read. A video WITH audio takes the media branch below and folds its picture in
       // beside the transcript. Never refused: a decode with no audio used to fail the whole import.
-      if (got.meta?.modality === 'video' && got.meta?.watch && !got.meta?.doc) {
+      if (got.meta?.watch && !got.meta?.doc) {
         const res = await got.meta.watch({ signal, onProgress: (label) => progress({ kind: 'file', label: String(label) }) });
         if (!res || !res.doc) {
           settleFile(signal.aborted ? 'stopped' : 'error', ((res && res.coverage && res.coverage.dropped) || ['no picture could be read']).join('; '));
@@ -136,7 +136,7 @@ export const installPicture = (appCtx) => {
       // analysis + signal/noise nested holons) plus a deferred `transcribe` thunk. We record
       // the source immediately (so it shows up as a source, playable, with its visualization),
       // reveal it, THEN run transcription in the background — only if there was signal to hear.
-      if (got.meta?.modality === 'audio' && got.meta?.doc) {
+      if (got.meta?.doc && (got.meta?.waveform || got.meta?.timings || got.meta?.holons)) {
         const src = appCtx.addSource({ title: got.title || file.name, text: got.text, kind: 'audio', rights: 'local file', doc: got.meta.doc, topicId: targetTopicId });
         // The source has landed and persists on its own now — the pre-source decode window the file
         // job covered is over. The original bytes (audio store, below) + the transcribe job carry
@@ -185,7 +185,7 @@ export const installPicture = (appCtx) => {
       // seeing it in its native form" — the same audio/video promise above, for a still picture:
       // fromImage already resolved with only the file facts (dimensions, size), so the source and
       // its picture are on the record before a single word of OCR or a scene caption exists.
-      if (got.meta?.modality === 'image' && got.meta?.read) {
+      if (got.meta?.read) {
         const src = appCtx.addSource({ title: got.title || file.name, text: got.text, kind: 'image', rights: 'local file', doc: got.meta.doc, topicId: targetTopicId });
         settleFile('done');
         if (src) {
@@ -228,7 +228,7 @@ export const installPicture = (appCtx) => {
         recordCoverage(src);
         // A caption's cues carry real timing, interpolated to word-level tokens — the same
         // src.words shape an ASR transcript lands on, so sync-reduce.js reads either uniformly.
-        if (src && got.meta?.modality === 'subtitle' && Array.isArray(got.meta.words)) { src.words = got.meta.words; appCtx.persist(); }
+        if (src && Array.isArray(got.meta?.words)) { src.words = got.meta.words; appCtx.persist(); }
         return src;
       }
 
@@ -252,7 +252,7 @@ export const installPicture = (appCtx) => {
       // bytes for that surface (the reader is one tab away). Best-effort, off the critical path:
       // fired, not awaited, so the (background) OCR read never waits on the OPFS write, and a fault
       // never fails the import — the reader book still stands.
-      if (src && got.meta?.modality === 'pdf' && appCtx.persistPdfBytes) {
+      if (src && got.meta?.pages && appCtx.persistPdfBytes) {
         try { appCtx.persistPdfBytes(src, file); } catch { /* the reader book still renders it */ }
       }
       if (src) {

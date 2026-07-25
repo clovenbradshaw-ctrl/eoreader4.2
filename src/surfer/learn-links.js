@@ -57,7 +57,7 @@ export const linkInventory = (doc) => {
       relType: e.relType || null,
       coupling: Math.max(0, Math.min(1, coupling)),
       tgtKind: e.tgtKind === 'np' ? 'np' : (e.tgt != null ? 'entity' : 'other'),
-      polarity: e.polarity === '−' || e.polarity === '-' ? -1 : (e.polarity ? 1 : 0),
+      polarity: e.polarity === '−' || e.polarity === '-' ? -1 : (e.polarity === '0' ? 0 : (e.polarity ? 1 : 0)),
       sentIdx: e.sentIdx,
       ctx: e.sentIdx != null && e.sentIdx >= 0 && e.sentIdx < profiles.length ? profiles[e.sentIdx] : new Array(OPS.length).fill(0),
     });

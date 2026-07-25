@@ -84,7 +84,7 @@ export const traceTransmission = async (streams, { embedder = null, alpha = 0.05
 
   const vectors = [];
   for (const m of members) vectors.push(await embedder.embed(m.neutral));
-  const out = attestEquivalenceFrom(vectors, members.map((m) => (m.polarity === '-' ? '-' : '+')),
+  const out = attestEquivalenceFrom(vectors, members.map((m) => (m.polarity === '-' ? '-' : m.polarity === '0' ? '0' : '+')),
     members.length < 4 ? { minSim } : { alpha });
 
   const parent = members.map((_, i) => i);

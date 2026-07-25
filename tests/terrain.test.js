@@ -1,13 +1,16 @@
 // surfer/terrain.js — site typing by operators. siteTerrain stays a pure label function.
 // siteTerrainAt's Network/Paradigm recurrence (cheap log-repetition checks) is covered by
-// tests/terrain-recurrence.test.js; this file covers what this branch adds — Kind, via
-// kinds.js's Born-rule entity clustering, the one Pattern cell the log's cheap repetition
-// checks cannot shortcut (no membership-criterion edge exists at this layer).
+// tests/terrain-recurrence.test.js.
+// Three fixes applied:
+//   1. Kind membership no longer overrides locus grain — stored on entity, not on terrain.
+//   2. Field (Structure×Ground) detected when Structure ops present without specific CON bond.
+//   3. Domain determined by specificity (most informative operator), not by count vote.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createLog } from '../src/core/log.js';
 import { siteTerrain, siteTerrainAt, bondTerrain, arcTerrain } from '../src/surfer/terrain.js';
+import { detectKinds } from '../src/surfer/kinds.js';
 import { OPS } from '../src/surfer/structure-basis.js';
 
 test('siteTerrain: pure label function, unaffected by the recurrence wiring', () => {
@@ -22,7 +25,37 @@ test('siteTerrain: pure label function, unaffected by the recurrence wiring', ()
   assert.equal(arcTerrain(), 'Network');
 });
 
-test('siteTerrainAt: an explicit recurrent override still wins over the Kind measurement', () => {
+test('siteTerrain: domain from specificity, not count — a single CON beats many INS', () => {
+  // Before fix 3, 3 INS + 1 CON would vote Existence (count 3 vs 1).
+  // Now CON determines Structure regardless of INS count.
+  assert.equal(siteTerrain({ ops: ['INS', 'INS', 'INS', 'CON'] }), 'Link');
+});
+
+test('siteTerrain: a single DEF beats many INS for domain', () => {
+  // Before fix 3, 5 INS + 1 DEF would vote Existence (count 5 vs 1).
+  // Now DEF determines Interpretation regardless of INS count.
+  assert.equal(siteTerrain({ ops: ['INS', 'INS', 'INS', 'INS', 'INS', 'DEF'] }), 'Lens');
+});
+
+test('siteTerrain: domain priority — CON beats SEG, DEF beats REC', () => {
+  assert.equal(siteTerrain({ ops: ['SEG', 'CON'] }), 'Link');          // CON → Structure
+  assert.equal(siteTerrain({ ops: ['REC', 'DEF'] }), 'Lens');          // DEF → Interpretation
+  assert.equal(siteTerrain({ ops: ['NUL'] }), 'Entity');               // NUL → Existence, Figure grain
+  assert.equal(siteTerrain({ ops: ['NUL'], thin: true }), 'Void');     // NUL + thin → Ground
+});
+
+test('siteTerrain: SEG without recurrence is Link (Figure), with recurrence is Network (Pattern)', () => {
+  assert.equal(siteTerrain({ ops: ['SEG'] }), 'Link');                 // Figure grain (no recurrent flag)
+  assert.equal(siteTerrain({ ops: ['SEG'], recurrent: true }), 'Network');  // Pattern grain
+});
+
+test('siteTerrainAt: a thin locus (no inscribed content) is Void, regardless of recurrence', () => {
+  const log = createLog({ docId: 'd' });
+  const doc = { log, units: [0] };
+  assert.equal(siteTerrainAt(doc, 0), 'Void');
+});
+
+test('siteTerrainAt: an explicit recurrent override still wins over the computed read', () => {
   const log = createLog({ docId: 'd' });
   log.append({ op: 'INS', id: 'a', sentIdx: 0 });
   const doc = { log, units: [0] };
@@ -30,12 +63,11 @@ test('siteTerrainAt: an explicit recurrent override still wins over the Kind mea
   assert.equal(siteTerrainAt(doc, 0, { recurrent: true }), 'Kind');
 });
 
-test('siteTerrainAt: an entity in a genuinely recurring behavioral class measures as Kind', () => {
+test('siteTerrainAt: an entity in a genuinely recurring behavioral class stays Entity at its locus', () => {
+  // Fix 1: Kind membership no longer overrides locus grain.
+  // An entity that belongs to a detected Kind cluster is still Entity (Figure grain)
+  // at its own locus. Kind membership is stored on the entity referent, not on the terrain.
   const log = createLog({ docId: 'd' });
-  // Three classes, not two — a clean two-way split can (correctly) collapse to a single
-  // populated cluster after mean-centering (kinds.test.js's own "not every entity collapses"
-  // guard exists for exactly this), so the regression fixture needs the same three-class
-  // shape kinds.test.js validates against, not a simpler one that happens to be degenerate.
   const classes = {
     noticed: ['n1', 'n2', 'n3', 'n4', 'n5', 'n6'],
     bonded: ['b1', 'b2', 'b3', 'b4', 'b5', 'b6'],
@@ -51,11 +83,19 @@ test('siteTerrainAt: an entity in a genuinely recurring behavioral class measure
       }
     }
   }
-  // an INS locus for one of the profiled entities — should measure Kind if that entity
-  // belongs to a real (non-abstaining) recurring class.
+
+  // Entity 'n1' is a member of the 'noticed' class (SIG-dominant).
+  // INS event for n1: domain=Existence, grain=Figure → Entity
   const firstInsIdx = log.snapshot().findIndex((e) => e.op === 'INS' && e.id === 'n1');
   const doc = { log, units: new Array(u).fill(0) };
-  assert.equal(siteTerrainAt(doc, firstInsIdx), 'Kind');
+
+  // Locus terrain: Entity (not Kind — Kind membership is no longer a grain override)
+  assert.equal(siteTerrainAt(doc, firstInsIdx), 'Entity');
+
+  // Kind membership: queryable via detectKinds, not via terrain
+  const kinds = detectKinds(doc);
+  assert.equal(kinds.abstain, false, 'must detect real behavioral classes');
+  assert.ok(kinds.kindOf('n1') != null, 'n1 belongs to a detected Kind');
 });
 
 test('siteTerrainAt: a flat entity population (no real behavioral distinction) stays Entity, not Kind', () => {
@@ -67,8 +107,45 @@ test('siteTerrainAt: a flat entity population (no real behavioral distinction) s
   assert.equal(siteTerrainAt(doc, 0), 'Entity');
 });
 
-test('siteTerrainAt: a thin locus (no inscribed content) is Void, regardless of recurrence', () => {
+test('siteTerrainAt: Field detected when Structure ops present without specific CON bond', () => {
+  // Fix 2: Structure domain + no specific (src,tgt) CON bond → Ground grain → Field
   const log = createLog({ docId: 'd' });
+  // SEG at this locus but no CON with specific (src,tgt) — ambient relational structure
+  log.append({ op: 'SEG', sentIdx: 0 });
   const doc = { log, units: [0] };
-  assert.equal(siteTerrainAt(doc, 0), 'Void');
+  assert.equal(siteTerrainAt(doc, 0), 'Field');
+});
+
+test('siteTerrainAt: SYN without CON bond is Field, not Network', () => {
+  // Fix 2: SYN is Structure domain, no specific bond → Field
+  const log = createLog({ docId: 'd' });
+  log.append({ op: 'SYN', sentIdx: 0 });
+  const doc = { log, units: [0] };
+  assert.equal(siteTerrainAt(doc, 0), 'Field');
+});
+
+test('siteTerrainAt: CON with specific bond is Link (not Field)', () => {
+  // Having a specific (src,tgt) CON bond makes it Link, not Field
+  const log = createLog({ docId: 'd' });
+  log.append({ op: 'CON', id: 'bond', src: 'a', tgt: 'b', sentIdx: 0 });
+  const doc = { log, units: [0] };
+  assert.equal(siteTerrainAt(doc, 0), 'Link');
+});
+
+test('siteTerrainAt: SEG + INS without CON is Field', () => {
+  // SEG (Structure) + INS (Existence) — domain from SEG → Structure, no specific bond → Field
+  const log = createLog({ docId: 'd' });
+  log.append({ op: 'SEG', sentIdx: 0 });
+  log.append({ op: 'INS', id: 'x', sentIdx: 0 });
+  const doc = { log, units: [0] };
+  assert.equal(siteTerrainAt(doc, 0), 'Field');
+});
+
+test('siteTerrainAt: DEF + INS is Lens (not Entity)', () => {
+  // Fix 3: DEF present → Interpretation domain, regardless of INS count
+  const log = createLog({ docId: 'd' });
+  log.append({ op: 'DEF', key: 'predicate', value: 'great', id: 'a', sentIdx: 0 });
+  log.append({ op: 'INS', id: 'a', sentIdx: 0 });
+  const doc = { log, units: [0] };
+  assert.equal(siteTerrainAt(doc, 0), 'Lens');
 });

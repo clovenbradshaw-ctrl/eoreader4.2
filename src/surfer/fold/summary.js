@@ -72,7 +72,7 @@ const summaryRelations = (relations, max) => {
     seen.add(key);
     out.push({
       subject: r.src.label, verb: via.replace(/-/g, ' '), object: r.tgt.label,
-      polarity: r.polarity === '−' ? '−' : '+', idx: r.idx ?? null,
+      polarity: r.polarity === '−' ? '−' : r.polarity === '0' ? '0' : '+', idx: r.idx ?? null,
     });
     if (out.length >= max) break;
   }

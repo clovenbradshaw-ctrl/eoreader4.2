@@ -11,7 +11,7 @@
 // nativePageHtml) — unchanged, this dispatch is for everything else: an uploaded file, a
 // paste, a source recorded before this module existed.
 
-import { renderKindOf } from './doc-kind.js';
+import { looksLikeXml, looksLikeHtml, looksLikeMarkdown } from './doc-kind.js';
 import { readerModel, readerHtml, nativePageHtml } from './reader-render.js';
 import { markdownToHtml, MARKDOWN_CSS } from './markdown-render.js';
 import { jsonToHtml, tableToHtml, JSON_CSS, TABLE_CSS } from './data-render.js';
@@ -34,47 +34,35 @@ const textFallback = (source, prefs) => {
 // data isn't there yet (a table doc still parsing) falls back to the prose reflow rather
 // than showing a blank or broken page.
 export const renderNativeKindHtml = ({ source = {}, doc = null, prefs = {} } = {}) => {
-  const kind = renderKindOf(source);
-
-  if (kind === 'json') {
-    if (doc && doc.modality === 'json' && 'data' in doc) {
-      const { html } = jsonToHtml(doc.data);
-      return { kind, html: page('<div class="eo-json-wrap" style="padding:24px">' + html + '</div>', JSON_CSS), toc: [] };
-    }
-    return textFallback(source, prefs);
+  if (doc && 'data' in doc) {
+    const { html } = jsonToHtml(doc.data);
+    return { kind: 'json', html: page('<div class="eo-json-wrap" style="padding:24px">' + html + '</div>', JSON_CSS), toc: [] };
   }
 
-  if (kind === 'table') {
-    if (doc && doc.modality === 'table' && Array.isArray(doc.records)) {
-      const { html } = tableToHtml(doc);
-      return { kind, html: page('<div style="padding:24px;overflow:auto">' + html + '</div>', TABLE_CSS), toc: [] };
-    }
-    return textFallback(source, prefs);
+  if (doc && Array.isArray(doc.records)) {
+    const { html } = tableToHtml(doc);
+    return { kind: 'table', html: page('<div style="padding:24px;overflow:auto">' + html + '</div>', TABLE_CSS), toc: [] };
   }
 
-  if (kind === 'code') {
+  if (source.language) {
     const { html } = highlightCode(source.text || '', source.language || '');
-    return { kind, html: page(html, CODE_CSS), toc: [] };
+    return { kind: 'code', html: page(html, CODE_CSS), toc: [] };
   }
 
-  if (kind === 'markdown') {
-    const { html, toc } = markdownToHtml(source.text || '');
-    return { kind, html: page('<div class="eo-md">' + html + '</div>', MARKDOWN_CSS), toc };
+  const text = source.text || '';
+
+  if (looksLikeXml(text)) {
+    const { html, toc } = xmlToHtml(source, doc?.tei ? doc : null);
+    return { kind: 'xml', html: page(html, XML_CSS), toc };
   }
 
-  if (kind === 'xml') {
-    // xmlToHtml reads doc.tei/doc.spans when an ingested xml doc is there (the metadata card +
-    // the real body structure); absent, it parses source.text fresh — either way it's never the
-    // plain reflow, since a TEI/XML source's own div/p tags collide with HTML's own (doc-kind.js's
-    // looksLikeXml) and would otherwise mis-render through nativePageHtml below.
-    const { html, toc } = xmlToHtml(source, doc && doc.modality === 'xml' ? doc : null);
-    return { kind, html: page(html, XML_CSS), toc };
+  if (looksLikeHtml(text)) {
+    return { kind: 'html', html: nativePageHtml(text, { baseUrl: '', prefs }), toc: [] };
   }
 
-  if (kind === 'html') {
-    // A sniffed HTML text with no live URL to fetch fresh — the same sanitize/re-base pass a
-    // fetched page gets, just with no base href to re-root relative assets against.
-    return { kind, html: nativePageHtml(source.text || '', { baseUrl: '', prefs }), toc: [] };
+  if (looksLikeMarkdown(text)) {
+    const { html, toc } = markdownToHtml(text);
+    return { kind: 'markdown', html: page('<div class="eo-md">' + html + '</div>', MARKDOWN_CSS), toc };
   }
 
   return textFallback(source, prefs);

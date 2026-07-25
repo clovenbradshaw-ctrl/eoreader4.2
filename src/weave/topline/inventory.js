@@ -46,7 +46,7 @@ const contestedIndices = (claims) => {
   const byKey = new Map();
   claims.forEach((c, i) => {
     const k = `${norm(c.subject)}|${norm(c.value ?? `${c.via} ${c.object}`)}`;
-    (byKey.get(k) || byKey.set(k, []).get(k)).push({ i, pol: c.polarity === '−' ? '−' : '+' });
+    (byKey.get(k) || byKey.set(k, []).get(k)).push({ i, pol: c.polarity === '−' ? '−' : c.polarity === '0' ? '0' : '+' });
   });
   const out = new Set();
   for (const rows of byKey.values()) {
@@ -65,12 +65,12 @@ export const buildInventory = ({
   const props = [
     ...claims.map((c, i) => ({
       raw: c, rel: false, order: i,
-      cite: uniqCite(c.cite), polarity: c.polarity === '−' ? '−' : '+',
+      cite: uniqCite(c.cite), polarity: c.polarity === '−' ? '−' : c.polarity === '0' ? '0' : '+',
       pulled: footingPulled(c),
     })),
     ...relations.map((r, i) => ({
       raw: r, rel: true, order: 1000 + i,
-      cite: uniqCite(r.cite), polarity: r.polarity === '−' ? '−' : '+',
+      cite: uniqCite(r.cite), polarity: r.polarity === '−' ? '−' : r.polarity === '0' ? '0' : '+',
       pulled: footingPulled(r),
     })),
   ];
@@ -107,7 +107,7 @@ export const buildInventory = ({
     // what the record asserts, then what conflicts, then where they part.
     const con = phrasable.filter((p) => p.contested);
     const pos = con.find((p) => p.polarity === '+') || con[0];
-    const neg = con.find((p) => p.polarity === '−' && p !== pos) || con[1];
+    const neg = con.find((p) => (p.polarity === '−' || p.polarity === '0') && p !== pos) || con[1];
     if (pos) objects.push(claimObj(pos, 'asserted'));
     if (neg) objects.push(claimObj(neg, 'contested'));
     objects.push({ key: 'part:0', type: 'part', standing: 'ours', cite: uniqCite([...(pos?.cite || []), ...(neg?.cite || [])]),

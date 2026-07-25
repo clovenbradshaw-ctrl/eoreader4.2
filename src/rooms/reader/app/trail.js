@@ -142,7 +142,7 @@ export const installTrail = (appCtx) => {
     const seen = new Set();
     for (const r of (st.relations || [])) {
       if (out.length >= max) break;
-      if (!r || !r.src || !r.tgt || r.polarity === '−') continue;   // skip negated — keep every claim clean
+      if (!r || !r.src || !r.tgt || r.polarity === '−' || r.polarity === '0') continue;   // skip negated/neutral — keep every claim clean
       const subj = String(r.src.label || '').trim();
       const obj = String(r.tgt.label || '').trim();
       const verb = String(r.via || '').trim();
@@ -176,7 +176,7 @@ export const installTrail = (appCtx) => {
     const seen = new Set();
     for (const r of (st.relations || [])) {
       if (out.length >= max) break;
-      if (!r || !r.src || !r.tgt || r.polarity === '−') continue;   // skip negated — keep every claim clean
+      if (!r || !r.src || !r.tgt || r.polarity === '−' || r.polarity === '0') continue;   // skip negated/neutral — keep every claim clean
       const subj = String(r.src.label || '').trim();
       const obj = String(r.tgt.label || '').trim();
       const verb = String(r.via || '').trim();

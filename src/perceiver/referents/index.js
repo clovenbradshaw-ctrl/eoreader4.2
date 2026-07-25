@@ -293,7 +293,7 @@ export const buildReferents = ({ log, sentences, admission, corefField, deixis, 
 // shared entry point, so a re-render or a second caller (the entity explorer, the cross-source
 // crosswalk) never rebuilds it twice, or worse, silently reads an empty `[]` because it forgot to.
 export const referentApiFor = (doc) => {
-  if (!doc || !doc.log || doc.modality !== 'text') return null;
+  if (!doc || !doc.log) return null;
   if (typeof doc.referents === 'function') return doc;   // flag was already on upstream
   if (doc._referentApi === undefined) {
     try {

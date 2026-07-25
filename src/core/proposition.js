@@ -38,7 +38,7 @@ export const makeProposition = ({ substrate, relation, differentia, polarity = '
 export const isProposition = (p) =>
   !!p && typeof p === 'object' &&
   p.substrate != null && p.relation != null && p.differentia != null &&
-  (p.polarity === '+' || p.polarity === '-');
+  (p.polarity === '+' || p.polarity === '-' || p.polarity === '0');
 
 // Bridge from the log's edge currency (the SIG/CON event: src/via/tgt/polarity)
 // to the triadic-minimum contract, so a downstream consumer can read the
@@ -49,5 +49,5 @@ export const propositionOfEdge = (e) =>
     substrate:   e.src ?? e.from,
     relation:    e.via ?? e.rel,
     differentia: e.tgt ?? e.to,
-    polarity:    e.polarity === 'negative' || e.polarity === '-' || e.polarity === '−' ? '-' : '+',
+    polarity:    e.polarity === 'negative' || e.polarity === '-' || e.polarity === '−' ? '-' : e.polarity === '0' ? '0' : '+',
   });

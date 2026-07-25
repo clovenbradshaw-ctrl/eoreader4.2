@@ -121,9 +121,9 @@ export const installWiki = (appCtx) => {
   //   not that two sources disagree. Scoped to this one figure's reading (the solar view's own scope),
   //   so corroboration is this source's repeated witnesses, not a topic-wide tally.
   const standingOf = (d) => {
-    const neg = d.polarity === '−' || d.polarity === '-';
-    const hedged = d.modality && d.modality !== 'realis';
-    if (neg || hedged) return 'unsettled';
+    const nonPos = d.polarity === '−' || d.polarity === '-' || d.polarity === '0';
+    const nonRealis = d.modality === 'irrealis' || d.modality === 'epistemic';
+    if (nonPos || nonRealis) return 'unsettled';
     return (d.count || 1) >= 2 ? 'firming' : 'fresh';
   };
   const solarMeaningData = (docId, entId, { maxBonds = 10, maxMoonPlanets = 8, maxMoons = 3 } = {}) => {
@@ -165,7 +165,7 @@ export const installWiki = (appCtx) => {
       const planetId = `rc:${i}`;
       nodes.push({ id: planetId, parent: focusId, tier: 2, kind: 'claim', terrain: 'Lens', bond: true,
         label: (String(r.via || '').trim() ? String(r.via).trim() + ' ' : '') + otherLabel, op, manner: mannerOf(op),
-        standing: (r.polarity === '−' || r.polarity === '-') ? 'unsettled' : 'fresh',
+        standing: (r.polarity === '−' || r.polarity === '-' || r.polarity === '0') ? 'unsettled' : 'fresh',
         ref: { docId, entId: otherId }, t: srcT });
       edges.push({ a: focusId, b: planetId, tier: 2, gl: glyphOf(op), code: op });
       // MOONS — descend one hop into the bonded figure: its own standing properties first, then its

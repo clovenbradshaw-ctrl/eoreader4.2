@@ -450,7 +450,7 @@ function buildCursor2(root, a, dist, opts = {}) {
       ul.appendChild(el('li', { class: 'dg-claim' }, [
         el('div', { class: 'dg-ctop' }, [el('span', { class: 'dg-stance ' + c.stance, text: STANCE_HINT[c.stance] || c.stance, title: c.stance }), el('span', { class: 'dg-srcid', text: `${c.src.docId} · s${c.src.sentIdx}` })]),
         passage,
-        el('div', { class: 'dg-meta' }, [el('span', { text: 'word: ' + markerLabel(c.marker) }), (c.arc ? el('span', { text: 'type: ' + (ARC_LABEL[c.arc] || c.arc) + (c.arcSign === '+' || c.arcSign === '−' ? ' ' + c.arcSign : '') }) : null), el('span', { text: c.polarity === '−' ? 'no effect found' : 'effect claimed' }), (c.modality === 'epistemic' ? el('span', { text: 'hedged' }) : null), rc].filter(Boolean)),
+        el('div', { class: 'dg-meta' }, [el('span', { text: 'word: ' + markerLabel(c.marker) }), (c.arc ? el('span', { text: 'type: ' + (ARC_LABEL[c.arc] || c.arc) + (c.arcSign === '+' || c.arcSign === '−' ? ' ' + c.arcSign : '') }) : null), el('span', { text: c.polarity === '−' ? 'no effect found' : c.polarity === '0' ? 'neutral effect' : 'effect claimed' }), (c.modality === 'epistemic' ? el('span', { text: 'hedged' }) : c.modality === 'irrealis' ? el('span', { text: 'irrealis' }) : null), rc].filter(Boolean)),
       ]));
     });
     insp.appendChild(ul);

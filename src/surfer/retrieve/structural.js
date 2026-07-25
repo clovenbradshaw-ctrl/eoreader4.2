@@ -109,7 +109,7 @@ export const querySubjectTerms = (query) =>
 // A TABLE's `units` are bare row labels ("row 3"); its readable skeleton is the cell
 // projection in `sentences`. Read the readable axis for a table so a table "summary" is
 // built from real cells, not "row 2 next-row row 3". Prose is unchanged (units = sentences).
-const readableUnits = (doc) => (doc.modality === 'table' ? (doc.sentences || doc.units) : (doc.units || doc.sentences)) || [];
+const readableUnits = (doc) => (doc.sentences?.length ? doc.sentences : doc.units) || [];
 
 export const retrieveStructural = (doc, k = 12) => {
   const units = readableUnits(doc);

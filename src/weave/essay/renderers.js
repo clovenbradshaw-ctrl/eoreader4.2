@@ -66,12 +66,11 @@ export const validateSurface = (surface, commitments = [], { spans = [] } = {}) 
   }
   for (const s of spans) for (const n of numbersIn(s.text)) allowed.add(n.value);
 
-  if (surface.modality === 'text' || typeof surface === 'string') {
-    const text = typeof surface === 'string' ? surface : surface.text;
-    for (const n of numbersIn(text)) {
+  if (typeof surface === 'string') {
+    for (const n of numbersIn(surface)) {
       if (!allowed.has(n.value)) violations.push(`quantity ${n.raw} has no payload source`);
     }
-  } else if (surface.modality === 'chart') {
+  } else if (Array.isArray(surface.data)) {
     for (const d of surface.data || []) {
       if (!allowed.has(+d.value)) { violations.push(`datum ${d.value} has no payload source`); continue; }
       const owner = commitments.find((c) => (c.prop?.quantities || []).some((q) => q.value === +d.value));
@@ -82,9 +81,13 @@ export const validateSurface = (surface, commitments = [], { spans = [] } = {}) 
     for (const n of numbersIn(surface.caption || '')) {
       if (!allowed.has(n.value)) violations.push(`caption quantity ${n.raw} has no payload source`);
     }
-  } else if (surface.modality === 'pullquote') {
+  } else if ('spanRefs' in surface) {
     if (!commitments.some((c) => c.claim === surface.text)) {
       violations.push('pullquote is not a bound claim verbatim');
+    }
+  } else if ('text' in surface) {
+    for (const n of numbersIn(surface.text)) {
+      if (!allowed.has(n.value)) violations.push(`quantity ${n.raw} has no payload source`);
     }
   }
   return { ok: violations.length === 0, violations };

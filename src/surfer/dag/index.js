@@ -75,7 +75,7 @@ const foldGraph = (claims) => {
       byStance[c.stance] = (byStance[c.stance] || 0) + 1;
       if (c.arc) byArc[c.arc] = (byArc[c.arc] || 0) + 1;
       sources.add(c.src.docId);
-      if (c.polarity === '−') nullc++; else positive++;
+      if (c.polarity === '−') nullc++; else if (c.polarity !== '0') positive++;
     }
     // The edge's ARC — the type of its most confidently read claim (the same representative
     // the surface labels the arrow with), with the full tally kept so a disagreement in KIND

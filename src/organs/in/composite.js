@@ -227,7 +227,7 @@ const compositeCoref = (originAt) => {
 // `doc.sentences` — so a table composited off `units` grounds as "row 2 next-row row 3",
 // never its data. Prose's units ARE its sentences, and other structured modalities keep
 // their intended `units`, so the switch is scoped to tables: nothing else changes.
-const readableAxis = (doc) => (doc.modality === 'table' ? (doc.sentences || doc.units) : (doc.units || doc.sentences)) || [];
+const readableAxis = (doc) => (doc.sentences?.length ? doc.sentences : doc.units) || [];
 
 // Build a composite document from several parsed docs. A single document is returned
 // untouched (the one-doc path is byte-identical to today). Two or more are folded into

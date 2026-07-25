@@ -22,7 +22,7 @@ export const claimsFromDoc = (doc) => {
   for (const e of doc.log.snapshot()) {
     if (e.op === 'DEF' && e.key === 'predicate' && e.value) {
       claims.push({ type: 'is-a', subject: labelOf(rep(e.id)), value: e.value, idx: e.sentIdx ?? null,
-        ...(e.polarity && e.polarity !== '+' ? { polarity: e.polarity } : {}),
+        ...(e.polarity && e.polarity !== '+' ? { polarity: e.polarity === '0' ? '0' : e.polarity } : {}),
         ...(e.modality && e.modality !== 'realis' ? { modality: e.modality } : {}) });
     }
   }
